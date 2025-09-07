@@ -1,0 +1,2 @@
+This file has special characters in its filename to test filename handling.
+Content is simple but filename contains dashes and special characters.

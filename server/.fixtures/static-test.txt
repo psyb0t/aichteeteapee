@@ -1,0 +1,3 @@
+Static test file for server cache tests.
+This file exists for baseline cache testing.
+Content: server-cache-test

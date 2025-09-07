@@ -1,0 +1,6 @@
+Static Routes Configuration Guide
+
+1. Define your static routes in the Router struct
+2. Each route maps a URL path to a filesystem directory
+3. Files are served securely with directory traversal protection
+4. Directory listing is disabled for security
