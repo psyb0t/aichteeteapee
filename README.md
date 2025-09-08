@@ -2,8 +2,6 @@
 
 _pronounced "HTTP" because comedic genius was involved here_
 
-https://translate.google.com/translate_tts?ie=UTF-8&q=aichteeteapee&tl=en&client=tw-ob
-
 **📚 [API Reference](https://pkg.go.dev/github.com/psyb0t/aichteeteapee)**
 
 ## Table of Contents
