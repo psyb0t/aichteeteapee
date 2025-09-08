@@ -2,12 +2,14 @@
 
 _pronounced "HTTP" because comedic genius was involved here_
 
+https://translate.google.com/translate_tts?ie=UTF-8&q=aichteeteapee&tl=en&client=tw-ob
+
 **📚 [API Reference](https://pkg.go.dev/github.com/psyb0t/aichteeteapee)**
 
 ## Table of Contents
 
 - [🚀 30-Second Quick Start](#30-second-quick-start)
-- [📦 Root Utilities](#the-root-utilities-use-anywhere)  
+- [📦 Root Utilities](#the-root-utilities-use-anywhere)
 - [🖥️ Full Server](#the-full-server-beast-mode)
 - [🔌 WebSocket Magic](#websocket-magic-️)
 - [📁 Static Files & Uploads](#static-files--uploads)
@@ -48,7 +50,7 @@ import (
 
 func main() {
     s, _ := server.New()
-    
+
     router := &server.Router{
         Groups: []server.GroupConfig{{
             Path: "/",
@@ -61,7 +63,7 @@ func main() {
             }},
         }},
     }
-    
+
     s.Start(context.Background(), router) // Server running on :8080
 }
 ```
@@ -85,7 +87,7 @@ type Server struct {
     GetMux() *http.ServeMux
     GetHTTPListenerAddr() net.Addr
     GetHTTPSListenerAddr() net.Addr
-    
+
     // Built-in handlers:
     HealthHandler(w http.ResponseWriter, r *http.Request)
     EchoHandler(w http.ResponseWriter, r *http.Request)
@@ -96,7 +98,7 @@ type Server struct {
 type Router struct {
     // Applied to all routes
     GlobalMiddlewares []middleware.Middleware
-    // Static file serving configs  
+    // Static file serving configs
     Static           []StaticRouteConfig
     // Route groups
     Groups           []GroupConfig
@@ -204,7 +206,7 @@ type Connection struct {
 type Event struct {
     // Auto-generated UUID
     ID        uuid.UUID         `json:"id"`
-    // String event type 
+    // String event type
     Type      EventType         `json:"type"`
     // Your event payload
     Data      json.RawMessage   `json:"data"`
@@ -249,7 +251,7 @@ func Chain(h http.Handler, middlewares ...Middleware) http.Handler
 
 // Built-in middlewares (all return Middleware)
 func Recovery() Middleware                    // Panic recovery
-func RequestID() Middleware                   // Request ID generation  
+func RequestID() Middleware                   // Request ID generation
 func Logger(opts ...LoggerOption) Middleware // Request logging
 func SecurityHeaders() Middleware             // Security headers (XSS, CSRF, etc.)
 func CORS(opts ...CORSOption) Middleware     // CORS handling
@@ -498,7 +500,7 @@ event = websocket.NewEvent("system.alert", alertData).
 
 **Broadcasting options:**
 
-- `client.SendEvent(event)` - Send to specific client only  
+- `client.SendEvent(event)` - Send to specific client only
 - `hub.BroadcastToAll(event)` - Send to everyone in the hub
 - `hub.BroadcastToClients([]uuid.UUID{id1, id2}, event)` - Send to specific clients
 - `hub.BroadcastToSubscribers(eventType, event)` - Send to subscribers of event type
@@ -511,9 +513,9 @@ You can run multiple specialized hubs:
 func setupMultipleHubs() (websocket.Hub, websocket.Hub, websocket.Hub) {
     // Different hubs for different features
     chatHub := websocket.NewHub("chat-system")
-    notificationHub := websocket.NewHub("notifications") 
+    notificationHub := websocket.NewHub("notifications")
     systemHub := websocket.NewHub("system-monitoring")
-    
+
     // Chat hub handles user messages
     chatHub.RegisterEventHandler("chat.message", func(hub websocket.Hub, client *websocket.Client, event *websocket.Event) error {
         type ChatMsg struct {
@@ -521,14 +523,14 @@ func setupMultipleHubs() (websocket.Hub, websocket.Hub, websocket.Hub) {
             Message  string `json:"message"`
             Room     string `json:"room"`
         }
-        
+
         var msg ChatMsg
         json.Unmarshal(event.Data, &msg)
-        
+
         // Broadcast to all clients in the chat hub
         return hub.BroadcastToAll(websocket.NewEvent("chat.broadcast", msg))
     })
-    
+
     // Notification hub handles alerts
     notificationHub.RegisterEventHandler("alert.create", func(hub websocket.Hub, client *websocket.Client, event *websocket.Event) error {
         // Only broadcast high-priority alerts
@@ -537,7 +539,7 @@ func setupMultipleHubs() (websocket.Hub, websocket.Hub, websocket.Hub) {
         }
         return client.SendEvent(event) // Send only to requesting client
     })
-    
+
     return chatHub, notificationHub, systemHub
 }
 
@@ -563,25 +565,25 @@ In your event handlers, you get a `*websocket.Client` that represents the WebSoc
 ```go
 hub.RegisterEventHandler("user.action", func(hub websocket.Hub, client *websocket.Client, event *websocket.Event) error {
     // Client has these useful methods:
-    
+
     clientID := client.ID()                    // Get client UUID
     connectionCount := client.ConnectionCount() // How many connections this client has
-    
+
     // Send event only to this specific client
     if err := client.SendEvent(websocket.NewEvent("response", responseData)); err != nil {
         return err
     }
-    
+
     // Check if client is subscribed to event types (always true by default)
     if client.IsSubscribedTo("notifications") {
         if err := client.SendEvent(notificationEvent); err != nil {
             return err
         }
     }
-    
+
     // Get all connections for this client (for advanced use cases)
     connections := client.GetConnections() // map[uuid.UUID]*Connection
-    
+
     return nil
 })
 ```
@@ -593,14 +595,14 @@ A single client can have multiple WebSocket connections (e.g., multiple browser 
 ```go
 hub.RegisterEventHandler("user.status", func(hub websocket.Hub, client *websocket.Client, event *websocket.Event) error {
     connectionCount := client.ConnectionCount()
-    
+
     if connectionCount > 1 {
         // User has multiple tabs open, send tab-specific response
         return client.SendEvent(websocket.NewEvent("multi.tab.warning", map[string]any{
             "message": fmt.Sprintf("You have %d tabs open", connectionCount),
         }))
     }
-    
+
     return client.SendEvent(websocket.NewEvent("single.tab.response", responseData))
 })
 ```
@@ -694,7 +696,7 @@ router := &server.Router{
         middleware.Logger(),
         middleware.CORS(),
     },
-    
+
     // Multiple static file routes
     Static: []server.StaticRouteConfig{
         {
@@ -703,12 +705,12 @@ router := &server.Router{
             DirectoryIndexingType: server.DirectoryIndexingTypeHTML,
         },
         {
-            Dir:  "./uploads", 
+            Dir:  "./uploads",
             Path: "/files",
             DirectoryIndexingType: server.DirectoryIndexingTypeJSON,
         },
     },
-    
+
     Groups: []server.GroupConfig{
         // Public routes (no auth)
         {
@@ -718,7 +720,7 @@ router := &server.Router{
                 {Method: http.MethodGet, Path: "/ws", Handler: websocket.UpgradeHandler(hub)},
             },
         },
-        
+
         // API with JSON enforcement
         {
             Path: "/api/v1",
@@ -730,7 +732,7 @@ router := &server.Router{
                 {Method: http.MethodPost, Path: "/users", Handler: createUserHandler},
             },
         },
-        
+
         // Admin routes with auth
         {
             Path: "/admin",
@@ -741,7 +743,7 @@ router := &server.Router{
                 {Method: http.MethodGet, Path: "/stats", Handler: adminStatsHandler},
                 {Method: http.MethodDelete, Path: "/users/{id}", Handler: deleteUserHandler},
             },
-            
+
             // Nested group for super admin
             Groups: []server.GroupConfig{
                 {
@@ -790,6 +792,7 @@ s, err := server.NewWithConfig(server.Config{
 ### Common Issues
 
 **🚨 Server won't start / Address already in use**
+
 ```bash
 # Error: bind: address already in use
 # Solution: Use different port or kill the process using it
@@ -800,6 +803,7 @@ kill -9 <PID>       # Kill the process
 ```
 
 **🚨 WebSocket connections fail / CORS issues**
+
 ```go
 // Make sure CORS is configured for WebSocket origins
 GlobalMiddlewares: []middleware.Middleware{
@@ -808,12 +812,14 @@ GlobalMiddlewares: []middleware.Middleware{
 ```
 
 **🚨 File uploads fail / Request body too large**
+
 ```bash
 # Increase file upload memory limit (default is 32MB)
 export HTTP_SERVER_FILEUPLOADMAXMEMORY="104857600"  # 100MB in bytes
 ```
 
 **🚨 TLS/HTTPS server won't start**
+
 ```bash
 # Make sure cert and key files exist and are readable
 ls -la /path/to/cert.pem /path/to/key.pem
@@ -824,6 +830,7 @@ openssl req -x509 -newkey rsa:4096 -keyout key.pem -out cert.pem -days 365 -node
 ```
 
 **🚨 High memory usage / Memory leaks**
+
 ```go
 // Make sure to properly close WebSocket hubs
 defer hub.Close()
@@ -837,6 +844,7 @@ s, _ := server.NewWithConfig(server.Config{
 ```
 
 **🚨 Static files not serving / 404 errors**
+
 ```go
 // Make sure directory exists and is readable
 Static: []server.StaticRouteConfig{{
@@ -848,6 +856,7 @@ Static: []server.StaticRouteConfig{{
 ### Debug Tips
 
 **Enable Debug Logging:**
+
 ```go
 import "github.com/sirupsen/logrus"
 
@@ -857,6 +866,7 @@ s, _ := server.NewWithLogger(logger)
 ```
 
 **Check Server Status:**
+
 ```bash
 # Health check endpoint (if enabled)
 curl http://localhost:8080/health
@@ -866,12 +876,13 @@ netstat -tuln | grep :8080
 ```
 
 **WebSocket Connection Testing:**
+
 ```javascript
 // Browser console test for WebSocket connections
-const ws = new WebSocket('ws://localhost:8080/ws');
-ws.onopen = () => console.log('Connected');
-ws.onmessage = (e) => console.log('Message:', e.data);
-ws.send(JSON.stringify({type: 'echo.request', data: 'test'}));
+const ws = new WebSocket("ws://localhost:8080/ws");
+ws.onopen = () => console.log("Connected");
+ws.onmessage = (e) => console.log("Message:", e.data);
+ws.send(JSON.stringify({ type: "echo.request", data: "test" }));
 ```
 
 ## Production Deployment
@@ -879,6 +890,7 @@ ws.send(JSON.stringify({type: 'echo.request', data: 'test'}));
 ### Docker Setup
 
 **Dockerfile:**
+
 ```dockerfile
 FROM golang:1.21-alpine AS builder
 WORKDIR /app
@@ -897,8 +909,9 @@ CMD ["./main"]
 ```
 
 **docker-compose.yml:**
+
 ```yaml
-version: '3.8'
+version: "3.8"
 services:
   app:
     build: .
@@ -919,6 +932,7 @@ services:
 ### Production Configuration
 
 **Environment Variables:**
+
 ```bash
 # Server binding (use 0.0.0.0 in containers)
 export HTTP_SERVER_LISTENADDRESS="0.0.0.0:8080"
@@ -948,7 +962,7 @@ The library includes security middleware but **built-in handlers have NO authent
 ```go
 // ⚠️  THESE ARE UNSECURED BY DEFAULT:
 s.HealthHandler     // Anyone can access /health
-s.EchoHandler       // Anyone can echo requests (exposes headers!)  
+s.EchoHandler       // Anyone can echo requests (exposes headers!)
 s.FileUploadHandler // Anyone can upload files!
 
 // ⚠️  WEBSOCKET ACCEPTS ALL ORIGINS BY DEFAULT:
@@ -997,6 +1011,7 @@ secureUpgradeHandler := websocket.UpgradeHandler(hub, websocket.WithCheckOrigin(
 ```
 
 **Security Best Practices:**
+
 ```go
 // Production middleware stack
 GlobalMiddlewares: []middleware.Middleware{
@@ -1012,6 +1027,7 @@ GlobalMiddlewares: []middleware.Middleware{
 ```
 
 **File Upload Security:**
+
 - File uploads have **no size limits** by default except `HTTP_SERVER_FILEUPLOADMAXMEMORY`
 - **No file type validation** - users can upload executables, scripts, etc.
 - **No authentication** - anyone can upload if endpoint is exposed
@@ -1019,7 +1035,7 @@ GlobalMiddlewares: []middleware.Middleware{
 
 ```go
 // Add your own validation:
-Handler: s.FileUploadHandler("./uploads", 
+Handler: s.FileUploadHandler("./uploads",
     server.WithFileUploadHandlerPostprocessor(func(data map[string]any) (map[string]any, error) {
         // Add your validation here:
         filename := data["filename"].(string)
@@ -1032,6 +1048,7 @@ Handler: s.FileUploadHandler("./uploads",
 ```
 
 **WebSocket Security:**
+
 - **CheckOrigin returns `true` for ALL origins by default** - allows any website to connect
 - This creates **CSRF vulnerabilities** where malicious sites can connect to your WebSocket
 - **No authentication** on WebSocket upgrade by default
@@ -1042,7 +1059,7 @@ Handler: s.FileUploadHandler("./uploads",
 websocket.UpgradeHandler(hub) // Accepts connections from evil-site.com!
 
 // ✅ PRODUCTION CONFIGURATION:
-secureHandler := websocket.UpgradeHandler(hub, 
+secureHandler := websocket.UpgradeHandler(hub,
     websocket.WithCheckOrigin(func(r *http.Request) bool {
         origin := r.Header.Get("Origin")
         return origin == "https://yourtrustedsite.com"
@@ -1062,32 +1079,33 @@ hub.RegisterEventHandler("sensitive.action", func(hub websocket.Hub, client *web
 ```
 
 **Graceful Shutdown:**
+
 ```go
 func main() {
     s, err := server.New()
     if err != nil {
         log.Fatal(err)
     }
-    
+
     // Setup signal handling for graceful shutdown
     ctx, cancel := context.WithCancel(context.Background())
     defer cancel()
-    
+
     go func() {
         sigChan := make(chan os.Signal, 1)
         signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
         <-sigChan
-        
+
         log.Println("Shutting down server...")
         shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 10*time.Second)
         defer shutdownCancel()
-        
+
         if err := s.Stop(shutdownCtx); err != nil {
             log.Printf("Error during shutdown: %v", err)
         }
         cancel()
     }()
-    
+
     if err := s.Start(ctx, router); err != nil {
         log.Fatal(err)
     }
@@ -1097,6 +1115,7 @@ func main() {
 ### Performance Tips
 
 **Load Balancer Setup (nginx):**
+
 ```nginx
 upstream backend {
     server 127.0.0.1:8080;
@@ -1106,7 +1125,7 @@ upstream backend {
 server {
     listen 80;
     server_name yourdomain.com;
-    
+
     location / {
         proxy_pass http://backend;
         proxy_set_header Host $host;
@@ -1114,7 +1133,7 @@ server {
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
     }
-    
+
     # WebSocket support
     location /ws {
         proxy_pass http://backend;
@@ -1128,6 +1147,7 @@ server {
 ```
 
 **Health Checks & Monitoring:**
+
 ```go
 // Add health check endpoint
 {
