@@ -110,3 +110,15 @@ func TestEventMetadataMap_Concurrency(t *testing.T) {
 	wg.Wait()
 	// If we get here without race conditions, test passes
 }
+
+func TestEventMetadataMap_UnmarshalError(t *testing.T) {
+	emm := newEventMetadataMap()
+	
+	// Try to unmarshal invalid JSON
+	invalidJSON := []byte("{invalid json")
+	err := emm.UnmarshalJSON(invalidJSON)
+	
+	// Should return an error
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to unmarshal metadata")
+}

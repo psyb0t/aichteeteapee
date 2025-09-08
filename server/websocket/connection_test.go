@@ -3,6 +3,7 @@ package websocket
 import (
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
@@ -72,4 +73,84 @@ func TestConnection_StopIdempotent(t *testing.T) {
 	default:
 		require.Fail(t, "doneCh should be closed")
 	}
+}
+
+func TestConnection_SendWithNilChannels(t *testing.T) {
+	// Create connection without starting pumps (channels will be nil)
+	conn := &Connection{
+		id:     uuid.New(),
+		conn:   nil, // Not needed for this test
+		client: nil, // Not needed for this test
+		// sendCh and doneCh will be nil
+	}
+	
+	// This should hit the nil channels path and return early
+	event := NewEvent(EventTypeSystemLog, "test")
+	conn.Send(event) // Should not panic
+	
+	// Verify connection exists but channels are nil
+	require.NotNil(t, conn)
+	require.Nil(t, conn.sendCh)
+	require.Nil(t, conn.doneCh)
+}
+
+func TestConnection_SendAfterDone(t *testing.T) {
+	conn := &Connection{
+		id:     uuid.New(),
+		conn:   nil,
+		client: nil,
+		sendCh: make(chan *Event, 1),
+		doneCh: make(chan struct{}),
+	}
+	
+	// Mark connection as done
+	conn.isDone.Store(true)
+	
+	// This should hit the isDone path and return early
+	event := NewEvent(EventTypeSystemLog, "test")
+	conn.Send(event) // Should not block or panic
+	
+	// Channel should be empty since event was not sent
+	require.Len(t, conn.sendCh, 0)
+}
+
+func TestConnection_SendRaceCondition(t *testing.T) {
+	conn := &Connection{
+		id:     uuid.New(),
+		conn:   nil,
+		client: nil,
+		sendCh: make(chan *Event, 1),
+		doneCh: make(chan struct{}),
+	}
+	
+	// Start a goroutine that will close the connection during send
+	go func() {
+		time.Sleep(1 * time.Millisecond)
+		conn.isDone.Store(true)
+		close(conn.doneCh)
+	}()
+	
+	// Try to send while connection is being closed
+	event := NewEvent(EventTypeSystemLog, "test")
+	conn.Send(event) // Should handle the race condition gracefully
+}
+
+func TestConnection_Getters(t *testing.T) {
+	hub := &mockHub{}
+	client := NewClientWithID(uuid.New())
+	client.SetHub(hub)
+	
+	conn := &Connection{
+		id:     uuid.New(),
+		conn:   nil,
+		client: client,
+	}
+	
+	// Test GetHubName
+	hubName := conn.GetHubName()
+	require.Equal(t, "mock-hub", hubName)
+	
+	// Test GetClientID
+	clientID := conn.GetClientID()
+	require.Equal(t, client.ID(), clientID)
 }

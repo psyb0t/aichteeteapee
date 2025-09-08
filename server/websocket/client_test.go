@@ -419,3 +419,42 @@ func TestClient_SendBufferFullHandling(t *testing.T) {
 	// Verify client is still functional
 	assert.NotNil(t, client)
 }
+
+func TestClient_SendWithNilChannels(t *testing.T) {
+	hub := &mockHub{}
+	
+	// Create client struct directly without constructor (channels will be nil)
+	client := &Client{
+		id:          uuid.New(),
+		hub:         hub,
+		connections: newConnectionsMap(),
+		// sendCh and doneCh are nil
+	}
+	
+	// This should hit the nil channels path and return early
+	event := NewEvent(EventTypeSystemLog, "test")
+	client.Send(event) // Should not panic
+	
+	// Verify client exists but channels are nil
+	assert.NotNil(t, client)
+	assert.Nil(t, client.sendCh)
+	assert.Nil(t, client.doneCh)
+}
+
+func TestClient_Getters(t *testing.T) {
+	hub := &mockHub{}
+	client := NewClientWithID(uuid.New())
+	client.SetHub(hub)
+	
+	// Test GetConnections when empty
+	connections := client.GetConnections()
+	assert.Empty(t, connections)
+	
+	// Test ConnectionCount when empty
+	count := client.ConnectionCount()
+	assert.Equal(t, 0, count)
+	
+	// Test GetHubName
+	hubName := client.GetHubName()
+	assert.Equal(t, "mock-hub", hubName)
+}

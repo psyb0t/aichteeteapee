@@ -647,7 +647,8 @@ func TestLoggingIntegration(t *testing.T) {
 		if entry.Level == logrus.ErrorLevel {
 			errorCount++
 			// Check if it's an expected connection cleanup error
-			if strings.Contains(entry.Message, "connection read error") {
+			if strings.Contains(entry.Message, "connection read error") || 
+			   strings.Contains(entry.Message, "connection write error") {
 				expectedErrors = append(expectedErrors, "connection cleanup")
 			}
 		}

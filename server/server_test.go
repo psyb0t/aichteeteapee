@@ -459,18 +459,72 @@ func TestServer_GoroutineLeak(t *testing.T) {
 }
 
 func TestServer_Stop(t *testing.T) {
-	server, err := New()
-	require.NoError(t, err)
+	tests := []struct {
+		name        string
+		setupServer func(*testing.T) *Server
+		setupMocks  func(*Server)
+		expectError bool
+	}{
+		{
+			name: "basic idempotent stop",
+			setupServer: func(t *testing.T) *Server {
+				server, err := New()
+				require.NoError(t, err)
+				return server
+			},
+			setupMocks:  func(*Server) {},
+			expectError: false,
+		},
+		{
+			name: "stop with timeout context",
+			setupServer: func(t *testing.T) *Server {
+				server, err := New()
+				require.NoError(t, err)
+				return server
+			},
+			setupMocks: func(server *Server) {
+				server.httpServer = &http.Server{Handler: server.mux}
+			},
+			expectError: false,
+		},
+		{
+			name: "stop with TLS server",
+			setupServer: func(t *testing.T) *Server {
+				server, err := New()
+				require.NoError(t, err)
+				return server
+			},
+			setupMocks: func(server *Server) {
+				server.httpServer = &http.Server{}
+				server.httpsServer = &http.Server{}
+				server.config.TLSEnabled = true
+			},
+			expectError: false,
+		},
+	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			server := tt.setupServer(t)
+			tt.setupMocks(server)
+			
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
 
-	// Test that Stop can be called multiple times safely
-	err1 := server.Stop(ctx)
-	err2 := server.Stop(ctx)
+			// Test that Stop can be called multiple times safely (idempotent)
+			err1 := server.Stop(ctx)
+			err2 := server.Stop(ctx)
+			err3 := server.Stop(ctx)
 
-	assert.NoError(t, err1)
-	assert.NoError(t, err2)
+			if tt.expectError {
+				assert.Error(t, err1)
+			} else {
+				assert.NoError(t, err1)
+				assert.NoError(t, err2)
+				assert.NoError(t, err3)
+			}
+		})
+	}
 }
 
 // ============================================================================
@@ -1821,22 +1875,6 @@ func TestServer_createListeners(t *testing.T) {
 	}
 }
 
-func TestServer_StopIdempotent(t *testing.T) {
-	srv, err := New()
-	require.NoError(t, err)
-
-	ctx := context.Background()
-
-	// Call stop multiple times - should be idempotent
-	err1 := srv.Stop(ctx)
-	err2 := srv.Stop(ctx)
-	err3 := srv.Stop(ctx)
-
-	// All should succeed (no panics from double-close of done channel)
-	assert.NoError(t, err1)
-	assert.NoError(t, err2)
-	assert.NoError(t, err3)
-}
 
 func TestServer_StartWithTLSError(t *testing.T) {
 	srv, err := NewWithConfig(Config{
@@ -1857,3 +1895,6 @@ func TestServer_StartWithTLSError(t *testing.T) {
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "TLS cert file not accessible")
 }
+
+
+
