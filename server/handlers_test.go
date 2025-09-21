@@ -810,28 +810,19 @@ func TestFileUploadIntegration(t *testing.T) {
 	}
 }
 
-// testPostprocessor wraps a function to implement FileUploadPostprocessor interface
-type testPostprocessor struct {
-	fn func(map[string]any) (map[string]any, error)
-}
-
-func (tp testPostprocessor) Process(response map[string]any, request *http.Request) (map[string]any, error) {
-	return tp.fn(response)
-}
-
 func TestFileUploadHandlerWithPostprocessor(t *testing.T) {
 	tempDir := filepath.Join(os.TempDir(), "postprocessor-test-"+time.Now().Format("20060102-150405"))
 	defer os.RemoveAll(tempDir)
 
 	tests := []struct {
 		name             string
-		postprocessor    func(map[string]any) (map[string]any, error)
+		postprocessor    FileUploadPostprocessor
 		expectedStatus   int
 		validateResponse func(t *testing.T, response map[string]any)
 	}{
 		{
 			name: "postprocessor adds custom fields",
-			postprocessor: func(response map[string]any) (map[string]any, error) {
+			postprocessor: func(response map[string]any, request *http.Request) (map[string]any, error) {
 				response["custom_field"] = "added by postprocessor"
 				response["processed"] = true
 				response["timestamp"] = "2023-01-01T00:00:00Z"
@@ -851,7 +842,7 @@ func TestFileUploadHandlerWithPostprocessor(t *testing.T) {
 		},
 		{
 			name: "postprocessor modifies existing fields",
-			postprocessor: func(response map[string]any) (map[string]any, error) {
+			postprocessor: func(response map[string]any, request *http.Request) (map[string]any, error) {
 				if status, ok := response["status"]; ok {
 					response["status"] = status.(string) + "_modified"
 				}
@@ -868,7 +859,7 @@ func TestFileUploadHandlerWithPostprocessor(t *testing.T) {
 		},
 		{
 			name: "postprocessor removes fields",
-			postprocessor: func(response map[string]any) (map[string]any, error) {
+			postprocessor: func(response map[string]any, request *http.Request) (map[string]any, error) {
 				delete(response, "path")
 				delete(response, "size")
 				response["simplified"] = true
@@ -886,7 +877,7 @@ func TestFileUploadHandlerWithPostprocessor(t *testing.T) {
 		},
 		{
 			name: "postprocessor returns error",
-			postprocessor: func(response map[string]any) (map[string]any, error) {
+			postprocessor: func(response map[string]any, request *http.Request) (map[string]any, error) {
 				return nil, assert.AnError
 			},
 			expectedStatus: http.StatusInternalServerError,
@@ -899,7 +890,7 @@ func TestFileUploadHandlerWithPostprocessor(t *testing.T) {
 		},
 		{
 			name: "postprocessor returns completely different response",
-			postprocessor: func(response map[string]any) (map[string]any, error) {
+			postprocessor: func(response map[string]any, request *http.Request) (map[string]any, error) {
 				return map[string]any{
 					"message": "completely new response",
 					"code":    42,
@@ -922,7 +913,7 @@ func TestFileUploadHandlerWithPostprocessor(t *testing.T) {
 			srv := createTestServer()
 
 			// Create handler with postprocessor
-			handler := srv.FileUploadHandler(tempDir, WithFileUploadHandlerPostprocessor(testPostprocessor{fn: tt.postprocessor}))
+			handler := srv.FileUploadHandler(tempDir, WithFileUploadHandlerPostprocessor(tt.postprocessor))
 
 			// Create test request
 			body, contentType := createMultipartFormWithFile(t, "test-file.txt", "file", "test.txt")
@@ -956,14 +947,14 @@ func TestFileUploadHandlerMultiplePostprocessors(t *testing.T) {
 
 	// Test that only the last postprocessor is used (functional options pattern)
 	handler := srv.FileUploadHandler(tempDir,
-		WithFileUploadHandlerPostprocessor(testPostprocessor{fn: func(response map[string]any) (map[string]any, error) {
+		WithFileUploadHandlerPostprocessor(func(response map[string]any, request *http.Request) (map[string]any, error) {
 			response["first"] = true
 			return response, nil
-		}}),
-		WithFileUploadHandlerPostprocessor(testPostprocessor{fn: func(response map[string]any) (map[string]any, error) {
+		}),
+		WithFileUploadHandlerPostprocessor(func(response map[string]any, request *http.Request) (map[string]any, error) {
 			response["second"] = true
 			return response, nil
-		}}),
+		}),
 	)
 
 	// Create test request
