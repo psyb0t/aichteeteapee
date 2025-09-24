@@ -39,6 +39,7 @@ type hub struct {
 	mu       sync.Mutex
 }
 
+//nolint:ireturn
 func NewHub(name string) Hub {
 	logger := logrus.WithField(aichteeteapee.FieldHubName, name)
 	logger.Info("creating new hub")

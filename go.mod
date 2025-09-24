@@ -6,8 +6,8 @@ require (
 	github.com/google/uuid v1.6.0
 	github.com/gorilla/websocket v1.5.3
 	github.com/psyb0t/common-go v0.0.0-20250922043457-a771ef735af8
-	github.com/psyb0t/ctxerrors v0.1.0
-	github.com/psyb0t/gonfiguration v1.2.0
+	github.com/psyb0t/ctxerrors v0.2.0
+	github.com/psyb0t/gonfiguration v1.3.1
 	github.com/sirupsen/logrus v1.9.3
 	github.com/spf13/viper v1.20.1
 	github.com/stretchr/testify v1.11.1
