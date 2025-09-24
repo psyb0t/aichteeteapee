@@ -56,9 +56,6 @@ func (us *UnixSock) Broadcast(data []byte, logger *logrus.Entry) {
 				Debug("failed to write to UnixSock client")
 		}
 	}
-
-	logger.WithField(aichteeteapee.FieldBytes, len(data)).
-		Debug("broadcast data to UnixSock clients")
 }
 
 // Connection represents a WebSocket connection with Unix socket streams.
@@ -401,9 +398,6 @@ func handleReaderUnixSockClient(
 
 				return
 			}
-
-			logger.WithField(aichteeteapee.FieldBytes, n).
-				Debug("forwarded data from ReaderUnixSock socket to websocket")
 		}
 	}
 }
