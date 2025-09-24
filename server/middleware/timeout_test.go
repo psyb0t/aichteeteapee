@@ -50,41 +50,51 @@ func TestTimeout(t *testing.T) {
 	})
 }
 
-// Test to prove timeout middleware doesn't actually handle timeouts
+// Test to prove timeout middleware doesn't actually handle timeouts.
 func TestTimeoutMiddleware_RealHandlerTimeout(t *testing.T) {
-	t.Run("normal handler without context checking gets no response on timeout", func(t *testing.T) {
-		// Create a channel to synchronize the handler completion
-		handlerDone := make(chan bool, 1)
+	t.Run(
+		"normal handler without context checking gets no response on timeout",
+		func(t *testing.T) {
+			// Create a channel to synchronize the handler completion
+			handlerDone := make(chan bool, 1)
 
-		// Create a NORMAL handler that doesn't check context cancellation
-		normalHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			defer func() { handlerDone <- true }()
-			// This is what most real handlers look like - they don't check context
-			time.Sleep(100 * time.Millisecond) // Just do some work
-			w.WriteHeader(http.StatusOK)
-			w.Write([]byte("completed"))
+			// Create a NORMAL handler that doesn't check context cancellation
+			normalHandler := http.HandlerFunc(
+				func(w http.ResponseWriter, _ *http.Request) {
+					defer func() { handlerDone <- true }()
+					// This is what most real handlers look like - they don't check context
+					time.Sleep(100 * time.Millisecond) // Just do some work
+					w.WriteHeader(http.StatusOK)
+					_, _ = w.Write([]byte("completed"))
+				},
+			)
+
+			timeoutMiddleware := Timeout(WithTimeout(50 * time.Millisecond))
+
+			req := createTestRequest(http.MethodGet, "/test")
+			w := httptest.NewRecorder()
+
+			// Apply timeout middleware to normal handler
+			timeoutMiddleware(normalHandler).ServeHTTP(w, req)
+
+			// Wait for the background handler to finish to avoid race condition
+			select {
+			case <-handlerDone:
+				// Handler finished
+			case <-time.After(200 * time.Millisecond):
+				// Safety timeout to prevent test from hanging
+			}
+
+			// This proves the fix works - client gets proper timeout response
+			assert.Equal(
+				t, http.StatusGatewayTimeout, w.Code,
+				"Timeout middleware should return 504 on timeout",
+			)
+			assert.Contains(
+				t, w.Body.String(), "Gateway timeout",
+				"Timeout middleware should return timeout error message",
+			)
 		})
-
-		timeoutMiddleware := Timeout(WithTimeout(50 * time.Millisecond))
-
-		req := createTestRequest(http.MethodGet, "/test")
-		w := httptest.NewRecorder()
-
-		// Apply timeout middleware to normal handler
-		timeoutMiddleware(normalHandler).ServeHTTP(w, req)
-
-		// Wait for the background handler to finish to avoid race condition
-		select {
-		case <-handlerDone:
-			// Handler finished
-		case <-time.After(200 * time.Millisecond):
-			// Safety timeout to prevent test from hanging
-		}
-
-		// This proves the fix works - client gets proper timeout response
-		assert.Equal(t, http.StatusGatewayTimeout, w.Code, "Timeout middleware should return 504 on timeout")
-		assert.Contains(t, w.Body.String(), "Gateway timeout", "Timeout middleware should return timeout error message")
-	})
 }
 
 func TestTimeoutMiddleware_PresetOptions(t *testing.T) {
@@ -124,6 +134,7 @@ func TestTimeoutMiddleware_PresetOptions(t *testing.T) {
 
 		middleware(handler).ServeHTTP(w, req)
 
-		assert.Equal(t, http.StatusOK, w.Code) // Should complete within 30s long timeout
+		// Should complete within 30s long timeout
+		assert.Equal(t, http.StatusOK, w.Code)
 	})
 }

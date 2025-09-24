@@ -19,12 +19,13 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// Helper function to create a test server for testing handlers
+// Helper function to create a test server for testing handlers.
 func createTestServer() *Server {
 	srv, err := New()
 	if err != nil {
 		panic("Failed to create test server: " + err.Error())
 	}
+
 	return srv
 }
 
@@ -71,10 +72,14 @@ func TestWriteJSON(t *testing.T) {
 			aichteeteapee.WriteJSON(w, tt.statusCode, tt.data)
 
 			assert.Equal(t, tt.statusCode, w.Code)
-			assert.Equal(t, aichteeteapee.ContentTypeJSON, w.Header().Get(aichteeteapee.HeaderNameContentType))
+			assert.Equal(
+				t, aichteeteapee.ContentTypeJSON,
+				w.Header().Get(aichteeteapee.HeaderNameContentType),
+			)
 
 			if tt.expectJSON {
 				var result any
+
 				err := json.Unmarshal(w.Body.Bytes(), &result)
 				assert.NoError(t, err)
 			}
@@ -102,7 +107,9 @@ func TestHealthHandler(t *testing.T) {
 			req := httptest.NewRequest(http.MethodGet, "/health", nil)
 
 			if tt.requestID != "" {
-				ctx := context.WithValue(req.Context(), aichteeteapee.ContextKeyRequestID, tt.requestID)
+				ctx := context.WithValue(
+					req.Context(), aichteeteapee.ContextKeyRequestID, tt.requestID,
+				)
 				req = req.WithContext(ctx)
 			}
 
@@ -111,9 +118,13 @@ func TestHealthHandler(t *testing.T) {
 			srv.HealthHandler(w, req)
 
 			assert.Equal(t, http.StatusOK, w.Code)
-			assert.Equal(t, aichteeteapee.ContentTypeJSON, w.Header().Get(aichteeteapee.HeaderNameContentType))
+			assert.Equal(
+				t, aichteeteapee.ContentTypeJSON,
+				w.Header().Get(aichteeteapee.HeaderNameContentType),
+			)
 
 			var response map[string]any
+
 			err := json.Unmarshal(w.Body.Bytes(), &response)
 			require.NoError(t, err)
 
@@ -126,6 +137,7 @@ func TestHealthHandler(t *testing.T) {
 			// Verify timestamp format
 			timestampStr, ok := response["timestamp"].(string)
 			require.True(t, ok)
+
 			_, err = time.Parse(time.RFC3339, timestampStr)
 			assert.NoError(t, err)
 		})
@@ -133,7 +145,34 @@ func TestHealthHandler(t *testing.T) {
 }
 
 func TestEchoHandler(t *testing.T) {
-	tests := []struct {
+	tests := getEchoHandlerTestCases()
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			req := createEchoTestRequest(t, tt)
+			w := httptest.NewRecorder()
+
+			srv := createTestServer()
+			srv.EchoHandler(w, req)
+
+			validateEchoResponse(t, w, tt)
+		})
+	}
+}
+
+func getEchoHandlerTestCases() []struct {
+	name         string
+	method       string
+	path         string
+	query        string
+	body         string
+	headers      map[string]string
+	requestID    string
+	user         string
+	expectUser   bool
+	expectStatus int
+} {
+	return []struct {
 		name         string
 		method       string
 		path         string
@@ -194,83 +233,108 @@ func TestEchoHandler(t *testing.T) {
 			expectStatus: http.StatusUnsupportedMediaType,
 		},
 	}
+}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			var bodyReader io.Reader
-			if tt.body != "" {
-				bodyReader = strings.NewReader(tt.body)
-			}
+func createEchoTestRequest(t *testing.T, tt struct {
+	name         string
+	method       string
+	path         string
+	query        string
+	body         string
+	headers      map[string]string
+	requestID    string
+	user         string
+	expectUser   bool
+	expectStatus int
+},
+) *http.Request {
+	t.Helper()
 
-			req := httptest.NewRequest(tt.method, tt.path+tt.query, bodyReader)
+	var bodyReader io.Reader
+	if tt.body != "" {
+		bodyReader = strings.NewReader(tt.body)
+	}
 
-			// Set headers
-			for key, value := range tt.headers {
-				req.Header.Set(key, value)
-			}
+	req := httptest.NewRequest(tt.method, tt.path+tt.query, bodyReader)
 
-			// Set context values
-			ctx := req.Context()
-			if tt.requestID != "" {
-				ctx = context.WithValue(ctx, aichteeteapee.ContextKeyRequestID, tt.requestID)
-			}
-			if tt.user != "" {
-				ctx = context.WithValue(ctx, aichteeteapee.ContextKeyUser, tt.user)
-			}
-			req = req.WithContext(ctx)
+	for key, value := range tt.headers {
+		req.Header.Set(key, value)
+	}
 
-			srv := createTestServer()
-			w := httptest.NewRecorder()
-			srv.EchoHandler(w, req)
+	ctx := req.Context()
+	if tt.requestID != "" {
+		ctx = context.WithValue(ctx, aichteeteapee.ContextKeyRequestID, tt.requestID)
+	}
 
-			expectedStatus := http.StatusOK
-			if tt.expectStatus != 0 {
-				expectedStatus = tt.expectStatus
-			}
-			assert.Equal(t, expectedStatus, w.Code)
-			assert.Equal(t, aichteeteapee.ContentTypeJSON, w.Header().Get(aichteeteapee.HeaderNameContentType))
+	if tt.user != "" {
+		ctx = context.WithValue(ctx, aichteeteapee.ContextKeyUser, tt.user)
+	}
 
-			// For error responses, don't check the echo response structure
-			if expectedStatus != http.StatusOK {
-				return
-			}
+	return req.WithContext(ctx)
+}
 
-			var response map[string]any
-			err := json.Unmarshal(w.Body.Bytes(), &response)
-			require.NoError(t, err)
+func validateEchoResponse(
+	t *testing.T, w *httptest.ResponseRecorder, tt struct {
+		name         string
+		method       string
+		path         string
+		query        string
+		body         string
+		headers      map[string]string
+		requestID    string
+		user         string
+		expectUser   bool
+		expectStatus int
+	},
+) {
+	t.Helper()
 
-			assert.Equal(t, tt.method, response["method"])
-			assert.Equal(t, tt.path, response["path"])
+	expectedStatus := http.StatusOK
+	if tt.expectStatus != 0 {
+		expectedStatus = tt.expectStatus
+	}
 
-			// Check query parameters
-			if tt.query != "" {
-				query, ok := response["query"].(map[string]any)
-				assert.True(t, ok)
-				assert.NotEmpty(t, query)
-			}
+	assert.Equal(t, expectedStatus, w.Code)
+	assert.Equal(
+		t, aichteeteapee.ContentTypeJSON,
+		w.Header().Get(aichteeteapee.HeaderNameContentType),
+	)
 
-			// Check headers
-			headers, ok := response["headers"].(map[string]any)
-			assert.True(t, ok)
-			for key, expectedValue := range tt.headers {
-				headerValues, exists := headers[key].([]any)
-				assert.True(t, exists)
-				assert.Contains(t, headerValues, expectedValue)
-			}
+	if expectedStatus != http.StatusOK {
+		return
+	}
 
-			// Request ID is no longer in JSON response - it's only in HTTP header
-			assert.NotContains(t, response, "requestId")
+	var response map[string]any
 
-			// Check user
-			if tt.expectUser {
-				assert.Equal(t, tt.user, response["user"])
-			}
+	err := json.Unmarshal(w.Body.Bytes(), &response)
+	require.NoError(t, err)
 
-			// Check body parsing
-			if tt.body != "" && json.Valid([]byte(tt.body)) {
-				assert.NotNil(t, response["body"])
-			}
-		})
+	assert.Equal(t, tt.method, response["method"])
+	assert.Equal(t, tt.path, response["path"])
+
+	if tt.query != "" {
+		query, ok := response["query"].(map[string]any)
+		assert.True(t, ok)
+		assert.NotEmpty(t, query)
+	}
+
+	headers, ok := response["headers"].(map[string]any)
+	assert.True(t, ok)
+
+	for key, expectedValue := range tt.headers {
+		headerValues, exists := headers[key].([]any)
+		assert.True(t, exists)
+		assert.Contains(t, headerValues, expectedValue)
+	}
+
+	assert.NotContains(t, response, "requestId")
+
+	if tt.expectUser {
+		assert.Equal(t, tt.user, response["user"])
+	}
+
+	if tt.body != "" && json.Valid([]byte(tt.body)) {
+		assert.NotNil(t, response["body"])
 	}
 }
 
@@ -289,7 +353,10 @@ func TestWriteJSON_ErrorHandling(t *testing.T) {
 
 	// Should have written the status code before the encoding error
 	assert.Equal(t, http.StatusOK, w.Code)
-	assert.Equal(t, aichteeteapee.ContentTypeJSON, w.Header().Get(aichteeteapee.HeaderNameContentType))
+	assert.Equal(
+		t, aichteeteapee.ContentTypeJSON,
+		w.Header().Get(aichteeteapee.HeaderNameContentType),
+	)
 }
 
 func TestFileUploadHandler(t *testing.T) {
@@ -364,26 +431,32 @@ func TestFileUploadHandler(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// Setup temp directory for uploads
-			tempDir := filepath.Join(os.TempDir(), tt.uploadDirPath+"-"+time.Now().Format("20060102-150405"))
+			tempDir := filepath.Join(
+				os.TempDir(),
+				tt.uploadDirPath+"-"+time.Now().Format("20060102-150405"),
+			)
 			if tt.createUploadDir {
-				defer os.RemoveAll(tempDir)
+				defer func() { _ = os.RemoveAll(tempDir) }()
 			}
 
 			srv := createTestServer()
 			handler := srv.FileUploadHandler(tempDir)
 
 			var req *http.Request
-			if tt.method == http.MethodPost && tt.fixtureFile != "" {
+			switch {
+			case tt.method == http.MethodPost && tt.fixtureFile != "":
 				// Create multipart form request with file from fixtures
-				body, contentType := createMultipartFormWithFile(t, tt.fixtureFile, tt.formFieldName, tt.uploadedFilename)
+				body, contentType := createMultipartFormWithFile(
+					t, tt.fixtureFile, tt.formFieldName, tt.uploadedFilename,
+				)
 				req = httptest.NewRequest(tt.method, "/upload", body)
 				req.Header.Set("Content-Type", contentType)
-			} else if tt.method == http.MethodPost {
+			case tt.method == http.MethodPost:
 				// Create multipart form request without file or wrong field name
 				body, contentType := createMultipartFormEmpty(t, tt.formFieldName)
 				req = httptest.NewRequest(tt.method, "/upload", body)
 				req.Header.Set("Content-Type", contentType)
-			} else {
+			default:
 				req = httptest.NewRequest(tt.method, "/upload", nil)
 			}
 
@@ -393,6 +466,7 @@ func TestFileUploadHandler(t *testing.T) {
 			assert.Equal(t, tt.expectStatus, w.Code)
 
 			var response map[string]any
+
 			err := json.Unmarshal(w.Body.Bytes(), &response)
 			require.NoError(t, err)
 
@@ -415,8 +489,12 @@ func TestFileUploadHandler(t *testing.T) {
 				// Verify saved filename contains UUID prefix
 				savedFilename, ok := response["saved_filename"].(string)
 				require.True(t, ok)
-				assert.Contains(t, savedFilename, tt.uploadedFilename, "saved filename should contain original filename")
-				assert.NotEqual(t, tt.uploadedFilename, savedFilename, "saved filename should be different from original due to UUID prefix")
+				assert.Contains(
+					t, savedFilename, tt.uploadedFilename,
+					"saved filename should contain original filename",
+				)
+				assert.NotEqual(t, tt.uploadedFilename, savedFilename,
+					"saved filename should be different from original due to UUID prefix")
 
 				// Verify file was actually saved
 				filePath, ok := response["path"].(string)
@@ -427,14 +505,22 @@ func TestFileUploadHandler(t *testing.T) {
 				uploadedContent, err := os.ReadFile(filePath)
 				require.NoError(t, err)
 
-				fixtureContent, err := os.ReadFile(filepath.Join(".fixtures", tt.fixtureFile))
+				fixtureContent, err := os.ReadFile(
+					filepath.Join(".fixtures", tt.fixtureFile),
+				)
 				require.NoError(t, err)
 
-				assert.Equal(t, fixtureContent, uploadedContent, "Uploaded file content should match fixture")
+				assert.Equal(
+					t, fixtureContent, uploadedContent,
+					"Uploaded file content should match fixture",
+				)
 
 				// Verify file size in response
 				expectedSize := len(fixtureContent)
-				actualSize := int(response["size"].(float64))
+				size, ok := response["size"].(float64)
+				require.True(t, ok, "size should be a float64")
+
+				actualSize := int(size)
 				assert.Equal(t, expectedSize, actualSize)
 			}
 		})
@@ -443,18 +529,29 @@ func TestFileUploadHandler(t *testing.T) {
 
 func TestFileUploadHandler_EdgeCases(t *testing.T) {
 	tests := []struct {
-		name            string
-		setupFunc       func(t *testing.T) (*httptest.ResponseRecorder, *http.Request, string)
+		name      string
+		setupFunc func(t *testing.T) (
+			*httptest.ResponseRecorder, *http.Request, string,
+		)
 		expectStatus    int
 		expectError     string
 		cleanupRequired bool
 	}{
 		{
 			name: "invalid multipart form",
-			setupFunc: func(t *testing.T) (*httptest.ResponseRecorder, *http.Request, string) {
-				tempDir := filepath.Join(os.TempDir(), "test-invalid-form-"+time.Now().Format("20060102-150405"))
-				req := httptest.NewRequest(http.MethodPost, "/upload", strings.NewReader("invalid-form-data"))
+			setupFunc: func(_ *testing.T) (
+				*httptest.ResponseRecorder, *http.Request, string,
+			) {
+				tempDir := filepath.Join(
+					os.TempDir(),
+					"test-invalid-form-"+time.Now().Format("20060102-150405"),
+				)
+				req := httptest.NewRequest(
+					http.MethodPost, "/upload",
+					strings.NewReader("invalid-form-data"),
+				)
 				req.Header.Set("Content-Type", "multipart/form-data; boundary=invalid")
+
 				return httptest.NewRecorder(), req, tempDir
 			},
 			expectStatus:    http.StatusBadRequest,
@@ -463,12 +560,20 @@ func TestFileUploadHandler_EdgeCases(t *testing.T) {
 		},
 		{
 			name: "directory creation permissions test",
-			setupFunc: func(t *testing.T) (*httptest.ResponseRecorder, *http.Request, string) {
+			setupFunc: func(_ *testing.T) (
+				*httptest.ResponseRecorder, *http.Request, string,
+			) {
 				// Use a non-existent directory that should be created automatically
-				tempDir := filepath.Join(os.TempDir(), "nested", "upload", "dir-"+time.Now().Format("20060102-150405"))
-				body, contentType := createMultipartFormWithFile(t, "test-file.txt", "file", "test.txt")
+				tempDir := filepath.Join(
+					os.TempDir(), "nested", "upload",
+					"dir-"+time.Now().Format("20060102-150405"),
+				)
+				body, contentType := createMultipartFormWithFile(
+					t, "test-file.txt", "file", "test.txt",
+				)
 				req := httptest.NewRequest(http.MethodPost, "/upload", body)
 				req.Header.Set("Content-Type", contentType)
+
 				return httptest.NewRecorder(), req, tempDir
 			},
 			expectStatus:    http.StatusOK,
@@ -484,9 +589,9 @@ func TestFileUploadHandler_EdgeCases(t *testing.T) {
 				defer func() {
 					// Clean up the temp directory and its parents
 					if strings.Contains(tempDir, "nested") {
-						os.RemoveAll(filepath.Dir(filepath.Dir(tempDir)))
+						_ = os.RemoveAll(filepath.Dir(filepath.Dir(tempDir)))
 					} else {
-						os.RemoveAll(tempDir)
+						_ = os.RemoveAll(tempDir)
 					}
 				}()
 			}
@@ -498,6 +603,7 @@ func TestFileUploadHandler_EdgeCases(t *testing.T) {
 			assert.Equal(t, tt.expectStatus, w.Code)
 
 			var response map[string]any
+
 			err := json.Unmarshal(w.Body.Bytes(), &response)
 			require.NoError(t, err)
 
@@ -516,7 +622,7 @@ func TestFileUploadHandler_EdgeCases(t *testing.T) {
 	}
 }
 
-// Helper function to create multipart form with file from fixtures
+// Helper function to create multipart form with file from fixtures.
 func createMultipartFormWithFile(
 	t *testing.T,
 	fixtureFile, fieldName, uploadFilename string,
@@ -542,7 +648,7 @@ func createMultipartFormWithFile(
 	return body, writer.FormDataContentType()
 }
 
-// Helper function to create empty multipart form or with wrong field name
+// Helper function to create empty multipart form or with wrong field name.
 func createMultipartFormEmpty(
 	t *testing.T,
 	fieldName string,
@@ -578,10 +684,13 @@ func TestHandleFileUpload(t *testing.T) {
 			fixtureFile: "test-file.txt",
 			uploadDir:   "test-handle-upload",
 			expectError: false,
-			setupRequest: func(t *testing.T, fixtureFile string) *http.Request {
-				body, contentType := createMultipartFormWithFile(t, fixtureFile, "file", "uploaded.txt")
+			setupRequest: func(_ *testing.T, fixtureFile string) *http.Request {
+				body, contentType := createMultipartFormWithFile(
+					t, fixtureFile, "file", "uploaded.txt",
+				)
 				req := httptest.NewRequest(http.MethodPost, "/upload", body)
 				req.Header.Set("Content-Type", contentType)
+
 				return req
 			},
 		},
@@ -590,9 +699,13 @@ func TestHandleFileUpload(t *testing.T) {
 			uploadDir:   "test-handle-upload-invalid",
 			expectError: true,
 			errorSubstr: "parse multipart form",
-			setupRequest: func(t *testing.T, fixtureFile string) *http.Request {
-				req := httptest.NewRequest(http.MethodPost, "/upload", strings.NewReader("invalid-form"))
+			setupRequest: func(_ *testing.T, _ string) *http.Request {
+				req := httptest.NewRequest(
+					http.MethodPost, "/upload",
+					strings.NewReader("invalid-form"),
+				)
 				req.Header.Set("Content-Type", "multipart/form-data; boundary=invalid")
+
 				return req
 			},
 		},
@@ -601,10 +714,11 @@ func TestHandleFileUpload(t *testing.T) {
 			uploadDir:   "test-handle-upload-nofile",
 			expectError: true,
 			errorSubstr: "get form file",
-			setupRequest: func(t *testing.T, fixtureFile string) *http.Request {
+			setupRequest: func(_ *testing.T, _ string) *http.Request {
 				body, contentType := createMultipartFormEmpty(t, "notfile")
 				req := httptest.NewRequest(http.MethodPost, "/upload", body)
 				req.Header.Set("Content-Type", contentType)
+
 				return req
 			},
 		},
@@ -612,8 +726,12 @@ func TestHandleFileUpload(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			tempDir := filepath.Join(os.TempDir(), tt.uploadDir+"-"+time.Now().Format("20060102-150405"))
-			defer os.RemoveAll(tempDir)
+			tempDir := filepath.Join(
+				os.TempDir(),
+				tt.uploadDir+"-"+time.Now().Format("20060102-150405"),
+			)
+
+			defer func() { _ = os.RemoveAll(tempDir) }()
 
 			// Ensure upload directory exists
 			err := os.MkdirAll(tempDir, 0o750)
@@ -636,6 +754,7 @@ func TestHandleFileUpload(t *testing.T) {
 
 				// Verify response structure
 				var response map[string]any
+
 				err = json.Unmarshal(w.Body.Bytes(), &response)
 				require.NoError(t, err)
 				assert.Equal(t, "success", response["status"])
@@ -655,11 +774,15 @@ func TestSaveUploadedFile(t *testing.T) {
 			name:        "successful save",
 			fixtureFile: "test-file.txt",
 			expectError: false,
-			setupPath: func(t *testing.T) string {
-				tempDir := filepath.Join(os.TempDir(), "test-save-"+time.Now().Format("20060102-150405"))
+			setupPath: func(_ *testing.T) string {
+				tempDir := filepath.Join(
+					os.TempDir(),
+					"test-save-"+time.Now().Format("20060102-150405"),
+				)
 				err := os.MkdirAll(tempDir, 0o750)
 				require.NoError(t, err)
-				t.Cleanup(func() { os.RemoveAll(tempDir) })
+				t.Cleanup(func() { _ = os.RemoveAll(tempDir) })
+
 				return filepath.Join(tempDir, "saved-file.txt")
 			},
 		},
@@ -667,11 +790,15 @@ func TestSaveUploadedFile(t *testing.T) {
 			name:        "save binary file",
 			fixtureFile: "binary-file.dat",
 			expectError: false,
-			setupPath: func(t *testing.T) string {
-				tempDir := filepath.Join(os.TempDir(), "test-save-binary-"+time.Now().Format("20060102-150405"))
+			setupPath: func(_ *testing.T) string {
+				tempDir := filepath.Join(
+					os.TempDir(),
+					"test-save-binary-"+time.Now().Format("20060102-150405"),
+				)
 				err := os.MkdirAll(tempDir, 0o750)
 				require.NoError(t, err)
-				t.Cleanup(func() { os.RemoveAll(tempDir) })
+				t.Cleanup(func() { _ = os.RemoveAll(tempDir) })
+
 				return filepath.Join(tempDir, "binary-file.dat")
 			},
 		},
@@ -679,7 +806,7 @@ func TestSaveUploadedFile(t *testing.T) {
 			name:        "invalid directory path",
 			fixtureFile: "test-file.txt",
 			expectError: true,
-			setupPath: func(t *testing.T) string {
+			setupPath: func(_ *testing.T) string {
 				// Return a path in a non-existent directory without creating it
 				return filepath.Join("/non-existent-dir", "file.txt")
 			},
@@ -689,7 +816,9 @@ func TestSaveUploadedFile(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// Read fixture content
-			fixtureContent, err := os.ReadFile(filepath.Join(".fixtures", tt.fixtureFile))
+			fixtureContent, err := os.ReadFile(
+				filepath.Join(".fixtures", tt.fixtureFile),
+			)
 			require.NoError(t, err)
 
 			filePath := tt.setupPath(t)
@@ -720,8 +849,12 @@ func TestSaveUploadedFile(t *testing.T) {
 
 func TestFileUploadIntegration(t *testing.T) {
 	// Integration test using the actual server with middleware
-	tempDir := filepath.Join(os.TempDir(), "integration-upload-"+time.Now().Format("20060102-150405"))
-	defer os.RemoveAll(tempDir)
+	tempDir := filepath.Join(
+		os.TempDir(),
+		"integration-upload-"+time.Now().Format("20060102-150405"),
+	)
+
+	defer func() { _ = os.RemoveAll(tempDir) }()
 
 	// Create a test server
 	server, err := New()
@@ -766,18 +899,30 @@ func TestFileUploadIntegration(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// Create multipart form
-			body, contentType := createMultipartFormWithFile(t, tt.fixtureFile, "file", tt.uploadFilename)
+			body, contentType := createMultipartFormWithFile(
+				t, tt.fixtureFile, "file", tt.uploadFilename,
+			)
 
 			// Create request to test server
-			resp, err := http.Post(testServer.URL+"/upload", contentType, body)
+			req, err := http.NewRequestWithContext(
+				context.Background(), http.MethodPost,
+				testServer.URL+"/upload", body,
+			)
 			require.NoError(t, err)
-			defer resp.Body.Close()
+			req.Header.Set("Content-Type", contentType)
+
+			client := &http.Client{}
+			resp, err := client.Do(req)
+			require.NoError(t, err)
+
+			defer func() { _ = resp.Body.Close() }()
 
 			assert.Equal(t, tt.expectStatus, resp.StatusCode)
 
 			if tt.expectStatus == http.StatusOK && tt.validateContent {
 				// Parse response
 				var response map[string]any
+
 				err := json.NewDecoder(resp.Body).Decode(&response)
 				require.NoError(t, err)
 
@@ -787,8 +932,12 @@ func TestFileUploadIntegration(t *testing.T) {
 				// Verify saved filename contains UUID prefix
 				savedFilename, ok := response["saved_filename"].(string)
 				require.True(t, ok)
-				assert.Contains(t, savedFilename, tt.uploadFilename, "saved filename should contain original filename")
-				assert.NotEqual(t, tt.uploadFilename, savedFilename, "saved filename should be different from original due to UUID prefix")
+				assert.Contains(
+					t, savedFilename, tt.uploadFilename,
+					"saved filename should contain original filename",
+				)
+				assert.NotEqual(t, tt.uploadFilename, savedFilename,
+					"saved filename should be different from original due to UUID prefix")
 
 				// Verify file exists and content matches
 				filePath, ok := response["path"].(string)
@@ -798,12 +947,15 @@ func TestFileUploadIntegration(t *testing.T) {
 				uploadedContent, err := os.ReadFile(filePath)
 				require.NoError(t, err)
 
-				fixtureContent, err := os.ReadFile(filepath.Join(".fixtures", tt.fixtureFile))
+				fixtureContent, err := os.ReadFile(
+					filepath.Join(".fixtures", tt.fixtureFile),
+				)
 				require.NoError(t, err)
 
 				assert.Equal(t, fixtureContent, uploadedContent)
 
-				// Note: X-Request-ID header would be present if we were using the full middleware stack
+				// Note: X-Request-ID header would be present if we were
+				// using the full middleware stack
 				// For this basic test, we're focusing on the file upload functionality
 			}
 		})
@@ -811,8 +963,12 @@ func TestFileUploadIntegration(t *testing.T) {
 }
 
 func TestFileUploadHandlerWithPostprocessor(t *testing.T) {
-	tempDir := filepath.Join(os.TempDir(), "postprocessor-test-"+time.Now().Format("20060102-150405"))
-	defer os.RemoveAll(tempDir)
+	tempDir := filepath.Join(
+		os.TempDir(),
+		"postprocessor-test-"+time.Now().Format("20060102-150405"),
+	)
+
+	defer func() { _ = os.RemoveAll(tempDir) }()
 
 	tests := []struct {
 		name             string
@@ -822,14 +978,17 @@ func TestFileUploadHandlerWithPostprocessor(t *testing.T) {
 	}{
 		{
 			name: "postprocessor adds custom fields",
-			postprocessor: func(response map[string]any, request *http.Request) (map[string]any, error) {
+			postprocessor: func(
+				response map[string]any, _ *http.Request,
+			) (map[string]any, error) {
 				response["custom_field"] = "added by postprocessor"
 				response["processed"] = true
 				response["timestamp"] = "2023-01-01T00:00:00Z"
+
 				return response, nil
 			},
 			expectedStatus: http.StatusOK,
-			validateResponse: func(t *testing.T, response map[string]any) {
+			validateResponse: func(_ *testing.T, response map[string]any) {
 				assert.Equal(t, "added by postprocessor", response["custom_field"])
 				assert.Equal(t, true, response["processed"])
 				assert.Equal(t, "2023-01-01T00:00:00Z", response["timestamp"])
@@ -842,31 +1001,41 @@ func TestFileUploadHandlerWithPostprocessor(t *testing.T) {
 		},
 		{
 			name: "postprocessor modifies existing fields",
-			postprocessor: func(response map[string]any, request *http.Request) (map[string]any, error) {
+			postprocessor: func(
+				response map[string]any, _ *http.Request,
+			) (map[string]any, error) {
 				if status, ok := response["status"]; ok {
-					response["status"] = status.(string) + "_modified"
+					if statusStr, ok := status.(string); ok {
+						response["status"] = statusStr + "_modified"
+					}
 				}
 				if filename, ok := response["original_filename"]; ok {
-					response["original_filename"] = "processed_" + filename.(string)
+					if filenameStr, ok := filename.(string); ok {
+						response["original_filename"] = "processed_" + filenameStr
+					}
 				}
+
 				return response, nil
 			},
 			expectedStatus: http.StatusOK,
-			validateResponse: func(t *testing.T, response map[string]any) {
+			validateResponse: func(_ *testing.T, response map[string]any) {
 				assert.Equal(t, "success_modified", response["status"])
 				assert.Equal(t, "processed_test.txt", response["original_filename"])
 			},
 		},
 		{
 			name: "postprocessor removes fields",
-			postprocessor: func(response map[string]any, request *http.Request) (map[string]any, error) {
+			postprocessor: func(
+				response map[string]any, _ *http.Request,
+			) (map[string]any, error) {
 				delete(response, "path")
 				delete(response, "size")
 				response["simplified"] = true
+
 				return response, nil
 			},
 			expectedStatus: http.StatusOK,
-			validateResponse: func(t *testing.T, response map[string]any) {
+			validateResponse: func(_ *testing.T, response map[string]any) {
 				assert.NotContains(t, response, "path")
 				assert.NotContains(t, response, "size")
 				assert.Equal(t, true, response["simplified"])
@@ -877,11 +1046,13 @@ func TestFileUploadHandlerWithPostprocessor(t *testing.T) {
 		},
 		{
 			name: "postprocessor returns error",
-			postprocessor: func(response map[string]any, request *http.Request) (map[string]any, error) {
+			postprocessor: func(
+				_ map[string]any, _ *http.Request,
+			) (map[string]any, error) {
 				return nil, assert.AnError
 			},
 			expectedStatus: http.StatusInternalServerError,
-			validateResponse: func(t *testing.T, response map[string]any) {
+			validateResponse: func(_ *testing.T, response map[string]any) {
 				assert.Equal(t, "INTERNAL_SERVER_ERROR", response["code"])
 				assert.Equal(t, "Internal server error", response["message"])
 				assert.NotContains(t, response, "status")
@@ -890,7 +1061,9 @@ func TestFileUploadHandlerWithPostprocessor(t *testing.T) {
 		},
 		{
 			name: "postprocessor returns completely different response",
-			postprocessor: func(response map[string]any, request *http.Request) (map[string]any, error) {
+			postprocessor: func(
+				_ map[string]any, _ *http.Request,
+			) (map[string]any, error) {
 				return map[string]any{
 					"message": "completely new response",
 					"code":    42,
@@ -898,7 +1071,7 @@ func TestFileUploadHandlerWithPostprocessor(t *testing.T) {
 				}, nil
 			},
 			expectedStatus: http.StatusOK,
-			validateResponse: func(t *testing.T, response map[string]any) {
+			validateResponse: func(_ *testing.T, response map[string]any) {
 				assert.Equal(t, "completely new response", response["message"])
 				assert.Equal(t, float64(42), response["code"]) // JSON numbers are float64
 				assert.Equal(t, true, response["success"])
@@ -913,11 +1086,17 @@ func TestFileUploadHandlerWithPostprocessor(t *testing.T) {
 			srv := createTestServer()
 
 			// Create handler with postprocessor
-			handler := srv.FileUploadHandler(tempDir, WithFileUploadHandlerPostprocessor(tt.postprocessor))
+			handler := srv.FileUploadHandler(
+				tempDir, WithFileUploadHandlerPostprocessor(tt.postprocessor),
+			)
 
 			// Create test request
-			body, contentType := createMultipartFormWithFile(t, "test-file.txt", "file", "test.txt")
-			req, err := http.NewRequest("POST", "/upload", body)
+			body, contentType := createMultipartFormWithFile(
+				t, "test-file.txt", "file", "test.txt",
+			)
+			req, err := http.NewRequestWithContext(
+				context.Background(), http.MethodPost, "/upload", body,
+			)
 			require.NoError(t, err)
 			req.Header.Set("Content-Type", contentType)
 
@@ -930,6 +1109,7 @@ func TestFileUploadHandlerWithPostprocessor(t *testing.T) {
 
 			// Parse and validate response
 			var response map[string]any
+
 			err = json.Unmarshal(rr.Body.Bytes(), &response)
 			require.NoError(t, err)
 
@@ -940,26 +1120,40 @@ func TestFileUploadHandlerWithPostprocessor(t *testing.T) {
 }
 
 func TestFileUploadHandlerMultiplePostprocessors(t *testing.T) {
-	tempDir := filepath.Join(os.TempDir(), "multi-postprocessor-test-"+time.Now().Format("20060102-150405"))
-	defer os.RemoveAll(tempDir)
+	tempDir := filepath.Join(
+		os.TempDir(),
+		"multi-postprocessor-test-"+time.Now().Format("20060102-150405"),
+	)
+
+	defer func() { _ = os.RemoveAll(tempDir) }()
 
 	srv := createTestServer()
 
 	// Test that only the last postprocessor is used (functional options pattern)
 	handler := srv.FileUploadHandler(tempDir,
-		WithFileUploadHandlerPostprocessor(func(response map[string]any, request *http.Request) (map[string]any, error) {
+		WithFileUploadHandlerPostprocessor(func(
+			response map[string]any, _ *http.Request,
+		) (map[string]any, error) {
 			response["first"] = true
+
 			return response, nil
 		}),
-		WithFileUploadHandlerPostprocessor(func(response map[string]any, request *http.Request) (map[string]any, error) {
+		WithFileUploadHandlerPostprocessor(func(
+			response map[string]any, _ *http.Request,
+		) (map[string]any, error) {
 			response["second"] = true
+
 			return response, nil
 		}),
 	)
 
 	// Create test request
-	body, contentType := createMultipartFormWithFile(t, "test-file.txt", "file", "test.txt")
-	req, err := http.NewRequest("POST", "/upload", body)
+	body, contentType := createMultipartFormWithFile(
+		t, "test-file.txt", "file", "test.txt",
+	)
+	req, err := http.NewRequestWithContext(
+		context.Background(), http.MethodPost, "/upload", body,
+	)
 	require.NoError(t, err)
 	req.Header.Set("Content-Type", contentType)
 
@@ -971,6 +1165,7 @@ func TestFileUploadHandlerMultiplePostprocessors(t *testing.T) {
 	assert.Equal(t, http.StatusOK, rr.Code)
 
 	var response map[string]any
+
 	err = json.Unmarshal(rr.Body.Bytes(), &response)
 	require.NoError(t, err)
 
@@ -991,10 +1186,14 @@ func TestFileUploadHandlerWithFilenamePrependType(t *testing.T) {
 			prependType:  FilenamePrependTypeUUID,
 			uploadedFile: "test.txt",
 			validateFunc: func(t *testing.T, savedFilename, originalFilename string) {
+				t.Helper()
 				assert.Contains(t, savedFilename, originalFilename)
 				assert.NotEqual(t, savedFilename, originalFilename)
 				// Check that it starts with UUID pattern (36 chars + underscore)
-				assert.Regexp(t, `^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}_`, savedFilename)
+				assert.Regexp(
+					t, `^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}_`,
+					savedFilename,
+				)
 			},
 		},
 		{
@@ -1002,6 +1201,7 @@ func TestFileUploadHandlerWithFilenamePrependType(t *testing.T) {
 			prependType:  FilenamePrependTypeDateTime,
 			uploadedFile: "document.pdf",
 			validateFunc: func(t *testing.T, savedFilename, originalFilename string) {
+				t.Helper()
 				assert.Contains(t, savedFilename, originalFilename)
 				assert.NotEqual(t, savedFilename, originalFilename)
 				// Check that it starts with datetime pattern Y_M_D_H_I_S_
@@ -1013,6 +1213,7 @@ func TestFileUploadHandlerWithFilenamePrependType(t *testing.T) {
 			prependType:  FilenamePrependTypeNone,
 			uploadedFile: "original.txt",
 			validateFunc: func(t *testing.T, savedFilename, originalFilename string) {
+				t.Helper()
 				assert.Equal(t, savedFilename, originalFilename)
 			},
 		},
@@ -1020,14 +1221,22 @@ func TestFileUploadHandlerWithFilenamePrependType(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			tempDir := filepath.Join(os.TempDir(), "prepend-test-"+time.Now().Format("20060102-150405"))
-			defer os.RemoveAll(tempDir)
+			tempDir := filepath.Join(
+				os.TempDir(),
+				"prepend-test-"+time.Now().Format("20060102-150405"),
+			)
+
+			defer func() { _ = os.RemoveAll(tempDir) }()
 
 			srv := createTestServer()
-			handler := srv.FileUploadHandler(tempDir, WithFilenamePrependType(tt.prependType))
+			handler := srv.FileUploadHandler(
+				tempDir, WithFilenamePrependType(tt.prependType),
+			)
 
 			// Create test request
-			body, contentType := createMultipartFormWithFile(t, "test-file.txt", "file", tt.uploadedFile)
+			body, contentType := createMultipartFormWithFile(
+				t, "test-file.txt", "file", tt.uploadedFile,
+			)
 			req := httptest.NewRequest(http.MethodPost, "/upload", body)
 			req.Header.Set("Content-Type", contentType)
 
@@ -1039,6 +1248,7 @@ func TestFileUploadHandlerWithFilenamePrependType(t *testing.T) {
 			assert.Equal(t, http.StatusOK, w.Code)
 
 			var response map[string]any
+
 			err := json.Unmarshal(w.Body.Bytes(), &response)
 			require.NoError(t, err)
 
@@ -1074,9 +1284,14 @@ func TestGenerateUniqueFilename(t *testing.T) {
 			originalName: "test.txt",
 			prependType:  FilenamePrependTypeUUID,
 			validateResult: func(t *testing.T, result, original string) {
+				t.Helper()
 				assert.Contains(t, result, original)
 				assert.NotEqual(t, result, original)
-				assert.Regexp(t, `^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}_test\.txt$`, result)
+				assert.Regexp(
+					t,
+					`^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}_test\.txt$`,
+					result,
+				)
 			},
 		},
 		{
@@ -1084,9 +1299,13 @@ func TestGenerateUniqueFilename(t *testing.T) {
 			originalName: "document.pdf",
 			prependType:  FilenamePrependTypeDateTime,
 			validateResult: func(t *testing.T, result, original string) {
+				t.Helper()
 				assert.Contains(t, result, original)
 				assert.NotEqual(t, result, original)
-				assert.Regexp(t, `^\d{4}_\d{2}_\d{2}_\d{2}_\d{2}_\d{2}_document\.pdf$`, result)
+				assert.Regexp(
+					t, `^\d{4}_\d{2}_\d{2}_\d{2}_\d{2}_\d{2}_document\.pdf$`,
+					result,
+				)
 			},
 		},
 		{
@@ -1094,17 +1313,25 @@ func TestGenerateUniqueFilename(t *testing.T) {
 			originalName: "unchanged.txt",
 			prependType:  FilenamePrependTypeNone,
 			validateResult: func(t *testing.T, result, original string) {
+				t.Helper()
 				assert.Equal(t, result, original)
 			},
 		},
 		{
 			name:         "Default case (should be UUID)",
 			originalName: "default.txt",
-			prependType:  FilenamePrependType(99), // Invalid value, should default to UUID
+			prependType:  FilenamePrependType(99),
+			// Invalid value, should default to UUID
 			validateResult: func(t *testing.T, result, original string) {
+				t.Helper()
 				assert.Contains(t, result, original)
 				assert.NotEqual(t, result, original)
-				assert.Regexp(t, `^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}_default\.txt$`, result)
+				assert.Regexp(
+					t,
+					`^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-`+
+						`[0-9a-f]{12}_default\.txt$`,
+					result,
+				)
 			},
 		},
 	}

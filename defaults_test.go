@@ -11,7 +11,7 @@ import (
 
 func TestGetDefaultCORSAllowMethods(t *testing.T) {
 	result := GetDefaultCORSAllowMethods()
-	
+
 	// Check that all expected HTTP methods are included
 	expectedMethods := []string{
 		http.MethodGet,
@@ -21,15 +21,21 @@ func TestGetDefaultCORSAllowMethods(t *testing.T) {
 		http.MethodDelete,
 		http.MethodOptions,
 	}
-	
+
 	for _, method := range expectedMethods {
-		assert.Contains(t, result, method, "Expected method %s to be in allowed methods", method)
+		assert.Contains(
+			t, result, method,
+			"Expected method %s to be in allowed methods", method,
+		)
 	}
-	
+
 	// Check that it's a comma-separated string
 	methods := strings.Split(result, ", ")
-	assert.Equal(t, len(expectedMethods), len(methods), "Number of methods should match expected count")
-	
+	assert.Equal(
+		t, len(expectedMethods), len(methods),
+		"Number of methods should match expected count",
+	)
+
 	// Verify exact format
 	expected := strings.Join(expectedMethods, ", ")
 	assert.Equal(t, expected, result)
@@ -37,22 +43,28 @@ func TestGetDefaultCORSAllowMethods(t *testing.T) {
 
 func TestGetDefaultCORSAllowHeaders(t *testing.T) {
 	result := GetDefaultCORSAllowHeaders()
-	
+
 	// Check that all expected headers are included
 	expectedHeaders := []string{
 		HeaderNameAuthorization,
 		HeaderNameContentType,
 		HeaderNameXRequestID,
 	}
-	
+
 	for _, header := range expectedHeaders {
-		assert.Contains(t, result, header, "Expected header %s to be in allowed headers", header)
+		assert.Contains(
+			t, result, header,
+			"Expected header %s to be in allowed headers", header,
+		)
 	}
-	
+
 	// Check that it's a comma-separated string
 	headers := strings.Split(result, ", ")
-	assert.Equal(t, len(expectedHeaders), len(headers), "Number of headers should match expected count")
-	
+	assert.Equal(
+		t, len(expectedHeaders), len(headers),
+		"Number of headers should match expected count",
+	)
+
 	// Verify exact format
 	expected := strings.Join(expectedHeaders, ", ")
 	assert.Equal(t, expected, result)
@@ -88,13 +100,17 @@ func TestGetDefaultWebSocketCheckOrigin(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			req := httptest.NewRequest("GET", "/ws", nil)
+			req := httptest.NewRequest(http.MethodGet, "/ws", nil)
 			if tt.origin != "" {
 				req.Header.Set("Origin", tt.origin)
 			}
-			
+
 			result := GetDefaultWebSocketCheckOrigin(req)
-			assert.Equal(t, tt.want, result, "GetDefaultWebSocketCheckOrigin should return %v for origin %s", tt.want, tt.origin)
+			assert.Equal(
+				t, tt.want, result,
+				"GetDefaultWebSocketCheckOrigin should return %v for origin %s",
+				tt.want, tt.origin,
+			)
 		})
 	}
 }

@@ -54,10 +54,12 @@ func TestEnforceRequestContentType(t *testing.T) {
 			expectedStatus: http.StatusOK,
 		},
 		{
-			name:           "POST with multiple allowed types",
-			method:         http.MethodPost,
-			contentType:    aichteeteapee.ContentTypeXML,
-			allowedTypes:   []string{aichteeteapee.ContentTypeJSON, aichteeteapee.ContentTypeXML},
+			name:        "POST with multiple allowed types",
+			method:      http.MethodPost,
+			contentType: aichteeteapee.ContentTypeXML,
+			allowedTypes: []string{
+				aichteeteapee.ContentTypeJSON, aichteeteapee.ContentTypeXML,
+			},
 			expectedStatus: http.StatusOK,
 		},
 		{

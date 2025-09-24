@@ -14,9 +14,9 @@ func TestGroup_Handle(t *testing.T) {
 	logger := logrus.StandardLogger()
 	group := NewGroup(mux, "/api", logger)
 
-	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	handler := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("test response"))
+		_, _ = w.Write([]byte("test response"))
 	})
 
 	group.Handle(http.MethodGet, "/test", handler)
@@ -36,9 +36,9 @@ func TestGroup_HandleFunc(t *testing.T) {
 	logger := logrus.StandardLogger()
 	group := NewGroup(mux, "/api", logger)
 
-	handlerFunc := func(w http.ResponseWriter, r *http.Request) {
+	handlerFunc := func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("handler func response"))
+		_, _ = w.Write([]byte("handler func response"))
 	}
 
 	group.HandleFunc(http.MethodPost, "/test", handlerFunc)
@@ -62,9 +62,9 @@ func TestGroup_NestedGroups(t *testing.T) {
 	v1Group := apiGroup.Group("/v1")
 	usersGroup := v1Group.Group("/users")
 
-	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	handler := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("nested response"))
+		_, _ = w.Write([]byte("nested response"))
 	})
 
 	usersGroup.GET("/{id}", handler)

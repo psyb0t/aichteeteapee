@@ -71,6 +71,7 @@ func TestGetClientIP_AllCases(t *testing.T) {
 			for key, value := range tt.headers {
 				req.Header.Set(key, value)
 			}
+
 			if tt.remoteAddr != "" {
 				req.RemoteAddr = tt.remoteAddr
 			}

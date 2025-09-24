@@ -19,7 +19,7 @@ func TestCORS(t *testing.T) {
 		{
 			name:       "preflight OPTIONS request",
 			method:     http.MethodOptions,
-			origin:     testData.TestOrigin,
+			origin:     getTestData().TestOrigin,
 			expectCORS: true,
 		},
 		{
@@ -53,6 +53,7 @@ func TestCORS(t *testing.T) {
 			if tt.origin != "" {
 				req.Header.Set("Origin", tt.origin)
 			}
+
 			if tt.requestHeaders != "" {
 				req.Header.Set("Access-Control-Request-Headers", tt.requestHeaders)
 			}
@@ -76,17 +77,22 @@ func TestCORS(t *testing.T) {
 
 func TestCORSMiddleware_MissingCoverage(t *testing.T) {
 	t.Run("with specific allowed origins", func(t *testing.T) {
-		middleware := CORS(WithAllowedOrigins("https://example.com", "https://test.com"))
+		middleware := CORS(
+			WithAllowedOrigins("https://example.com", "https://test.com"),
+		)
 
 		handler := createTestHandler()
 
 		// Test allowed origin
 		req := createTestRequest(http.MethodGet, "/test")
 		req.Header.Set("Origin", "https://example.com")
+
 		w := httptest.NewRecorder()
 
 		middleware(handler).ServeHTTP(w, req)
-		assert.Equal(t, "https://example.com", w.Header().Get("Access-Control-Allow-Origin"))
+		assert.Equal(
+			t, "https://example.com", w.Header().Get("Access-Control-Allow-Origin"),
+		)
 	})
 
 	t.Run("with disallowed origin", func(t *testing.T) {
@@ -97,6 +103,7 @@ func TestCORSMiddleware_MissingCoverage(t *testing.T) {
 		// Test disallowed origin
 		req := createTestRequest(http.MethodGet, "/test")
 		req.Header.Set("Origin", "https://evil.com")
+
 		w := httptest.NewRecorder()
 
 		middleware(handler).ServeHTTP(w, req)
@@ -119,7 +126,7 @@ func TestCORSMiddleware_MissingCoverage(t *testing.T) {
 	})
 }
 
-// Test to prove CORS defaults are insecure
+// Test to prove CORS defaults are insecure.
 func TestCORSMiddleware_InsecureDefaults(t *testing.T) {
 	t.Run("default CORS allows any origin - security risk", func(t *testing.T) {
 		// Create CORS middleware with NO configuration (uses defaults)
@@ -128,9 +135,10 @@ func TestCORSMiddleware_InsecureDefaults(t *testing.T) {
 		handler := createTestHandler()
 
 		// Make request from arbitrary evil origin
-		req := createTestRequestWithHeaders(http.MethodGet, "/test", map[string]string{
-			"Origin": "https://evil-hacker-site.com",
-		})
+		req := createTestRequestWithHeaders(
+			http.MethodGet, "/test", map[string]string{
+				"Origin": "https://evil-hacker-site.com",
+			})
 
 		w := httptest.NewRecorder()
 		corsMiddleware(handler).ServeHTTP(w, req)
@@ -139,7 +147,10 @@ func TestCORSMiddleware_InsecureDefaults(t *testing.T) {
 		allowedOrigin := w.Header().Get("Access-Control-Allow-Origin")
 
 		// This proves insecure defaults - any origin is allowed
-		assert.Equal(t, "*", allowedOrigin, "CORS defaults allow any origin - security risk for production")
+		assert.Equal(
+			t, "*", allowedOrigin,
+			"CORS defaults allow any origin - security risk for production",
+		)
 	})
 }
 
@@ -155,11 +166,15 @@ func TestCORSMiddleware_AllOptions(t *testing.T) {
 
 		req := createTestRequest(http.MethodGet, "/test")
 		req.Header.Set("Origin", "https://api.example.com")
+
 		w := httptest.NewRecorder()
 
 		middleware(handler).ServeHTTP(w, req)
 
-		assert.Equal(t, "https://api.example.com", w.Header().Get("Access-Control-Allow-Origin"))
+		assert.Equal(
+			t, "https://api.example.com",
+			w.Header().Get("Access-Control-Allow-Origin"),
+		)
 		assert.Equal(t, "true", w.Header().Get("Access-Control-Allow-Credentials"))
 		assert.Equal(t, "3600", w.Header().Get("Access-Control-Max-Age"))
 	})
@@ -176,13 +191,22 @@ func TestCORSMiddleware_AllOptions(t *testing.T) {
 
 		req := createTestRequest(http.MethodGet, "/test")
 		req.Header.Set("Origin", "https://example.com")
+
 		w := httptest.NewRecorder()
 
 		middleware(handler).ServeHTTP(w, req)
 
 		assert.Equal(t, "*", w.Header().Get("Access-Control-Allow-Origin"))
-		assert.Equal(t, "GET, POST, PUT", w.Header().Get("Access-Control-Allow-Methods"))
-		assert.Equal(t, "Content-Type, Authorization", w.Header().Get("Access-Control-Allow-Headers"))
-		assert.Equal(t, "X-Total-Count, X-Page", w.Header().Get("Access-Control-Expose-Headers"))
+		assert.Equal(
+			t, "GET, POST, PUT", w.Header().Get("Access-Control-Allow-Methods"),
+		)
+		assert.Equal(
+			t, "Content-Type, Authorization",
+			w.Header().Get("Access-Control-Allow-Headers"),
+		)
+		assert.Equal(
+			t, "X-Total-Count, X-Page",
+			w.Header().Get("Access-Control-Expose-Headers"),
+		)
 	})
 }

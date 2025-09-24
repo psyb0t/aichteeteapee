@@ -1,6 +1,7 @@
-package websocket
+package wshub
 
 import (
+	"errors"
 	"fmt"
 	"sync"
 	"testing"
@@ -10,6 +11,8 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+var errTestHub = errors.New("test error")
+
 func TestNewHub(t *testing.T) {
 	hub := NewHub("test-hub")
 
@@ -18,7 +21,7 @@ func TestNewHub(t *testing.T) {
 	assert.Equal(t, 0, len(hub.GetAllClients()))
 }
 
-func TestHub_CloseIdempotent(t *testing.T) {
+func TestHub_CloseIdempotent(_ *testing.T) {
 	hub := NewHub("test-hub")
 
 	// Close should be safe to call multiple times
@@ -62,16 +65,19 @@ func TestHub_ClientOperations(t *testing.T) {
 func TestHub_EventHandlers(t *testing.T) {
 	hub := NewHub("test-hub")
 
-	var handlerCalled bool
-	var receivedHub Hub
-	var receivedClient *Client
-	var receivedEvent Event
+	var (
+		handlerCalled  bool
+		receivedHub    Hub
+		receivedClient *Client
+		receivedEvent  Event
+	)
 
 	handler := func(h Hub, c *Client, e *Event) error {
 		handlerCalled = true
 		receivedHub = h
 		receivedClient = c
 		receivedEvent = *e
+
 		return nil
 	}
 
@@ -93,13 +99,14 @@ func TestHub_EventHandlers(t *testing.T) {
 
 	// Test UnregisterEventHandler
 	handlerCalled = false
+
 	hub.UnregisterEventHandler(EventTypeSystemLog)
 	hub.ProcessEvent(testClient, event)
 
 	assert.False(t, handlerCalled)
 }
 
-func TestHub_ProcessEventNonExistent(t *testing.T) {
+func TestHub_ProcessEventNonExistent(_ *testing.T) {
 	hub := NewHub("test-hub")
 	testClient := NewClient()
 
@@ -112,27 +119,32 @@ func TestHub_RegisterEventHandlers(t *testing.T) {
 	hub := NewHub("test-hub")
 	testClient := NewClient()
 
-	var handledEvents []string
-	var handlerMutex sync.Mutex
+	var (
+		handledEvents []string
+		handlerMutex  sync.Mutex
+	)
 
 	// Create multiple handlers
 	handlers := map[EventType]EventHandler{
-		EventTypeSystemLog: func(hub Hub, client *Client, event *Event) error {
+		EventTypeSystemLog: func(hub Hub, _ *Client, _ *Event) error {
 			handlerMutex.Lock()
 			handledEvents = append(handledEvents, "system:"+hub.Name())
 			handlerMutex.Unlock()
+
 			return nil
 		},
-		EventTypeError: func(hub Hub, client *Client, event *Event) error {
+		EventTypeError: func(hub Hub, _ *Client, _ *Event) error {
 			handlerMutex.Lock()
 			handledEvents = append(handledEvents, "error:"+hub.Name())
 			handlerMutex.Unlock()
+
 			return nil
 		},
-		EventTypeShellExec: func(hub Hub, client *Client, event *Event) error {
+		EventTypeShellExec: func(hub Hub, _ *Client, _ *Event) error {
 			handlerMutex.Lock()
 			handledEvents = append(handledEvents, "shell:"+hub.Name())
 			handlerMutex.Unlock()
+
 			return nil
 		},
 	}
@@ -161,7 +173,7 @@ func TestHub_RegisterEventHandlers(t *testing.T) {
 	handlerMutex.Unlock()
 }
 
-func TestHub_BroadcastOperations(t *testing.T) {
+func TestHub_BroadcastOperations(_ *testing.T) {
 	// Generate UUIDs for this test
 	client1ID := uuid.New()
 	client2ID := uuid.New()
@@ -193,14 +205,18 @@ func TestHub_BroadcastOperations(t *testing.T) {
 
 func TestHub_ConcurrentOperations(t *testing.T) {
 	hub := NewHub("test-hub")
+
 	var wg sync.WaitGroup
+
 	numGoroutines := 50
 
 	// Concurrent client additions
 	for i := range numGoroutines {
 		wg.Add(1)
-		go func(id int) {
+
+		go func(_ int) {
 			defer wg.Done()
+
 			client := NewClientWithID(uuid.New())
 			hub.AddClient(client)
 		}(i)
@@ -209,10 +225,12 @@ func TestHub_ConcurrentOperations(t *testing.T) {
 	// Concurrent handler registrations
 	for i := range 10 {
 		wg.Add(1)
+
 		go func(id int) {
 			defer wg.Done()
+
 			eventType := EventType(fmt.Sprintf("test.event.%d", id))
-			handler := func(hub Hub, client *Client, event *Event) error {
+			handler := func(_ Hub, _ *Client, _ *Event) error {
 				return nil
 			}
 			hub.RegisterEventHandler(eventType, handler)
@@ -222,8 +240,10 @@ func TestHub_ConcurrentOperations(t *testing.T) {
 	// Concurrent reads
 	for range 25 {
 		wg.Add(1)
+
 		go func() {
 			defer wg.Done()
+
 			hub.GetAllClients()
 			hub.GetClient(uuid.New()) // Just test with random UUID
 		}()
@@ -251,12 +271,15 @@ func TestHub_FullLifecycleIntegration(t *testing.T) {
 	hub.AddClient(client2)
 
 	// Register event handler
-	var processedEvents []Event
-	var mu sync.Mutex
+	var (
+		processedEvents []Event
+		mu              sync.Mutex
+	)
 
-	handler := func(h Hub, c *Client, e *Event) error {
+	handler := func(h Hub, _ *Client, e *Event) error {
 		mu.Lock()
 		defer mu.Unlock()
+
 		processedEvents = append(processedEvents, *e)
 
 		// Handler broadcasts to all clients (will use forward declaration methods)
@@ -325,13 +348,16 @@ func TestHub_Name(t *testing.T) {
 
 func TestHub_NameThreadSafety(t *testing.T) {
 	hub := NewHub("concurrent-hub")
+
 	var wg sync.WaitGroup
 
 	// Concurrent name reads
 	for range 100 {
 		wg.Add(1)
+
 		go func() {
 			defer wg.Done()
+
 			name := hub.Name()
 			assert.Equal(t, "concurrent-hub", name)
 		}()
@@ -340,13 +366,13 @@ func TestHub_NameThreadSafety(t *testing.T) {
 	wg.Wait()
 }
 
-func TestHub_ErrorHandling(t *testing.T) {
+func TestHub_ErrorHandling(_ *testing.T) {
 	hub := NewHub("error-hub")
 	testClient := NewClient()
 
 	// Handler that returns an error
-	errorHandler := func(h Hub, c *Client, e *Event) error {
-		return fmt.Errorf("test error")
+	errorHandler := func(_ Hub, _ *Client, _ *Event) error {
+		return errTestHub
 	}
 
 	hub.RegisterEventHandler(EventTypeError, errorHandler)
@@ -356,7 +382,7 @@ func TestHub_ErrorHandling(t *testing.T) {
 	hub.ProcessEvent(testClient, event)
 
 	// Should still be able to process other events
-	successHandler := func(h Hub, c *Client, e *Event) error {
+	successHandler := func(_ Hub, _ *Client, _ *Event) error {
 		return nil
 	}
 

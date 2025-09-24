@@ -1,4 +1,4 @@
-package websocket
+package wshub
 
 import (
 	"sync"
@@ -8,11 +8,12 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// newMockClientForMap creates a simple mock client for clientsMap testing
+// newMockClientForMap creates a simple mock client for clientsMap testing.
 func newMockClientForMap(id uuid.UUID) *Client {
 	// Create a minimal client with just the ID for map testing
 	client := &Client{}
 	client.id = id // Access private field for testing
+
 	return client
 }
 
@@ -162,19 +163,26 @@ func TestClientsMap_Count(t *testing.T) {
 
 func TestClientsMap_ThreadSafety(t *testing.T) {
 	cm := newClientsMap()
+
 	var wg sync.WaitGroup
+
 	numGoroutines := 100
 	clientsPerGoroutine := 10
 
 	// Store client IDs so we can remove them later
-	var clientIDs []uuid.UUID
-	var clientIDsMutex sync.Mutex
+	var (
+		clientIDs      []uuid.UUID
+		clientIDsMutex sync.Mutex
+	)
 
 	// Concurrent adds
+
 	for i := range numGoroutines {
 		wg.Add(1)
-		go func(goroutineID int) {
+
+		go func(_ int) {
 			defer wg.Done()
+
 			for range clientsPerGoroutine {
 				clientID := uuid.New()
 				client := newMockClientForMap(clientID)
@@ -182,7 +190,9 @@ func TestClientsMap_ThreadSafety(t *testing.T) {
 
 				// Store the client ID for later removal
 				clientIDsMutex.Lock()
+
 				clientIDs = append(clientIDs, clientID)
+
 				clientIDsMutex.Unlock()
 			}
 		}(i)
@@ -191,8 +201,10 @@ func TestClientsMap_ThreadSafety(t *testing.T) {
 	// Concurrent reads
 	for range 50 {
 		wg.Add(1)
+
 		go func() {
 			defer wg.Done()
+
 			cm.Count()
 			cm.GetAll()
 			cm.Get(uuid.New()) // Just test with random UUID
@@ -210,8 +222,10 @@ func TestClientsMap_ThreadSafety(t *testing.T) {
 	wg = sync.WaitGroup{}
 	for i := range numGoroutines {
 		wg.Add(1)
+
 		go func(goroutineID int) {
 			defer wg.Done()
+
 			for j := range clientsPerGoroutine {
 				// Calculate the index for this goroutine's clients
 				idx := goroutineID*clientsPerGoroutine + j
@@ -230,22 +244,26 @@ func TestClientsMap_ThreadSafety(t *testing.T) {
 
 func TestClientsMap_ConcurrentAddRemove(t *testing.T) {
 	cm := newClientsMap()
+
 	var wg sync.WaitGroup
+
 	numOperations := 1000
 
 	// Mix of concurrent adds and removes on the same client IDs
 	for i := range numOperations {
 		wg.Add(2) // One for add, one for remove
 
-		go func(id int) {
+		go func(_ int) {
 			defer wg.Done()
+
 			clientID := uuid.New() // Use random UUID
 			client := newMockClientForMap(clientID)
 			cm.Add(client)
 		}(i)
 
-		go func(id int) {
+		go func(_ int) {
 			defer wg.Done()
+
 			clientID := uuid.New() // Use random UUID
 			cm.Remove(clientID)
 		}(i)
@@ -282,8 +300,9 @@ func TestClientsMap_GetOrAdd(t *testing.T) {
 	result2, added2 := cm.GetOrAdd(sameClient)
 	assert.False(t, added2)
 	assert.Equal(t, client, result2) // Should return original client
-	assert.NotSame(t, sameClient, result2) // Should NOT return the new one (different pointers)
-	
+	// Should NOT return the new one (different pointers)
+	assert.NotSame(t, sameClient, result2)
+
 	// Verify only one client in map
 	all := cm.GetAll()
 	assert.Equal(t, 1, len(all))

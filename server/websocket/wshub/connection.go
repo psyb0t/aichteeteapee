@@ -1,4 +1,4 @@
-package websocket
+package wshub
 
 import (
 	"sync"
@@ -22,7 +22,7 @@ type Connection struct {
 	sendWg   sync.WaitGroup  // Wait for in-flight sends to complete
 }
 
-// NewConnection creates a new WebSocket connection
+// NewConnection creates a new WebSocket connection.
 func NewConnection(
 	conn *websocket.Conn,
 	client *Client,
@@ -37,7 +37,7 @@ func NewConnection(
 	}
 }
 
-// GetHubName safely returns the hub name, handling nil cases
+// GetHubName safely returns the hub name, handling nil cases.
 func (c *Connection) GetHubName() string {
 	if c.client == nil {
 		return "unknown"
@@ -46,7 +46,7 @@ func (c *Connection) GetHubName() string {
 	return c.client.GetHubName()
 }
 
-// GetClientID safely returns the client ID, handling nil cases
+// GetClientID safely returns the client ID, handling nil cases.
 func (c *Connection) GetClientID() uuid.UUID {
 	if c.client == nil {
 		return uuid.Nil
@@ -55,7 +55,7 @@ func (c *Connection) GetClientID() uuid.UUID {
 	return c.client.id
 }
 
-// Send sends an event to the connection's send channel
+// Send sends an event to the connection's send channel.
 func (c *Connection) Send(event *Event) {
 	logger := logrus.WithFields(logrus.Fields{
 		aichteeteapee.FieldHubName:      c.GetHubName(),
@@ -100,7 +100,7 @@ func (c *Connection) Send(event *Event) {
 	}
 }
 
-// Stop cleanly shuts down the connection
+// Stop cleanly shuts down the connection.
 func (c *Connection) Stop() {
 	logger := logrus.WithFields(logrus.Fields{
 		aichteeteapee.FieldHubName:      c.GetHubName(),
@@ -136,7 +136,7 @@ func (c *Connection) Stop() {
 	})
 }
 
-// writePump handles outbound messages and keepalive
+// writePump handles outbound messages and keepalive.
 func (c *Connection) writePump() { //nolint:cyclop,funlen
 	logger := logrus.WithFields(logrus.Fields{
 		aichteeteapee.FieldHubName:      c.GetHubName(),
@@ -180,7 +180,9 @@ func (c *Connection) writePump() { //nolint:cyclop,funlen
 			_ = c.conn.SetWriteDeadline(time.Now().Add(c.client.config.WriteTimeout))
 
 			if err := c.conn.WriteJSON(event); err != nil {
-				if websocket.IsCloseError(err, websocket.CloseNormalClosure, websocket.CloseGoingAway) {
+				if websocket.IsCloseError(
+					err, websocket.CloseNormalClosure, websocket.CloseGoingAway,
+				) {
 					logger.Info("connection closed normally during write")
 
 					return
@@ -201,7 +203,9 @@ func (c *Connection) writePump() { //nolint:cyclop,funlen
 			_ = c.conn.SetWriteDeadline(time.Now().Add(c.client.config.WriteTimeout))
 
 			if err := c.conn.WriteMessage(websocket.PingMessage, nil); err != nil {
-				if websocket.IsCloseError(err, websocket.CloseNormalClosure, websocket.CloseGoingAway) {
+				if websocket.IsCloseError(
+					err, websocket.CloseNormalClosure, websocket.CloseGoingAway,
+				) {
 					logger.Info("connection closed normally during ping")
 
 					return
@@ -218,7 +222,7 @@ func (c *Connection) writePump() { //nolint:cyclop,funlen
 	}
 }
 
-// readPump handles inbound messages and connection monitoring
+// readPump handles inbound messages and connection monitoring.
 func (c *Connection) readPump() { //nolint:cyclop,funlen
 	logger := logrus.WithFields(logrus.Fields{
 		aichteeteapee.FieldHubName:      c.GetHubName(),

@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -57,12 +58,15 @@ func TestServer_Integration(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			req, err := http.NewRequest(tt.method, testServer.URL+tt.path, nil)
+			req, err := http.NewRequestWithContext(
+				context.Background(), tt.method, testServer.URL+tt.path, nil,
+			)
 			require.NoError(t, err)
 
 			resp, err := http.DefaultClient.Do(req)
 			require.NoError(t, err)
-			defer resp.Body.Close()
+
+			defer func() { _ = resp.Body.Close() }()
 
 			assert.Equal(t, tt.expectedStatus, resp.StatusCode)
 		})
@@ -70,7 +74,8 @@ func TestServer_Integration(t *testing.T) {
 }
 
 func TestStaticFileServing_Integration(t *testing.T) {
-	// Test the actual HTTP server behavior using real server.Start() with full middleware stack
+	// Test the actual HTTP server behavior using real server.Start()
+	// with full middleware stack
 	router := &Router{
 		Static: []StaticRouteConfig{
 			{Dir: "./.fixtures/static", Path: "/static"},
@@ -99,7 +104,7 @@ func TestStaticFileServing_Integration(t *testing.T) {
 
 	go func() {
 		if err := server.Start(ctx, router); err != nil {
-			if err != context.Canceled {
+			if !errors.Is(err, context.Canceled) {
 				serverError <- err
 			}
 		}
@@ -114,8 +119,10 @@ func TestStaticFileServing_Integration(t *testing.T) {
 			default:
 				if addr := server.GetListenerAddr(); addr != nil {
 					serverStarted <- "http://" + addr.String()
+
 					return
 				}
+
 				time.Sleep(1 * time.Millisecond)
 			}
 		}
@@ -134,7 +141,8 @@ func TestStaticFileServing_Integration(t *testing.T) {
 	// Ensure server stops when test completes
 	defer func() {
 		cancel()
-		server.Stop(context.Background())
+
+		_ = server.Stop(context.Background())
 	}()
 
 	tests := []struct {
@@ -180,21 +188,35 @@ This prevents directory listing for security.`,
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			resp, err := http.Get(baseURL + tt.path)
+			req, err := http.NewRequestWithContext(
+				context.Background(), http.MethodGet, baseURL+tt.path, nil,
+			)
 			require.NoError(t, err)
-			defer resp.Body.Close()
+
+			client := &http.Client{}
+			resp, err := client.Do(req)
+			require.NoError(t, err)
+
+			defer func() { _ = resp.Body.Close() }()
 
 			body, err := io.ReadAll(resp.Body)
 			require.NoError(t, err)
 
 			if tt.expectError {
 				assert.Equal(t, http.StatusForbidden, resp.StatusCode)
-				assert.Equal(t, aichteeteapee.ContentTypeJSON, resp.Header.Get(aichteeteapee.HeaderNameContentType))
+				assert.Equal(
+					t, aichteeteapee.ContentTypeJSON,
+					resp.Header.Get(aichteeteapee.HeaderNameContentType),
+				)
 
 				var errorResponse aichteeteapee.ErrorResponse
+
 				err := json.Unmarshal(body, &errorResponse)
 				require.NoError(t, err)
-				assert.Equal(t, string(aichteeteapee.ErrorCodeDirectoryListingNotSupported), string(errorResponse.Code))
+				assert.Equal(
+					t, aichteeteapee.ErrorCodeDirectoryListingNotSupported,
+					errorResponse.Code,
+				)
 			} else {
 				assert.Equal(t, http.StatusOK, resp.StatusCode)
 				assert.Equal(t, tt.expectedBody, string(body))
@@ -221,6 +243,7 @@ func TestStaticPathTraversalSecurity_Integration(t *testing.T) {
 	if len(router.GlobalMiddlewares) > 0 {
 		server.setupGlobalMiddlewares()
 	}
+
 	server.setupRoutes()
 
 	// Test path traversal attempts that should be caught by our validation
@@ -234,9 +257,10 @@ func TestStaticPathTraversalSecurity_Integration(t *testing.T) {
 			expectedStatus: http.StatusMovedPermanently, // HTTP router redirects first
 		},
 		{
-			path:           "/static/..%2F..%2F..%2Fetc%2Fpasswd",
-			expectedStatus: http.StatusNotFound, // URL encoding doesn't bypass our protection
-			expectedError:  string(aichteeteapee.ErrorCodeFileNotFound),
+			path: "/static/..%2F..%2F..%2Fetc%2Fpasswd",
+			// URL encoding doesn't bypass our protection
+			expectedStatus: http.StatusNotFound,
+			expectedError:  aichteeteapee.ErrorCodeFileNotFound,
 		},
 		{
 			path:           "/static/../server_test.go",
@@ -255,23 +279,32 @@ func TestStaticPathTraversalSecurity_Integration(t *testing.T) {
 
 			server.GetMux().ServeHTTP(w, req)
 
-			assert.Equal(t, tt.expectedStatus, w.Code, "Status code mismatch for %s", tt.path)
+			assert.Equal(
+				t, tt.expectedStatus, w.Code,
+				"Status code mismatch for %s", tt.path,
+			)
 
 			if tt.expectedError != "" {
-				assert.Equal(t, aichteeteapee.ContentTypeJSON, w.Header().Get(aichteeteapee.HeaderNameContentType))
+				assert.Equal(
+					t, aichteeteapee.ContentTypeJSON,
+					w.Header().Get(aichteeteapee.HeaderNameContentType),
+				)
 
 				var errorResponse aichteeteapee.ErrorResponse
+
 				err := json.Unmarshal(w.Body.Bytes(), &errorResponse)
 				require.NoError(t, err)
-				assert.Equal(t, tt.expectedError, string(errorResponse.Code))
+				assert.Equal(t, tt.expectedError, errorResponse.Code)
 			}
 		})
 	}
 
-	// Test paths that would bypass HTTP router redirects but should be caught by our validation
+	// Test paths that would bypass HTTP router redirects
+	// but should be caught by our validation
 	dangerousPaths := []string{
-		"/static/index/../../server_test.go", // Try to access files outside static dir
-		"/static/noindex/../../defaults.go",  // Another attempt
+		"/static/index/../../server_test.go",
+		// Try to access files outside static dir
+		"/static/noindex/../../defaults.go", // Another attempt
 	}
 
 	for _, dangerousPath := range dangerousPaths {
@@ -284,15 +317,25 @@ func TestStaticPathTraversalSecurity_Integration(t *testing.T) {
 			// These should be caught by our validateAndBuildPath function
 			// and return 403 Forbidden with path traversal error
 			if w.Code == http.StatusForbidden {
-				assert.Equal(t, aichteeteapee.ContentTypeJSON, w.Header().Get(aichteeteapee.HeaderNameContentType))
+				assert.Equal(
+					t, aichteeteapee.ContentTypeJSON,
+					w.Header().Get(aichteeteapee.HeaderNameContentType),
+				)
 
 				var errorResponse aichteeteapee.ErrorResponse
+
 				err := json.Unmarshal(w.Body.Bytes(), &errorResponse)
 				require.NoError(t, err)
-				assert.Equal(t, string(aichteeteapee.ErrorCodePathTraversalDenied), string(errorResponse.Code))
+				assert.Equal(
+					t, aichteeteapee.ErrorCodePathTraversalDenied,
+					errorResponse.Code,
+				)
 			} else {
 				// HTTP router may redirect before our handler sees it, which is also secure
-				assert.True(t, w.Code == http.StatusNotFound || w.Code == http.StatusForbidden || w.Code == http.StatusMovedPermanently,
+				assert.True(t,
+					w.Code == http.StatusNotFound ||
+						w.Code == http.StatusForbidden ||
+						w.Code == http.StatusMovedPermanently,
 					"Expected 403, 404, or 301, got %d for path %s", w.Code, dangerousPath)
 			}
 		})

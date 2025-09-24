@@ -75,23 +75,24 @@ func TestServer_generateDirectoryListing(t *testing.T) {
 	// Create a temporary directory with some test files
 	tempDir, err := os.MkdirTemp("", "test_dir_listing")
 	require.NoError(t, err)
-	defer os.RemoveAll(tempDir)
+
+	defer func() { _ = os.RemoveAll(tempDir) }()
 
 	// Create test files
 	testFile := filepath.Join(tempDir, "test.txt")
-	err = os.WriteFile(testFile, []byte("test content"), 0644)
+	err = os.WriteFile(testFile, []byte("test content"), 0o600)
 	require.NoError(t, err)
 
 	subDir := filepath.Join(tempDir, "subdir")
-	err = os.Mkdir(subDir, 0755)
+	err = os.Mkdir(subDir, 0o750)
 	require.NoError(t, err)
 
 	tests := []struct {
-		name               string
-		fullPath           string
-		staticConfig       StaticRouteConfig
-		expectStatus       int
-		expectContentType  string
+		name              string
+		fullPath          string
+		staticConfig      StaticRouteConfig
+		expectStatus      int
+		expectContentType string
 	}{
 		{
 			name:     "HTML directory listing",
@@ -137,7 +138,7 @@ func TestServer_generateDirectoryListing(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			req := httptest.NewRequest("GET", tt.staticConfig.Path+"/", nil)
+			req := httptest.NewRequest(http.MethodGet, tt.staticConfig.Path+"/", nil)
 			w := httptest.NewRecorder()
 
 			server.generateDirectoryListing(w, req, tt.fullPath, tt.staticConfig)

@@ -1,6 +1,7 @@
-package websocket
+package wshub
 
 import (
+	"errors"
 	"fmt"
 	"sync"
 	"testing"
@@ -9,35 +10,59 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// mockHubForHandlers creates a simple mock hub for event handlers testing
+var (
+	errMock             = errors.New("mock error")
+	errTest             = errors.New("test error")
+	errProcessingFailed = errors.New("processing failed")
+	errNoDataProvided   = errors.New("no data provided")
+)
+
+// mockHubForHandlers creates a simple mock hub for event handlers testing.
 type mockHubForHandlers struct {
 	name string
 }
 
-func (mh *mockHubForHandlers) Name() string                         { return mh.name }
-func (mh *mockHubForHandlers) Close()                               {}
-func (mh *mockHubForHandlers) Done() <-chan struct{}                { return nil }
-func (mh *mockHubForHandlers) AddClient(client *Client)             {}
-func (mh *mockHubForHandlers) RemoveClient(clientID uuid.UUID)      {}
-func (mh *mockHubForHandlers) GetClient(clientID uuid.UUID) *Client { return nil }
-func (mh *mockHubForHandlers) GetOrCreateClient(_ uuid.UUID, _ ...ClientOption) (*Client, bool) {
+func (mh *mockHubForHandlers) Name() string                  { return mh.name }
+func (mh *mockHubForHandlers) Close()                        {}
+func (mh *mockHubForHandlers) Done() <-chan struct{}         { return nil }
+func (mh *mockHubForHandlers) AddClient(_ *Client)           {}
+func (mh *mockHubForHandlers) RemoveClient(_ uuid.UUID)      {}
+func (mh *mockHubForHandlers) GetClient(_ uuid.UUID) *Client { return nil }
+func (mh *mockHubForHandlers) GetOrCreateClient(
+	_ uuid.UUID, _ ...ClientOption,
+) (*Client, bool) {
 	return nil, false
 }
-func (mh *mockHubForHandlers) GetAllClients() map[uuid.UUID]*Client                           { return nil }
-func (mh *mockHubForHandlers) RegisterEventHandler(eventType EventType, handler EventHandler) {}
-func (mh *mockHubForHandlers) RegisterEventHandlers(handlers map[EventType]EventHandler)      {}
-func (mh *mockHubForHandlers) UnregisterEventHandler(eventType EventType)                     {}
-func (mh *mockHubForHandlers) ProcessEvent(client *Client, event *Event)                      {}
-func (mh *mockHubForHandlers) BroadcastToAll(event *Event)                                    {}
-func (mh *mockHubForHandlers) BroadcastToClients(clientIDs []uuid.UUID, event *Event)         {}
-func (mh *mockHubForHandlers) BroadcastToSubscribers(eventType EventType, event *Event)       {}
 
-// MockEventHandler creates a mock event handler for testing
+func (mh *mockHubForHandlers) GetAllClients() map[uuid.UUID]*Client {
+	return nil
+}
+
+func (mh *mockHubForHandlers) RegisterEventHandler(
+	_ EventType, _ EventHandler,
+) {
+}
+
+func (mh *mockHubForHandlers) RegisterEventHandlers(
+	_ map[EventType]EventHandler,
+) {
+}
+func (mh *mockHubForHandlers) UnregisterEventHandler(_ EventType) {}
+func (mh *mockHubForHandlers) ProcessEvent(_ *Client, _ *Event)   {}
+func (mh *mockHubForHandlers) BroadcastToAll(_ *Event)            {}
+func (mh *mockHubForHandlers) BroadcastToClients(
+	_ []uuid.UUID, _ *Event,
+) {
+}
+func (mh *mockHubForHandlers) BroadcastToSubscribers(_ EventType, _ *Event) {}
+
+// MockEventHandler creates a mock event handler for testing.
 func newMockEventHandler(returnError bool) EventHandler {
-	return func(hub Hub, client *Client, event *Event) error {
+	return func(_ Hub, _ *Client, _ *Event) error {
 		if returnError {
-			return fmt.Errorf("mock error")
+			return errMock
 		}
+
 		return nil
 	}
 }
@@ -111,6 +136,7 @@ func TestEventHandlersMap_Remove(t *testing.T) {
 	// Verify handlers exist
 	_, exists1 := ehm.Get(EventTypeSystemLog)
 	_, exists2 := ehm.Get(EventTypeError)
+
 	assert.True(t, exists1)
 	assert.True(t, exists2)
 
@@ -120,6 +146,7 @@ func TestEventHandlersMap_Remove(t *testing.T) {
 	// Verify removal
 	_, exists1After := ehm.Get(EventTypeSystemLog)
 	_, exists2After := ehm.Get(EventTypeError)
+
 	assert.False(t, exists1After)
 	assert.True(t, exists2After) // Other handler should remain
 
@@ -144,6 +171,7 @@ func TestEventHandlersMap_HandlerInvocation(t *testing.T) {
 		assert.NotNil(t, c)
 		assert.Equal(t, event.Type, e.Type)
 		assert.Equal(t, event.ID, e.ID)
+
 		return nil
 	}
 
@@ -152,7 +180,8 @@ func TestEventHandlersMap_HandlerInvocation(t *testing.T) {
 		assert.Equal(t, hub, h)
 		assert.NotNil(t, c)
 		assert.Equal(t, EventTypeError, e.Type) // Expect error event type
-		return fmt.Errorf("test error")
+
+		return errTest
 	}
 
 	ehm.Add(EventTypeSystemLog, successHandler)
@@ -161,6 +190,7 @@ func TestEventHandlersMap_HandlerInvocation(t *testing.T) {
 	// Test successful handler invocation
 	handler1, exists1 := ehm.Get(EventTypeSystemLog)
 	assert.True(t, exists1)
+
 	err1 := handler1(hub, testClient, event)
 	assert.NoError(t, err1)
 
@@ -168,6 +198,7 @@ func TestEventHandlersMap_HandlerInvocation(t *testing.T) {
 	errorEvent := NewEvent(EventTypeError, "error data")
 	handler2, exists2 := ehm.Get(EventTypeError)
 	assert.True(t, exists2)
+
 	err2 := handler2(hub, testClient, errorEvent)
 	assert.Error(t, err2)
 	assert.Equal(t, "test error", err2.Error())
@@ -175,16 +206,20 @@ func TestEventHandlersMap_HandlerInvocation(t *testing.T) {
 
 func TestEventHandlersMap_ThreadSafety(t *testing.T) {
 	ehm := newEventHandlersMap()
+
 	var wg sync.WaitGroup
+
 	numGoroutines := 100
 
 	// Concurrent adds
 	for i := range numGoroutines {
 		wg.Add(1)
+
 		go func(id int) {
 			defer wg.Done()
+
 			eventType := EventType(fmt.Sprintf("test.event.%d", id))
-			handler := func(hub Hub, client *Client, event *Event) error {
+			handler := func(_ Hub, _ *Client, _ *Event) error {
 				return nil
 			}
 			ehm.Add(eventType, handler)
@@ -194,8 +229,10 @@ func TestEventHandlersMap_ThreadSafety(t *testing.T) {
 	// Concurrent reads
 	for i := range 50 {
 		wg.Add(1)
+
 		go func(id int) {
 			defer wg.Done()
+
 			eventType := EventType(fmt.Sprintf("test.event.%d", id%numGoroutines))
 			ehm.Get(eventType)
 		}(i)
@@ -213,7 +250,9 @@ func TestEventHandlersMap_ThreadSafety(t *testing.T) {
 
 func TestEventHandlersMap_ConcurrentAddRemove(t *testing.T) {
 	ehm := newEventHandlersMap()
+
 	var wg sync.WaitGroup
+
 	numOperations := 1000
 
 	// Mix of concurrent adds and removes on the same event types
@@ -222,8 +261,10 @@ func TestEventHandlersMap_ConcurrentAddRemove(t *testing.T) {
 
 		go func(id int) {
 			defer wg.Done()
-			eventType := EventType(fmt.Sprintf("test.event.%d", id%10)) // Reuse event types
-			handler := func(hub Hub, client *Client, event *Event) error {
+
+			// Reuse event types
+			eventType := EventType(fmt.Sprintf("test.event.%d", id%10))
+			handler := func(_ Hub, _ *Client, _ *Event) error {
 				return nil
 			}
 			ehm.Add(eventType, handler)
@@ -231,7 +272,9 @@ func TestEventHandlersMap_ConcurrentAddRemove(t *testing.T) {
 
 		go func(id int) {
 			defer wg.Done()
-			eventType := EventType(fmt.Sprintf("test.event.%d", id%10)) // Same event types
+
+			// Same event types
+			eventType := EventType(fmt.Sprintf("test.event.%d", id%10))
 			ehm.Remove(eventType)
 		}(i)
 	}
@@ -239,9 +282,11 @@ func TestEventHandlersMap_ConcurrentAddRemove(t *testing.T) {
 	wg.Wait()
 
 	// Final state should be consistent (no panics, no race conditions)
-	// We can't predict final state due to race conditions, but we can verify no crashes
+	// We can't predict final state due to race conditions,
+	// but we can verify no crashes
 	for i := range 10 {
 		eventType := EventType(fmt.Sprintf("test.event.%d", i))
+
 		handler, exists := ehm.Get(eventType)
 		if exists {
 			assert.NotNil(t, handler)
@@ -265,7 +310,7 @@ func TestEventHandlersMap_HandlerTypes(t *testing.T) {
 		{
 			name:      "success handler",
 			eventType: EventTypeSystemLog,
-			handler: func(hub Hub, client *Client, event *Event) error {
+			handler: func(_ Hub, _ *Client, _ *Event) error {
 				return nil
 			},
 			expectError: false,
@@ -273,8 +318,8 @@ func TestEventHandlersMap_HandlerTypes(t *testing.T) {
 		{
 			name:      "error handler",
 			eventType: EventTypeError,
-			handler: func(hub Hub, client *Client, event *Event) error {
-				return fmt.Errorf("processing failed")
+			handler: func(_ Hub, _ *Client, _ *Event) error {
+				return errProcessingFailed
 			},
 			expectError: true,
 			errorMsg:    "processing failed",
@@ -282,11 +327,12 @@ func TestEventHandlersMap_HandlerTypes(t *testing.T) {
 		{
 			name:      "data processing handler",
 			eventType: EventTypeShellExec,
-			handler: func(hub Hub, client *Client, event *Event) error {
+			handler: func(_ Hub, _ *Client, event *Event) error {
 				// Simulate data processing
 				if event.Data == nil {
-					return fmt.Errorf("no data provided")
+					return errNoDataProvided
 				}
+
 				return nil
 			},
 			expectError: true,
@@ -310,6 +356,7 @@ func TestEventHandlersMap_HandlerTypes(t *testing.T) {
 			err := handler(hub, testClient, event)
 			if tt.expectError {
 				assert.Error(t, err)
+
 				if tt.errorMsg != "" {
 					assert.Equal(t, tt.errorMsg, err.Error())
 				}

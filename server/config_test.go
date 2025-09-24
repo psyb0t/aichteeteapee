@@ -168,6 +168,7 @@ func TestParseConfig(t *testing.T) {
 
 			if tt.expectErr {
 				require.Error(t, err)
+
 				return
 			}
 

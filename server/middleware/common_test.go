@@ -14,27 +14,28 @@ import (
 
 // Common test utilities and shared test data
 
-// createTestHandler creates a simple test handler
+// createTestHandler creates a simple test handler.
 func createTestHandler() http.HandlerFunc {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	return http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("test response"))
+		_, _ = w.Write([]byte("test response"))
 	})
 }
 
-// createPanicHandler creates a handler that panics
+// createPanicHandler creates a handler that panics.
 func createPanicHandler(panicValue any) http.HandlerFunc {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	return http.HandlerFunc(func(_ http.ResponseWriter, _ *http.Request) {
 		panic(panicValue)
 	})
 }
 
-// createDelayedHandler creates a handler with a specified delay
+// createDelayedHandler creates a handler with a specified delay.
 func createDelayedHandler(delay time.Duration) http.HandlerFunc {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		select {
 		case <-r.Context().Done():
 			w.WriteHeader(http.StatusGatewayTimeout)
+
 			return
 		case <-time.After(delay):
 			w.WriteHeader(http.StatusOK)
@@ -42,13 +43,15 @@ func createDelayedHandler(delay time.Duration) http.HandlerFunc {
 	})
 }
 
-// createTestRequest creates a basic test request
+// createTestRequest creates a basic test request.
 func createTestRequest(method, path string) *http.Request {
 	return httptest.NewRequest(method, path, nil)
 }
 
-// createTestRequestWithContext creates a test request with context values
-func createTestRequestWithContext(method, path string, contextValues map[any]any) *http.Request {
+// createTestRequestWithContext creates a test request with context values.
+func createTestRequestWithContext(
+	method, path string, contextValues map[any]any,
+) *http.Request {
 	req := httptest.NewRequest(method, path, nil)
 	ctx := req.Context()
 
@@ -59,8 +62,10 @@ func createTestRequestWithContext(method, path string, contextValues map[any]any
 	return req.WithContext(ctx)
 }
 
-// createTestRequestWithHeaders creates a test request with headers
-func createTestRequestWithHeaders(method, path string, headers map[string]string) *http.Request {
+// createTestRequestWithHeaders creates a test request with headers.
+func createTestRequestWithHeaders(
+	method, path string, headers map[string]string,
+) *http.Request {
 	req := httptest.NewRequest(method, path, nil)
 
 	for key, value := range headers {
@@ -70,20 +75,32 @@ func createTestRequestWithHeaders(method, path string, headers map[string]string
 	return req
 }
 
-// createTestLogger creates a test logger with hook for capturing logs
+// createTestLogger creates a test logger with hook for capturing logs.
 func createTestLogger() (*logrus.Logger, *test.Hook) {
 	return test.NewNullLogger()
 }
 
-// assertSecurityHeaders checks that security headers are set correctly
-func assertSecurityHeaders(t *testing.T, w *httptest.ResponseRecorder, expectedHeaders map[string]string) {
+// assertSecurityHeaders checks that security headers are set correctly.
+func assertSecurityHeaders(
+	t *testing.T, w *httptest.ResponseRecorder, expectedHeaders map[string]string,
+) {
+	t.Helper()
+
 	for header, expectedValue := range expectedHeaders {
-		assert.Equal(t, expectedValue, w.Header().Get(header), "Header %s should match", header)
+		assert.Equal(
+			t, expectedValue, w.Header().Get(header),
+			"Header %s should match", header,
+		)
 	}
 }
 
-// assertCORSHeaders checks that CORS headers are set correctly
-func assertCORSHeaders(t *testing.T, w *httptest.ResponseRecorder, expectedOrigin string, hasMethods, hasHeaders bool) {
+// assertCORSHeaders checks that CORS headers are set correctly.
+func assertCORSHeaders(
+	t *testing.T, w *httptest.ResponseRecorder, expectedOrigin string,
+	hasMethods, hasHeaders bool,
+) {
+	t.Helper()
+
 	if expectedOrigin != "" {
 		assert.Equal(t, expectedOrigin, w.Header().Get("Access-Control-Allow-Origin"))
 	}
@@ -97,22 +114,35 @@ func assertCORSHeaders(t *testing.T, w *httptest.ResponseRecorder, expectedOrigi
 	}
 }
 
-// assertLogEntry checks that a log entry contains expected fields
-func assertLogEntry(t *testing.T, entry *logrus.Entry, expectedFields map[string]any) {
+// assertLogEntry checks that a log entry contains expected fields.
+func assertLogEntry(
+	t *testing.T, entry *logrus.Entry, expectedFields map[string]any,
+) {
+	t.Helper()
+
 	for field, expectedValue := range expectedFields {
-		assert.Equal(t, expectedValue, entry.Data[field], "Log field %s should match", field)
+		assert.Equal(
+			t, expectedValue, entry.Data[field], "Log field %s should match", field,
+		)
 	}
 }
 
-// testData holds common test data
-var testData = struct {
+// getTestData returns common test data.
+func getTestData() struct {
 	ValidBasicAuth   string
 	InvalidBasicAuth string
 	TestUserAgent    string
 	TestOrigin       string
-}{
-	ValidBasicAuth:   "Basic YWRtaW46c2VjcmV0", // admin:secret in base64
-	InvalidBasicAuth: "Basic dXNlcjp3cm9uZw==", // user:wrong in base64
-	TestUserAgent:    "Test-Agent/1.0",
-	TestOrigin:       "https://example.com",
+} {
+	return struct {
+		ValidBasicAuth   string
+		InvalidBasicAuth string
+		TestUserAgent    string
+		TestOrigin       string
+	}{
+		ValidBasicAuth:   "Basic YWRtaW46c2VjcmV0", // admin:secret in base64
+		InvalidBasicAuth: "Basic dXNlcjp3cm9uZw==", // user:wrong in base64
+		TestUserAgent:    "Test-Agent/1.0",
+		TestOrigin:       "https://example.com",
+	}
 }

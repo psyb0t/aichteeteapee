@@ -62,7 +62,7 @@ func TestIsRequestContentType(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			req := httptest.NewRequest("POST", "/test", nil)
+			req := httptest.NewRequest(http.MethodPost, "/test", nil)
 			if tt.contentType != "" {
 				req.Header.Set("Content-Type", tt.contentType)
 			}
@@ -108,7 +108,7 @@ func TestIsRequestContentTypeJSON(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			req := httptest.NewRequest("POST", "/test", nil)
+			req := httptest.NewRequest(http.MethodPost, "/test", nil)
 			if tt.contentType != "" {
 				req.Header.Set("Content-Type", tt.contentType)
 			}
@@ -144,7 +144,7 @@ func TestIsRequestContentTypeXML(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			req := httptest.NewRequest("POST", "/test", nil)
+			req := httptest.NewRequest(http.MethodPost, "/test", nil)
 			if tt.contentType != "" {
 				req.Header.Set("Content-Type", tt.contentType)
 			}
@@ -180,7 +180,7 @@ func TestIsRequestContentTypeFormData(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			req := httptest.NewRequest("POST", "/test", nil)
+			req := httptest.NewRequest(http.MethodPost, "/test", nil)
 			if tt.contentType != "" {
 				req.Header.Set("Content-Type", tt.contentType)
 			}
@@ -226,7 +226,7 @@ func TestIsRequestContentTypeMultipartForm(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			req := httptest.NewRequest("POST", "/test", nil)
+			req := httptest.NewRequest(http.MethodPost, "/test", nil)
 			if tt.contentType != "" {
 				req.Header.Set("Content-Type", tt.contentType)
 			}
@@ -246,15 +246,15 @@ func TestGetRequestID(t *testing.T) {
 		{
 			name: "request ID present in context",
 			setupCtx: func() context.Context {
-				return context.WithValue(context.Background(), ContextKeyRequestID, "test-request-id-123")
+				return context.WithValue(
+					context.Background(), ContextKeyRequestID, "test-request-id-123",
+				)
 			},
 			expected: "test-request-id-123",
 		},
 		{
-			name: "request ID missing from context",
-			setupCtx: func() context.Context {
-				return context.Background()
-			},
+			name:     "request ID missing from context",
+			setupCtx: context.Background,
 			expected: "",
 		},
 		{
@@ -268,7 +268,7 @@ func TestGetRequestID(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			req := httptest.NewRequest("GET", "/test", nil)
+			req := httptest.NewRequest(http.MethodGet, "/test", nil)
 			req = req.WithContext(tt.setupCtx())
 
 			result := GetRequestID(req)
@@ -279,15 +279,18 @@ func TestGetRequestID(t *testing.T) {
 
 func TestGetClientIP(t *testing.T) {
 	tests := []struct {
-		name       string
-		setupReq   func() *http.Request
-		expected   string
+		name     string
+		setupReq func() *http.Request
+		expected string
 	}{
 		{
 			name: "X-Forwarded-For header present",
 			setupReq: func() *http.Request {
-				req := httptest.NewRequest("GET", "/test", nil)
-				req.Header.Set("X-Forwarded-For", "203.0.113.195, 70.41.3.18, 150.172.238.178")
+				req := httptest.NewRequest(http.MethodGet, "/test", nil)
+				req.Header.Set(
+					"X-Forwarded-For", "203.0.113.195, 70.41.3.18, 150.172.238.178",
+				)
+
 				return req
 			},
 			expected: "203.0.113.195",
@@ -295,8 +298,9 @@ func TestGetClientIP(t *testing.T) {
 		{
 			name: "X-Forwarded-For with whitespace",
 			setupReq: func() *http.Request {
-				req := httptest.NewRequest("GET", "/test", nil)
+				req := httptest.NewRequest(http.MethodGet, "/test", nil)
 				req.Header.Set("X-Forwarded-For", "  192.168.1.100  , 10.0.0.1")
+
 				return req
 			},
 			expected: "192.168.1.100",
@@ -304,8 +308,9 @@ func TestGetClientIP(t *testing.T) {
 		{
 			name: "X-Real-IP header present",
 			setupReq: func() *http.Request {
-				req := httptest.NewRequest("GET", "/test", nil)
+				req := httptest.NewRequest(http.MethodGet, "/test", nil)
 				req.Header.Set("X-Real-IP", "192.168.1.200")
+
 				return req
 			},
 			expected: "192.168.1.200",
@@ -313,8 +318,9 @@ func TestGetClientIP(t *testing.T) {
 		{
 			name: "X-Real-IP with whitespace",
 			setupReq: func() *http.Request {
-				req := httptest.NewRequest("GET", "/test", nil)
+				req := httptest.NewRequest(http.MethodGet, "/test", nil)
 				req.Header.Set("X-Real-IP", "  172.16.0.1  ")
+
 				return req
 			},
 			expected: "172.16.0.1",
@@ -322,8 +328,9 @@ func TestGetClientIP(t *testing.T) {
 		{
 			name: "RemoteAddr without port",
 			setupReq: func() *http.Request {
-				req := httptest.NewRequest("GET", "/test", nil)
+				req := httptest.NewRequest(http.MethodGet, "/test", nil)
 				req.RemoteAddr = "127.0.0.1"
+
 				return req
 			},
 			expected: "127.0.0.1",
@@ -331,8 +338,9 @@ func TestGetClientIP(t *testing.T) {
 		{
 			name: "RemoteAddr with port",
 			setupReq: func() *http.Request {
-				req := httptest.NewRequest("GET", "/test", nil)
+				req := httptest.NewRequest(http.MethodGet, "/test", nil)
 				req.RemoteAddr = "192.168.1.1:8080"
+
 				return req
 			},
 			expected: "192.168.1.1",

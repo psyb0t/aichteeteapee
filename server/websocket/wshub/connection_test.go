@@ -1,4 +1,4 @@
-package websocket
+package wshub
 
 import (
 	"sync"
@@ -9,7 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// newMockConnection creates a mock connection for testing
+// newMockConnection creates a mock connection for testing.
 func newMockConnection(id uuid.UUID, client *Client) *Connection {
 	return &Connection{
 		id:     id,
@@ -53,13 +53,16 @@ func TestConnection_StopIdempotent(t *testing.T) {
 	conn := newMockConnection(uuid.New(), client)
 
 	var wg sync.WaitGroup
+
 	numGoroutines := 10
 
 	// Multiple concurrent stops should be safe
 	for range numGoroutines {
 		wg.Add(1)
+
 		go func() {
 			defer wg.Done()
+
 			conn.Stop()
 		}()
 	}
@@ -83,11 +86,11 @@ func TestConnection_SendWithNilChannels(t *testing.T) {
 		client: nil, // Not needed for this test
 		// sendCh and doneCh will be nil
 	}
-	
+
 	// This should hit the nil channels path and return early
 	event := NewEvent(EventTypeSystemLog, "test")
 	conn.Send(event) // Should not panic
-	
+
 	// Verify connection exists but channels are nil
 	require.NotNil(t, conn)
 	require.Nil(t, conn.sendCh)
@@ -102,19 +105,19 @@ func TestConnection_SendAfterDone(t *testing.T) {
 		sendCh: make(chan *Event, 1),
 		doneCh: make(chan struct{}),
 	}
-	
+
 	// Mark connection as done
 	conn.isDone.Store(true)
-	
+
 	// This should hit the isDone path and return early
 	event := NewEvent(EventTypeSystemLog, "test")
 	conn.Send(event) // Should not block or panic
-	
+
 	// Channel should be empty since event was not sent
 	require.Len(t, conn.sendCh, 0)
 }
 
-func TestConnection_SendRaceCondition(t *testing.T) {
+func TestConnection_SendRaceCondition(_ *testing.T) {
 	conn := &Connection{
 		id:     uuid.New(),
 		conn:   nil,
@@ -122,14 +125,14 @@ func TestConnection_SendRaceCondition(t *testing.T) {
 		sendCh: make(chan *Event, 1),
 		doneCh: make(chan struct{}),
 	}
-	
+
 	// Start a goroutine that will close the connection during send
 	go func() {
 		time.Sleep(1 * time.Millisecond)
 		conn.isDone.Store(true)
 		close(conn.doneCh)
 	}()
-	
+
 	// Try to send while connection is being closed
 	event := NewEvent(EventTypeSystemLog, "test")
 	conn.Send(event) // Should handle the race condition gracefully
@@ -139,17 +142,17 @@ func TestConnection_Getters(t *testing.T) {
 	hub := &mockHub{}
 	client := NewClientWithID(uuid.New())
 	client.SetHub(hub)
-	
+
 	conn := &Connection{
 		id:     uuid.New(),
 		conn:   nil,
 		client: client,
 	}
-	
+
 	// Test GetHubName
 	hubName := conn.GetHubName()
 	require.Equal(t, "mock-hub", hubName)
-	
+
 	// Test GetClientID
 	clientID := conn.GetClientID()
 	require.Equal(t, client.ID(), clientID)

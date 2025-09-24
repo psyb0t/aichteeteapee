@@ -1,4 +1,4 @@
-package websocket
+package wshub
 
 import (
 	"sync"
@@ -25,7 +25,7 @@ type Client struct {
 	readyToStopCh chan struct{}   // Channel to signal client is ready to stop
 }
 
-// GetHubName safely returns the hub name, handling nil cases
+// GetHubName safely returns the hub name, handling nil cases.
 func (c *Client) GetHubName() string {
 	c.hubMu.RLock()
 	defer c.hubMu.RUnlock()
@@ -90,7 +90,8 @@ func (c *Client) AddConnection(conn *Connection) {
 		return
 	}
 
-	logger.WithField(aichteeteapee.FieldTotalConns, c.connections.Count()+1).Debug("adding new connection to client")
+	logger.WithField(aichteeteapee.FieldTotalConns, c.connections.Count()+1).
+		Debug("adding new connection to client")
 
 	c.connections.Add(conn)
 
@@ -133,7 +134,8 @@ func (c *Client) RemoveConnection(connectionID uuid.UUID) {
 	conn := c.connections.Remove(connectionID)
 	if conn != nil {
 		connectionCount := c.connections.Count()
-		logger.WithField(aichteeteapee.FieldTotalConns, connectionCount).Debug("removed connection from client")
+		logger.WithField(aichteeteapee.FieldTotalConns, connectionCount).
+			Debug("removed connection from client")
 
 		conn.Stop()
 
@@ -162,12 +164,13 @@ func (c *Client) ConnectionCount() int {
 	return c.connections.Count()
 }
 
-// SendEvent sends an event to all client connections (alias for Send for hub compatibility)
+// SendEvent sends an event to all client connections
+// (alias for Send for hub compatibility).
 func (c *Client) SendEvent(event *Event) {
 	c.Send(event)
 }
 
-// Send sends an event to the client's send channel for distribution
+// Send sends an event to the client's send channel for distribution.
 func (c *Client) Send(event *Event) {
 	logger := logrus.WithFields(logrus.Fields{
 		aichteeteapee.FieldHubName:   c.GetHubName(),
@@ -194,16 +197,17 @@ func (c *Client) Send(event *Event) {
 	case <-c.doneCh:
 		logger.Debug("client stopped, cannot send event")
 	default:
-		logger.WithField(aichteeteapee.FieldBufferSize, cap(c.sendCh)).Warn("client send buffer full, dropping message")
+		logger.WithField(aichteeteapee.FieldBufferSize, cap(c.sendCh)).
+			Warn("client send buffer full, dropping message")
 	}
 }
 
-// IsSubscribedTo checks if client is subscribed to an event type
+// IsSubscribedTo checks if client is subscribed to an event type.
 func (c *Client) IsSubscribedTo(_ EventType) bool {
 	return true // For now, accept all events
 }
 
-// Stop gracefully shuts down the client and all its connections
+// Stop gracefully shuts down the client and all its connections.
 func (c *Client) Stop() {
 	logger := logrus.WithFields(logrus.Fields{
 		aichteeteapee.FieldHubName:  c.GetHubName(),
@@ -251,13 +255,14 @@ func (c *Client) Stop() {
 		select {
 		case <-done:
 			logger.Debug("stopped on doneCh signal")
-		case <-time.After(5 * time.Second): //nolint:mnd // reasonable shutdown timeout
+		case <-time.After(5 * time.Second): //nolint:mnd
+			// reasonable shutdown timeout
 			logger.Warn("stopped on timeout")
 		}
 	})
 }
 
-// Run starts the client's distribution pump
+// Run starts the client's distribution pump.
 func (c *Client) Run() {
 	logger := logrus.WithFields(logrus.Fields{
 		aichteeteapee.FieldHubName:  c.GetHubName(),
@@ -303,7 +308,7 @@ func (c *Client) Run() {
 	}
 }
 
-// distributionPump distributes events from sendCh to all connections
+// distributionPump distributes events from sendCh to all connections.
 func (c *Client) distributionPump() {
 	logger := logrus.WithFields(logrus.Fields{
 		aichteeteapee.FieldHubName:  c.GetHubName(),
@@ -356,7 +361,8 @@ func (c *Client) distributionPump() {
 				}
 
 				conn.Send(event)
-				eventLogger.WithField(aichteeteapee.FieldConnectionID, connID).Debug("event distributed to connection")
+				eventLogger.WithField(aichteeteapee.FieldConnectionID, connID).
+					Debug("event distributed to connection")
 			}
 
 		case <-c.doneCh:

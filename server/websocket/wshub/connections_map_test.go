@@ -1,4 +1,4 @@
-package websocket
+package wshub
 
 import (
 	"sync"
@@ -169,21 +169,28 @@ func TestConnectionsMap_Count_And_IsEmpty(t *testing.T) {
 
 func TestConnectionsMap_ThreadSafety(t *testing.T) {
 	cm := newConnectionsMap()
+
 	var wg sync.WaitGroup
+
 	numGoroutines := 100
 	connsPerGoroutine := 10
 
 	client := &Client{id: uuid.New()}
 
 	// Store connection IDs so we can remove them later
-	var connIDs []uuid.UUID
-	var connIDsMutex sync.Mutex
+	var (
+		connIDs      []uuid.UUID
+		connIDsMutex sync.Mutex
+	)
 
 	// Concurrent adds
+
 	for i := range numGoroutines {
 		wg.Add(1)
-		go func(goroutineID int) {
+
+		go func(_ int) {
 			defer wg.Done()
+
 			for range connsPerGoroutine {
 				connID := uuid.New()
 				conn := newMockConnection(connID, client)
@@ -191,7 +198,9 @@ func TestConnectionsMap_ThreadSafety(t *testing.T) {
 
 				// Store the connection ID for later removal
 				connIDsMutex.Lock()
+
 				connIDs = append(connIDs, connID)
+
 				connIDsMutex.Unlock()
 			}
 		}(i)
@@ -200,8 +209,10 @@ func TestConnectionsMap_ThreadSafety(t *testing.T) {
 	// Concurrent reads
 	for range 50 {
 		wg.Add(1)
+
 		go func() {
 			defer wg.Done()
+
 			cm.Count()
 			cm.GetAll()
 			cm.Get(uuid.New()) // Just test with random UUID
@@ -221,8 +232,10 @@ func TestConnectionsMap_ThreadSafety(t *testing.T) {
 	wg = sync.WaitGroup{}
 	for i := range numGoroutines {
 		wg.Add(1)
+
 		go func(goroutineID int) {
 			defer wg.Done()
+
 			for j := range connsPerGoroutine {
 				// Calculate the index for this goroutine's connections
 				idx := goroutineID*connsPerGoroutine + j
@@ -242,7 +255,9 @@ func TestConnectionsMap_ThreadSafety(t *testing.T) {
 
 func TestConnectionsMap_ConcurrentAddRemove(t *testing.T) {
 	cm := newConnectionsMap()
+
 	var wg sync.WaitGroup
+
 	numOperations := 1000
 	client := &Client{id: uuid.New()}
 
@@ -250,15 +265,17 @@ func TestConnectionsMap_ConcurrentAddRemove(t *testing.T) {
 	for i := range numOperations {
 		wg.Add(2) // One for add, one for remove
 
-		go func(id int) {
+		go func(_ int) {
 			defer wg.Done()
+
 			connID := uuid.New() // Use random UUID
 			conn := newMockConnection(connID, client)
 			cm.Add(conn)
 		}(i)
 
-		go func(id int) {
+		go func(_ int) {
 			defer wg.Done()
+
 			connID := uuid.New() // Use random UUID
 			cm.Remove(connID)
 		}(i)

@@ -19,12 +19,8 @@ func TestRecovery(t *testing.T) {
 
 	handler := createPanicHandler("test panic")
 
-	req := createTestRequestWithHeaders(http.MethodGet, "/test", map[string]string{
-		"X-Real-IP": "10.0.0.1",
-	})
-
 	// Add request ID to context
-	req = createTestRequestWithContext(http.MethodGet, "/test", map[any]any{
+	req := createTestRequestWithContext(http.MethodGet, "/test", map[any]any{
 		aichteeteapee.ContextKeyRequestID: "panic-req-456",
 	})
 	req.Header.Set("X-Real-IP", "10.0.0.1")
@@ -37,7 +33,10 @@ func TestRecovery(t *testing.T) {
 	})
 
 	assert.Equal(t, http.StatusInternalServerError, w.Code)
-	assert.Equal(t, aichteeteapee.ContentTypeJSON, w.Header().Get(aichteeteapee.HeaderNameContentType))
+	assert.Equal(
+		t, aichteeteapee.ContentTypeJSON,
+		w.Header().Get(aichteeteapee.HeaderNameContentType),
+	)
 
 	// Check that panic was logged
 	entries := hook.AllEntries()
@@ -72,6 +71,7 @@ func TestRecoveryMiddleware_EdgeCases(t *testing.T) {
 		})
 
 		assert.Equal(t, http.StatusInternalServerError, w.Code)
+
 		entries := hook.AllEntries()
 		assert.NotEmpty(t, entries)
 	})
@@ -86,10 +86,7 @@ func TestRecoveryMiddleware_EdgeCases(t *testing.T) {
 
 		handler := createPanicHandler(CustomError{Message: "custom error"})
 
-		req := createTestRequestWithHeaders(http.MethodPost, "/panic", map[string]string{
-			"X-Forwarded-For": "192.168.1.100",
-		})
-		req = createTestRequestWithContext(http.MethodPost, "/panic", map[any]any{
+		req := createTestRequestWithContext(http.MethodPost, "/panic", map[any]any{
 			aichteeteapee.ContextKeyRequestID: "panic-test-789",
 		})
 		req.Header.Set("X-Forwarded-For", "192.168.1.100")
@@ -101,7 +98,10 @@ func TestRecoveryMiddleware_EdgeCases(t *testing.T) {
 		})
 
 		assert.Equal(t, http.StatusInternalServerError, w.Code)
-		assert.Equal(t, aichteeteapee.ContentTypeJSON, w.Header().Get(aichteeteapee.HeaderNameContentType))
+		assert.Equal(
+			t, aichteeteapee.ContentTypeJSON,
+			w.Header().Get(aichteeteapee.HeaderNameContentType),
+		)
 
 		entries := hook.AllEntries()
 		require.Len(t, entries, 1)
@@ -121,10 +121,12 @@ func TestRecoveryMiddleware_EdgeCases(t *testing.T) {
 
 func TestRecoveryMiddleware_CustomHandler(t *testing.T) {
 	var recoveredValue any
-	customHandler := func(recovered any, w http.ResponseWriter, r *http.Request) {
+
+	customHandler := func(recovered any, w http.ResponseWriter, _ *http.Request) {
 		recoveredValue = recovered
+
 		w.WriteHeader(http.StatusTeapot) // Custom status
-		w.Write([]byte("Custom recovery"))
+		_, _ = w.Write([]byte("Custom recovery"))
 	}
 
 	middleware := Recovery(
@@ -143,12 +145,13 @@ func TestRecoveryMiddleware_CustomHandler(t *testing.T) {
 	assert.Equal(t, "custom panic", recoveredValue)
 }
 
-// Test to prove recovery middleware can fail during recovery
+// Test to prove recovery middleware can fail during recovery.
 func TestRecoveryMiddleware_CanFailDuringRecovery(t *testing.T) {
 	t.Run("recovery fails when response encoding fails", func(t *testing.T) {
 		// Create a custom response that will fail JSON encoding
 		cyclicMap := make(map[string]any)
-		cyclicMap["self"] = cyclicMap // This creates a cycle that json.Marshal can't handle
+		// This creates a cycle that json.Marshal can't handle
+		cyclicMap["self"] = cyclicMap
 
 		recovery := Recovery(
 			WithRecoveryResponse(cyclicMap), // This will fail to encode
@@ -165,8 +168,10 @@ func TestRecoveryMiddleware_CanFailDuringRecovery(t *testing.T) {
 
 		// The response should use fallback when JSON encoding fails
 		// This proves recovery handles encoding failures gracefully
-		assert.Equal(t, http.StatusInternalServerError, w.Code, "Recovery middleware should write status even when JSON encoding fails")
-		assert.Contains(t, w.Body.String(), "Internal server error", "Recovery should provide fallback response when JSON encoding fails")
+		assert.Equal(t, http.StatusInternalServerError, w.Code,
+			"Recovery middleware should write status even when JSON encoding fails")
+		assert.Contains(t, w.Body.String(), "Internal server error",
+			"Recovery should provide fallback response when JSON encoding fails")
 	})
 }
 

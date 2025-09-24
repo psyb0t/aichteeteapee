@@ -2,6 +2,7 @@ package server
 
 import (
 	"bytes"
+	"context"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -67,7 +68,9 @@ func TestHandlers_Integration(t *testing.T) {
 				body = bytes.NewBufferString(tt.body)
 			}
 
-			req, err := http.NewRequest(tt.method, server.URL+tt.path, body)
+			req, err := http.NewRequestWithContext(
+				context.Background(), tt.method, server.URL+tt.path, body,
+			)
 			require.NoError(t, err)
 
 			if tt.body != "" {
@@ -76,13 +79,18 @@ func TestHandlers_Integration(t *testing.T) {
 
 			resp, err := http.DefaultClient.Do(req)
 			require.NoError(t, err)
-			defer resp.Body.Close()
+
+			defer func() { _ = resp.Body.Close() }()
 
 			assert.Equal(t, tt.expectedStatus, resp.StatusCode)
 
-			// Only check JSON content-type for our custom handlers, not for default 404/405
+			// Only check JSON content-type for our custom handlers, not for
+			// default 404/405
 			if tt.expectedStatus == http.StatusOK {
-				assert.Equal(t, aichteeteapee.ContentTypeJSON, resp.Header.Get(aichteeteapee.HeaderNameContentType))
+				assert.Equal(
+					t, aichteeteapee.ContentTypeJSON,
+					resp.Header.Get(aichteeteapee.HeaderNameContentType),
+				)
 			}
 		})
 	}

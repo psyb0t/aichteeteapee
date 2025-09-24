@@ -20,12 +20,8 @@ func TestLogger(t *testing.T) {
 
 	handler := createTestHandler()
 
-	req := createTestRequestWithHeaders(http.MethodGet, "/test", map[string]string{
-		"X-Forwarded-For": "192.168.1.1",
-	})
-
 	// Add request ID to context
-	req = createTestRequestWithContext(http.MethodGet, "/test", map[any]any{
+	req := createTestRequestWithContext(http.MethodGet, "/test", map[any]any{
 		aichteeteapee.ContextKeyRequestID: "test-req-123",
 	})
 	req.Header.Set("X-Forwarded-For", "192.168.1.1")
@@ -83,7 +79,7 @@ func TestLoggerMiddleware_SkipPaths(t *testing.T) {
 	assert.Len(t, hook.AllEntries(), 1) // Log entry for non-skipped path
 }
 
-// Test to prove response writer race condition
+// Test to prove response writer race condition.
 func TestLoggerMiddleware_ResponseWriterRaceCondition(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping race condition test in short mode")
@@ -92,12 +88,13 @@ func TestLoggerMiddleware_ResponseWriterRaceCondition(t *testing.T) {
 	t.Run("concurrent writeheader calls can race", func(t *testing.T) {
 		logger := Logger()
 
-		handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		handler := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 			// Simulate concurrent access to response writer
 			var wg sync.WaitGroup
 
 			for range 10 {
 				wg.Add(1)
+
 				go func() {
 					defer wg.Done()
 					// Try to write status concurrently (this should race)
@@ -137,10 +134,11 @@ func TestLoggerMiddleware_AllOptions(t *testing.T) {
 
 	handler := createTestHandler()
 
-	req := createTestRequestWithHeaders(http.MethodGet, "/test?param=value", map[string]string{
-		"Authorization": "Bearer token123",
-		"X-API-Key":     "secret-key",
-	})
+	req := createTestRequestWithHeaders(
+		http.MethodGet, "/test?param=value", map[string]string{
+			"Authorization": "Bearer token123",
+			"X-API-Key":     "secret-key",
+		})
 	w := httptest.NewRecorder()
 
 	middleware(handler).ServeHTTP(w, req)

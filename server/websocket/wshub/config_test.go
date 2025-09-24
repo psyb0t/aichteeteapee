@@ -1,4 +1,4 @@
-package websocket
+package wshub
 
 import (
 	"testing"
@@ -74,6 +74,7 @@ func TestClientConfigOptions(t *testing.T) {
 			name:   "WithSendBufferSize",
 			option: WithSendBufferSize(512),
 			validateFunc: func(t *testing.T, original, modified ClientConfig) {
+				t.Helper()
 				assert.Equal(t, 512, modified.SendBufferSize)
 				assert.NotEqual(t, original.SendBufferSize, modified.SendBufferSize)
 			},
@@ -82,6 +83,7 @@ func TestClientConfigOptions(t *testing.T) {
 			name:   "WithReadBufferSize",
 			option: WithReadBufferSize(2048),
 			validateFunc: func(t *testing.T, original, modified ClientConfig) {
+				t.Helper()
 				assert.Equal(t, 2048, modified.ReadBufferSize)
 				assert.NotEqual(t, original.ReadBufferSize, modified.ReadBufferSize)
 			},
@@ -90,6 +92,7 @@ func TestClientConfigOptions(t *testing.T) {
 			name:   "WithWriteBufferSize",
 			option: WithWriteBufferSize(4096),
 			validateFunc: func(t *testing.T, original, modified ClientConfig) {
+				t.Helper()
 				assert.Equal(t, 4096, modified.WriteBufferSize)
 				assert.NotEqual(t, original.WriteBufferSize, modified.WriteBufferSize)
 			},
@@ -98,6 +101,7 @@ func TestClientConfigOptions(t *testing.T) {
 			name:   "WithReadLimit",
 			option: WithReadLimit(1024),
 			validateFunc: func(t *testing.T, original, modified ClientConfig) {
+				t.Helper()
 				assert.Equal(t, int64(1024), modified.ReadLimit)
 				assert.NotEqual(t, original.ReadLimit, modified.ReadLimit)
 			},
@@ -106,6 +110,7 @@ func TestClientConfigOptions(t *testing.T) {
 			name:   "WithReadTimeout",
 			option: WithReadTimeout(30 * time.Second),
 			validateFunc: func(t *testing.T, original, modified ClientConfig) {
+				t.Helper()
 				assert.Equal(t, 30*time.Second, modified.ReadTimeout)
 				assert.NotEqual(t, original.ReadTimeout, modified.ReadTimeout)
 			},
@@ -114,6 +119,7 @@ func TestClientConfigOptions(t *testing.T) {
 			name:   "WithWriteTimeout",
 			option: WithWriteTimeout(5 * time.Second),
 			validateFunc: func(t *testing.T, original, modified ClientConfig) {
+				t.Helper()
 				assert.Equal(t, 5*time.Second, modified.WriteTimeout)
 				assert.NotEqual(t, original.WriteTimeout, modified.WriteTimeout)
 			},
@@ -122,6 +128,7 @@ func TestClientConfigOptions(t *testing.T) {
 			name:   "WithPingInterval",
 			option: WithPingInterval(30 * time.Second),
 			validateFunc: func(t *testing.T, original, modified ClientConfig) {
+				t.Helper()
 				assert.Equal(t, 30*time.Second, modified.PingInterval)
 				assert.NotEqual(t, original.PingInterval, modified.PingInterval)
 			},
@@ -130,6 +137,7 @@ func TestClientConfigOptions(t *testing.T) {
 			name:   "WithPongTimeout",
 			option: WithPongTimeout(30 * time.Second),
 			validateFunc: func(t *testing.T, original, modified ClientConfig) {
+				t.Helper()
 				assert.Equal(t, 30*time.Second, modified.PongTimeout)
 				assert.NotEqual(t, original.PongTimeout, modified.PongTimeout)
 			},

@@ -1,4 +1,4 @@
-package websocket
+package wshub
 
 import (
 	"context"
@@ -25,18 +25,23 @@ func TestSingleClient(t *testing.T) {
 
 	// Create handler and server
 	handler := UpgradeHandler(hub)
+
 	server := httptest.NewServer(handler)
 	defer server.Close()
 
 	// Convert HTTP URL to WebSocket URL
 	u, err := url.Parse(server.URL)
 	require.NoError(t, err)
+
 	u.Scheme = "ws"
 
 	// Connect WebSocket client
-	conn, _, err := websocket.DefaultDialer.Dial(u.String(), nil)
+	conn, resp, err := websocket.DefaultDialer.Dial(u.String(), nil)
 	require.NoError(t, err)
-	defer conn.Close()
+
+	defer func() { _ = resp.Body.Close() }()
+
+	defer func() { _ = conn.Close() }()
 
 	// Wait for client to be added to hub
 	var clients map[uuid.UUID]*Client
@@ -45,15 +50,19 @@ func TestSingleClient(t *testing.T) {
 		if len(clients) == 1 {
 			break
 		}
+
 		time.Sleep(50 * time.Millisecond)
 	}
+
 	require.Len(t, clients, 1, "Client should be connected to hub")
 
 	var client *Client
 	for _, c := range clients {
 		client = c
+
 		break
 	}
+
 	require.NotNil(t, client)
 
 	// Send message from client
@@ -72,12 +81,16 @@ func TestSingleClient(t *testing.T) {
 
 	// Read response from client
 	var receivedMessage map[string]any
+
 	err = conn.ReadJSON(&receivedMessage)
 	assert.NoError(t, err)
 	assert.Equal(t, "response", receivedMessage["type"])
 
 	// Graceful disconnect
-	err = conn.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""))
+	err = conn.WriteMessage(
+		websocket.CloseMessage,
+		websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""),
+	)
 	assert.NoError(t, err)
 
 	// Give time for cleanup
@@ -95,33 +108,45 @@ func TestMultiClientBroadcast(t *testing.T) {
 
 	// Create handler and server
 	handler := UpgradeHandler(hub)
+
 	server := httptest.NewServer(handler)
 	defer server.Close()
 
 	// Convert HTTP URL to WebSocket URL
 	u, err := url.Parse(server.URL)
 	require.NoError(t, err)
+
 	u.Scheme = "ws"
 
 	// Connect multiple clients
 	const numClients = 3
-	var conns []*websocket.Conn
-	var connMutex sync.Mutex
+
+	var (
+		conns     = make([]*websocket.Conn, 0, numClients)
+		connMutex sync.Mutex
+	)
 
 	for range numClients {
-		conn, _, err := websocket.DefaultDialer.Dial(u.String(), nil)
+		conn, resp, err := websocket.DefaultDialer.Dial(u.String(), nil)
 		require.NoError(t, err)
+
+		defer func() { _ = resp.Body.Close() }()
+
 		connMutex.Lock()
+
 		conns = append(conns, conn)
+
 		connMutex.Unlock()
 	}
 
 	// Clean up connections
 	defer func() {
 		connMutex.Lock()
+
 		for _, conn := range conns {
-			conn.Close()
+			_ = conn.Close()
 		}
+
 		connMutex.Unlock()
 	}()
 
@@ -132,8 +157,10 @@ func TestMultiClientBroadcast(t *testing.T) {
 		if len(clients) == numClients {
 			break
 		}
+
 		time.Sleep(50 * time.Millisecond)
 	}
+
 	require.Len(t, clients, numClients, "All clients should be connected")
 
 	// Broadcast message from hub
@@ -152,6 +179,7 @@ func TestMultiClientBroadcast(t *testing.T) {
 			defer wg.Done()
 
 			var receivedMessage map[string]any
+
 			err := c.ReadJSON(&receivedMessage)
 			assert.NoError(t, err, "Client %d should receive message", clientIndex)
 
@@ -166,6 +194,7 @@ func TestMultiClientBroadcast(t *testing.T) {
 
 	// Wait for all clients to receive message
 	done := make(chan struct{})
+
 	go func() {
 		wg.Wait()
 		close(done)
@@ -182,13 +211,14 @@ func TestMultiClientBroadcast(t *testing.T) {
 	connMutex.Lock()
 	// Close middle client first
 	if len(conns) > 1 {
-		conns[1].Close()
+		_ = conns[1].Close()
 		conns = append(conns[:1], conns[2:]...)
 	}
 	// Close remaining clients
 	for _, conn := range conns {
-		conn.Close()
+		_ = conn.Close()
 	}
+
 	connMutex.Unlock()
 
 	// Give time for cleanup
@@ -196,7 +226,10 @@ func TestMultiClientBroadcast(t *testing.T) {
 
 	// Verify all clients are removed from hub after disconnect
 	clients = hub.GetAllClients()
-	assert.Len(t, clients, 0, "All clients should be removed from hub after disconnect")
+	assert.Len(
+		t, clients, 0,
+		"All clients should be removed from hub after disconnect",
+	)
 }
 
 func TestMultiDeviceUser(t *testing.T) {
@@ -206,54 +239,72 @@ func TestMultiDeviceUser(t *testing.T) {
 
 	// Create handler and server
 	handler := UpgradeHandler(hub)
+
 	server := httptest.NewServer(handler)
 	defer server.Close()
 
 	// Convert HTTP URL to WebSocket URL
 	u, err := url.Parse(server.URL)
 	require.NoError(t, err)
+
 	u.Scheme = "ws"
 
 	// Same user connects from multiple devices with same clientID
 	userID := uuid.New()
+
 	const numDevices = 3
-	var conns []*websocket.Conn
+
+	conns := make([]*websocket.Conn, 0, numDevices)
 
 	for range numDevices {
 		deviceURL := *u
 		deviceURL.RawQuery = "clientID=" + userID.String()
 
-		conn, _, err := websocket.DefaultDialer.Dial(deviceURL.String(), nil)
+		conn, resp, err := websocket.DefaultDialer.Dial(deviceURL.String(), nil)
 		require.NoError(t, err)
+
+		defer func() { _ = resp.Body.Close() }()
+
 		conns = append(conns, conn)
 	}
 
 	// Clean up connections
 	defer func() {
 		for _, conn := range conns {
-			conn.Close()
+			_ = conn.Close()
 		}
 	}()
 
-	// Wait for client to be connected (should be 1 client with multiple connections)
-	var clients map[uuid.UUID]*Client
-	var targetClient *Client
+	// Wait for client to be connected
+	// (should be 1 client with multiple connections)
+	var (
+		clients      map[uuid.UUID]*Client
+		targetClient *Client
+	)
+
 	for range 20 {
 		clients = hub.GetAllClients()
 		if len(clients) == 1 {
 			for _, client := range clients {
 				targetClient = client
+
 				break
 			}
+
 			if targetClient != nil && len(targetClient.GetConnections()) == numDevices {
 				break
 			}
 		}
+
 		time.Sleep(50 * time.Millisecond)
 	}
+
 	require.Len(t, clients, 1, "Should have 1 client")
 	require.NotNil(t, targetClient)
-	assert.Len(t, targetClient.GetConnections(), numDevices, "Client should have multiple connections")
+	assert.Len(
+		t, targetClient.GetConnections(), numDevices,
+		"Client should have multiple connections",
+	)
 	assert.Equal(t, userID, targetClient.ID())
 
 	// Send message to user - should reach all devices
@@ -272,6 +323,7 @@ func TestMultiDeviceUser(t *testing.T) {
 			defer wg.Done()
 
 			var receivedMessage map[string]any
+
 			err := c.ReadJSON(&receivedMessage)
 			assert.NoError(t, err, "Device %d should receive message", deviceIndex)
 
@@ -283,6 +335,7 @@ func TestMultiDeviceUser(t *testing.T) {
 
 	// Wait for all devices to receive message
 	done := make(chan struct{})
+
 	go func() {
 		wg.Wait()
 		close(done)
@@ -296,7 +349,7 @@ func TestMultiDeviceUser(t *testing.T) {
 	}
 
 	// Disconnect one device
-	conns[0].Close()
+	_ = conns[0].Close()
 	conns = conns[1:]
 
 	// Give time for cleanup
@@ -305,13 +358,17 @@ func TestMultiDeviceUser(t *testing.T) {
 	// Verify client still exists with remaining connections
 	clients = hub.GetAllClients()
 	require.Len(t, clients, 1, "Client should still exist")
+
 	for _, client := range clients {
-		assert.Len(t, client.GetConnections(), numDevices-1, "Client should have one less connection")
+		assert.Len(
+			t, client.GetConnections(), numDevices-1,
+			"Client should have one less connection",
+		)
 	}
 
 	// Disconnect remaining devices
 	for _, conn := range conns {
-		conn.Close()
+		_ = conn.Close()
 	}
 
 	// Give time for cleanup
@@ -319,7 +376,10 @@ func TestMultiDeviceUser(t *testing.T) {
 
 	// Verify client is removed from hub when all devices disconnect
 	clients = hub.GetAllClients()
-	assert.Len(t, clients, 0, "Client should be removed from hub when all devices disconnect")
+	assert.Len(
+		t, clients, 0,
+		"Client should be removed from hub when all devices disconnect",
+	)
 }
 
 func TestHubLifecycle(t *testing.T) {
@@ -335,21 +395,27 @@ func TestHubLifecycle(t *testing.T) {
 
 	// Create handler and server
 	handler := UpgradeHandler(hub)
+
 	server := httptest.NewServer(handler)
 	defer server.Close()
 
 	// Convert HTTP URL to WebSocket URL
 	u, err := url.Parse(server.URL)
 	require.NoError(t, err)
+
 	u.Scheme = "ws"
 
 	// Connect multiple clients
 	const numClients = 5
-	var conns []*websocket.Conn
+
+	conns := make([]*websocket.Conn, 0, numClients)
 
 	for range numClients {
-		conn, _, err := websocket.DefaultDialer.Dial(u.String(), nil)
+		conn, resp, err := websocket.DefaultDialer.Dial(u.String(), nil)
 		require.NoError(t, err)
+
+		defer func() { _ = resp.Body.Close() }()
+
 		conns = append(conns, conn)
 	}
 
@@ -360,8 +426,10 @@ func TestHubLifecycle(t *testing.T) {
 		if len(clients) == numClients {
 			break
 		}
+
 		time.Sleep(50 * time.Millisecond)
 	}
+
 	require.Len(t, clients, numClients, "All clients should be connected")
 
 	// Cancel context to trigger cleanup
@@ -379,7 +447,7 @@ func TestHubLifecycle(t *testing.T) {
 
 	// Clean up connections
 	for _, conn := range conns {
-		conn.Close()
+		_ = conn.Close()
 	}
 }
 
@@ -389,52 +457,72 @@ func TestEventHandlers(t *testing.T) {
 	defer hub.Close()
 
 	// Register custom event handlers
-	var handledEvents []string
-	var handlerMutex sync.Mutex
+	var (
+		handledEvents []string
+		handlerMutex  sync.Mutex
+	)
 
-	hub.RegisterEventHandler("custom", func(hub Hub, client *Client, event *Event) error {
+	hub.RegisterEventHandler("custom", func(hub Hub, _ *Client, _ *Event) error {
 		handlerMutex.Lock()
+
 		handledEvents = append(handledEvents, "custom:"+hub.Name())
+
 		handlerMutex.Unlock()
+
 		return nil
 	})
 
-	hub.RegisterEventHandler("error", func(hub Hub, client *Client, event *Event) error {
+	hub.RegisterEventHandler("error", func(hub Hub, _ *Client, _ *Event) error {
 		handlerMutex.Lock()
+
 		handledEvents = append(handledEvents, "error:"+hub.Name())
+
 		handlerMutex.Unlock()
+
 		return nil
 	})
 
 	// Create handler and server
 	handler := UpgradeHandler(hub)
+
 	server := httptest.NewServer(handler)
 	defer server.Close()
 
 	// Convert HTTP URL to WebSocket URL
 	u, err := url.Parse(server.URL)
 	require.NoError(t, err)
+
 	u.Scheme = "ws"
 
 	// Connect client
-	conn, _, err := websocket.DefaultDialer.Dial(u.String(), nil)
+	conn, resp, err := websocket.DefaultDialer.Dial(u.String(), nil)
 	require.NoError(t, err)
-	defer conn.Close()
+
+	defer func() { _ = resp.Body.Close() }()
+
+	defer func() { _ = conn.Close() }()
 
 	// Wait for client to connect
-	var clients map[uuid.UUID]*Client
-	var targetClient *Client
+	var (
+		clients      map[uuid.UUID]*Client
+		targetClient *Client
+	)
+
 	for range 20 {
 		clients = hub.GetAllClients()
 		if len(clients) == 1 {
 			for _, client := range clients {
 				targetClient = client
+
 				break
 			}
+
 			break
 		}
+
 		time.Sleep(50 * time.Millisecond)
 	}
+
 	require.NotNil(t, targetClient)
 
 	// Send events of various types
@@ -462,6 +550,7 @@ func TestErrorHandling(t *testing.T) {
 
 	// Create handler and server
 	handler := UpgradeHandler(hub)
+
 	server := httptest.NewServer(handler)
 	defer server.Close()
 
@@ -469,11 +558,14 @@ func TestErrorHandling(t *testing.T) {
 		// Convert HTTP URL to WebSocket URL
 		u, err := url.Parse(server.URL)
 		require.NoError(t, err)
+
 		u.Scheme = "ws"
 
 		// Connect client
-		conn, _, err := websocket.DefaultDialer.Dial(u.String(), nil)
+		conn, resp, err := websocket.DefaultDialer.Dial(u.String(), nil)
 		require.NoError(t, err)
+
+		defer func() { _ = resp.Body.Close() }()
 
 		// Wait for client to connect
 		var clients map[uuid.UUID]*Client
@@ -482,19 +574,24 @@ func TestErrorHandling(t *testing.T) {
 			if len(clients) == 1 {
 				break
 			}
+
 			time.Sleep(50 * time.Millisecond)
 		}
+
 		require.Len(t, clients, 1)
 
 		// Abruptly close connection to simulate network failure
-		conn.Close()
+		_ = conn.Close()
 
 		// Give time for cleanup
 		time.Sleep(200 * time.Millisecond)
 
 		// Verify client is removed from hub after network failure
 		clients = hub.GetAllClients()
-		assert.Len(t, clients, 0, "Client should be removed from hub after network failure")
+		assert.Len(
+			t, clients, 0,
+			"Client should be removed from hub after network failure",
+		)
 	})
 
 	t.Run("Buffer Overflow", func(t *testing.T) {
@@ -533,6 +630,7 @@ func TestErrorHandling(t *testing.T) {
 func TestLoggingIntegration(t *testing.T) {
 	// Set up logrus test hook to capture log entries
 	originalLevel := logrus.GetLevel()
+
 	logrus.SetLevel(logrus.DebugLevel)
 	defer logrus.SetLevel(originalLevel)
 
@@ -545,32 +643,43 @@ func TestLoggingIntegration(t *testing.T) {
 
 	// Create handler and server
 	handler := UpgradeHandler(hub)
+
 	server := httptest.NewServer(handler)
 	defer server.Close()
 
 	// Convert HTTP URL to WebSocket URL
 	u, err := url.Parse(server.URL)
 	require.NoError(t, err)
+
 	u.Scheme = "ws"
 
 	// Connect WebSocket client
-	conn, _, err := websocket.DefaultDialer.Dial(u.String(), nil)
+	conn, resp, err := websocket.DefaultDialer.Dial(u.String(), nil)
 	require.NoError(t, err)
 
+	defer func() { _ = resp.Body.Close() }()
+
 	// Wait for client to connect and generate logs
-	var clients map[uuid.UUID]*Client
-	var targetClient *Client
+	var (
+		clients      map[uuid.UUID]*Client
+		targetClient *Client
+	)
+
 	for range 20 {
 		clients = hub.GetAllClients()
 		if len(clients) == 1 {
 			for _, client := range clients {
 				targetClient = client
+
 				break
 			}
+
 			break
 		}
+
 		time.Sleep(50 * time.Millisecond)
 	}
+
 	require.NotNil(t, targetClient)
 
 	// Send an event to generate more logs
@@ -578,10 +687,13 @@ func TestLoggingIntegration(t *testing.T) {
 	targetClient.SendEvent(testEvent)
 
 	// Close connection gracefully to generate cleanup logs
-	err = conn.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""))
+	err = conn.WriteMessage(
+		websocket.CloseMessage,
+		websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""),
+	)
 	if err != nil {
 		// If graceful close fails, force close
-		conn.Close()
+		_ = conn.Close()
 	}
 
 	// Give time for all logs to be generated
@@ -593,69 +705,100 @@ func TestLoggingIntegration(t *testing.T) {
 
 	// Check for hub creation logs
 	var hubCreationFound bool
+
 	for _, entry := range entries {
 		if entry.Message == "creating new hub" {
 			hubCreationFound = true
+
 			assert.Equal(t, logrus.InfoLevel, entry.Level)
-			assert.Equal(t, "logging-integration-test", entry.Data[aichteeteapee.FieldHubName])
+			assert.Equal(
+				t, "logging-integration-test",
+				entry.Data[aichteeteapee.FieldHubName],
+			)
+
 			break
 		}
 	}
+
 	assert.True(t, hubCreationFound, "Should have hub creation log")
 
 	// Check for client creation logs
 	var clientCreationFound bool
+
 	for _, entry := range entries {
 		if entry.Message == "created new client" {
 			clientCreationFound = true
+
 			assert.Equal(t, logrus.DebugLevel, entry.Level)
 			assert.Contains(t, entry.Data, aichteeteapee.FieldClientID)
+
 			break
 		}
 	}
+
 	assert.True(t, clientCreationFound, "Should have client creation log")
 
 	// Check for WebSocket connection established logs
 	var connectionEstablishedFound bool
+
 	for _, entry := range entries {
 		if entry.Message == "websocket connection established" {
 			connectionEstablishedFound = true
+
 			assert.Equal(t, logrus.InfoLevel, entry.Level)
 			assert.Contains(t, entry.Data, aichteeteapee.FieldRemoteAddr)
+
 			break
 		}
 	}
-	assert.True(t, connectionEstablishedFound, "Should have connection established log")
+
+	assert.True(
+		t, connectionEstablishedFound,
+		"Should have connection established log",
+	)
 
 	// Check for connection closed logs
 	var connectionClosedFound bool
+
 	for _, entry := range entries {
 		if entry.Message == "websocket connection closed" {
 			connectionClosedFound = true
+
 			assert.Equal(t, logrus.InfoLevel, entry.Level)
 			assert.Contains(t, entry.Data, aichteeteapee.FieldClientID)
 			assert.Contains(t, entry.Data, aichteeteapee.FieldConnectionID)
+
 			break
 		}
 	}
+
 	assert.True(t, connectionClosedFound, "Should have connection closed log")
 
 	// Verify minimal error logs (allow for expected connection cleanup errors)
-	var errorCount int
-	var expectedErrors []string
+	var (
+		errorCount     int
+		expectedErrors []string
+	)
+
 	for _, entry := range entries {
 		if entry.Level == logrus.ErrorLevel {
 			errorCount++
 			// Check if it's an expected connection cleanup error
-			if strings.Contains(entry.Message, "connection read error") || 
-			   strings.Contains(entry.Message, "connection write error") {
+			if strings.Contains(entry.Message, "connection read error") ||
+				strings.Contains(entry.Message, "connection write error") {
 				expectedErrors = append(expectedErrors, "connection cleanup")
 			}
 		}
 	}
 	// Allow up to 1 connection cleanup error, but no other errors
-	assert.LessOrEqual(t, errorCount, 1, "Should have at most 1 connection cleanup error")
+	assert.LessOrEqual(
+		t, errorCount, 1, "Should have at most 1 connection cleanup error",
+	)
+
 	if errorCount > 0 {
-		assert.Len(t, expectedErrors, errorCount, "All errors should be expected connection cleanup errors")
+		assert.Len(
+			t, expectedErrors, errorCount,
+			"All errors should be expected connection cleanup errors",
+		)
 	}
 }

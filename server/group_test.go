@@ -219,7 +219,7 @@ func TestGroup_HTTPMethods(t *testing.T) {
 	logger := logrus.StandardLogger()
 	group := NewGroup(mux, "/api", logger)
 
-	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	handler := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	})
 

@@ -1,4 +1,4 @@
-package websocket
+package wshub
 
 import (
 	"encoding/json"
@@ -43,15 +43,16 @@ func TestEventMetadataMap_Copy(t *testing.T) {
 	original.Set("key1", "value1")
 	original.Set("key2", 42)
 
-	copy := original.Copy()
+	copied := original.Copy()
 
 	// Verify copy has same data
-	assert.Equal(t, original.GetAll(), copy.GetAll())
+	assert.Equal(t, original.GetAll(), copied.GetAll())
 
 	// Verify they're independent
-	copy.Set("key3", "new value")
+	copied.Set("key3", "new value")
+
 	originalData := original.GetAll()
-	copyData := copy.GetAll()
+	copyData := copied.GetAll()
 
 	assert.Len(t, originalData, 2)
 	assert.Len(t, copyData, 3)
@@ -73,6 +74,7 @@ func TestEventMetadataMap_JSON(t *testing.T) {
 
 	// Unmarshal back
 	var unmarshaled EventMetadataMap
+
 	err = json.Unmarshal(jsonData, &unmarshaled)
 	require.NoError(t, err)
 
@@ -84,15 +86,18 @@ func TestEventMetadataMap_JSON(t *testing.T) {
 	assert.Len(t, unmarshaledData, 3)
 }
 
-func TestEventMetadataMap_Concurrency(t *testing.T) {
+func TestEventMetadataMap_Concurrency(_ *testing.T) {
 	emm := newEventMetadataMap()
+
 	var wg sync.WaitGroup
 
 	// Concurrent writes
 	for i := range 100 {
 		wg.Add(1)
+
 		go func(val int) {
 			defer wg.Done()
+
 			emm.Set("key", val)
 		}(i)
 	}
@@ -100,8 +105,10 @@ func TestEventMetadataMap_Concurrency(t *testing.T) {
 	// Concurrent reads
 	for range 100 {
 		wg.Add(1)
+
 		go func() {
 			defer wg.Done()
+
 			emm.Get("key")
 			emm.GetAll()
 		}()
@@ -113,11 +120,11 @@ func TestEventMetadataMap_Concurrency(t *testing.T) {
 
 func TestEventMetadataMap_UnmarshalError(t *testing.T) {
 	emm := newEventMetadataMap()
-	
+
 	// Try to unmarshal invalid JSON
 	invalidJSON := []byte("{invalid json")
 	err := emm.UnmarshalJSON(invalidJSON)
-	
+
 	// Should return an error
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to unmarshal metadata")

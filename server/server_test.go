@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net"
 	"net/http"
@@ -15,10 +16,15 @@ import (
 
 	"github.com/psyb0t/aichteeteapee"
 	"github.com/psyb0t/aichteeteapee/server/middleware"
+	"github.com/psyb0t/ctxerrors"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+const testStaticPath = "/static/"
+
+var errTestPanic = errors.New("test panic")
 
 func TestNew(t *testing.T) {
 	tests := []struct {
@@ -42,6 +48,7 @@ func TestNew(t *testing.T) {
 			if tt.wantErr {
 				assert.Error(t, err)
 				assert.Nil(t, server)
+
 				return
 			}
 
@@ -140,13 +147,13 @@ func TestServer_StaticFiles(t *testing.T) {
 		{
 			name:       "static files configured",
 			staticDir:  "./testdata",
-			staticPath: "/static/",
+			staticPath: testStaticPath,
 			wantSetup:  true,
 		},
 		{
 			name:       "no static dir",
 			staticDir:  "",
-			staticPath: "/static/",
+			staticPath: testStaticPath,
 			wantSetup:  false,
 		},
 		{
@@ -162,66 +169,81 @@ func TestServer_StaticFiles(t *testing.T) {
 			server, err := New()
 			require.NoError(t, err)
 
-			// We can't easily test if static files are set up without making HTTP requests
+			// We can't easily test if static files are set up without
+			// making HTTP requests
 			// This test mainly ensures no errors during setup
 			assert.NotNil(t, server)
 		})
 	}
 }
 
-// Test to prove static file DoS vector by checking os.Stat calls
+// Test to prove static file DoS vector by checking os.Stat calls.
 func TestServer_StaticFileDoSVector(t *testing.T) {
-	t.Run("static file handler calls os.Stat on every fucking request", func(t *testing.T) {
-		server, err := New()
-		require.NoError(t, err)
+	t.Run(
+		"static file handler calls os.Stat on every fucking request",
+		func(t *testing.T) {
+			server, err := New()
+			require.NoError(t, err)
 
-		// Set up router static configuration for the handler to work
-		staticDir := "/tmp"
-		staticPath := "/static/"
+			// Set up router static configuration for the handler to work
+			staticDir := "/tmp"
+			staticPath := testStaticPath
 
-		handler := server.createSecureStaticHandler(StaticRouteConfig{Dir: staticDir, Path: staticPath})
+			handler := server.createSecureStaticHandler(
+				StaticRouteConfig{Dir: staticDir, Path: staticPath},
+			)
 
-		// Make a bunch of requests to different non-existent files
-		// Each one will trigger os.Stat() call which is filesystem I/O
-		fileNames := []string{
-			"/static/non-existent-1.txt",
-			"/static/non-existent-2.js",
-			"/static/non-existent-3.css",
-			"/static/non-existent-4.png",
-			"/static/non-existent-5.html",
-			"/static/deeply/nested/non-existent.file",
-			"/static/another/deep/path/file.txt",
-			"/static/yet/another/path/file.js",
-		}
+			// Make a bunch of requests to different non-existent files
+			// Each one will trigger os.Stat() call which is filesystem I/O
+			fileNames := []string{
+				"/static/non-existent-1.txt",
+				"/static/non-existent-2.js",
+				"/static/non-existent-3.css",
+				"/static/non-existent-4.png",
+				"/static/non-existent-5.html",
+				"/static/deeply/nested/non-existent.file",
+				"/static/another/deep/path/file.txt",
+				"/static/yet/another/path/file.js",
+			}
 
-		for _, fileName := range fileNames {
-			req := httptest.NewRequest(http.MethodGet, fileName, nil)
-			w := httptest.NewRecorder()
+			for _, fileName := range fileNames {
+				req := httptest.NewRequest(http.MethodGet, fileName, nil)
+				w := httptest.NewRecorder()
 
-			handler.ServeHTTP(w, req)
+				handler.ServeHTTP(w, req)
 
-			// Every single request returns 404, meaning os.Stat was called
-			// and the file wasn't found. This proves filesystem I/O happens
-			assert.Equal(t, http.StatusNotFound, w.Code, "File %s should trigger os.Stat and return 404", fileName)
-		}
+				// Every single request returns 404, meaning os.Stat was called
+				// and the file wasn't found. This proves filesystem I/O happens
+				assert.Equal(
+					t, http.StatusNotFound, w.Code,
+					"File %s should trigger os.Stat and return 404", fileName,
+				)
+			}
 
-		// This proves the DoS vector exists:
-		// - Each unique request calls os.Stat() once
-		// - With caching, repeated requests to same path don't call os.Stat()
-		// - But different paths still trigger filesystem I/O
-		t.Logf("All %d unique requests triggered filesystem I/O via os.Stat - DoS vector partially mitigated by caching", len(fileNames))
-		assert.True(t, true, "Static file handler has DoS vector mitigated by file caching")
-	})
+			// This proves the DoS vector exists:
+			// - Each unique request calls os.Stat() once
+			// - With caching, repeated requests to same path don't call os.Stat()
+			// - But different paths still trigger filesystem I/O
+			t.Logf("All %d unique requests triggered filesystem I/O via os.Stat - "+
+				"DoS vector partially mitigated by caching", len(fileNames))
+			assert.True(
+				t, true,
+				"Static file handler has DoS vector mitigated by file caching",
+			)
+		})
 }
 
-// Test file cache behavior including TTL, expiration, and file changes
+// Test file cache behavior including TTL, expiration, and file changes.
 func TestServer_FileCacheComprehensive(t *testing.T) {
 	t.Run("file cache TTL and expiration work correctly", func(t *testing.T) {
 		// Create temporary directory for dynamic cache testing
-		fixturesDir := filepath.Join(os.TempDir(), "cache-test-"+time.Now().Format("20060102-150405"))
-		err := os.MkdirAll(fixturesDir, 0o755)
+		fixturesDir := filepath.Join(
+			os.TempDir(), "cache-test-"+time.Now().Format("20060102-150405"),
+		)
+		err := os.MkdirAll(fixturesDir, 0o750)
 		require.NoError(t, err)
-		defer os.RemoveAll(fixturesDir)
+
+		defer func() { _ = os.RemoveAll(fixturesDir) }()
 
 		// Create a server with short cache TTL for testing
 		server, err := NewWithConfig(Config{
@@ -245,29 +267,40 @@ func TestServer_FileCacheComprehensive(t *testing.T) {
 		testPath := filepath.Join(fixturesDir, testFile)
 
 		// Get handler
-		handler := server.createSecureStaticHandler(StaticRouteConfig{Dir: fixturesDir, Path: "/"})
+		handler := server.createSecureStaticHandler(
+			StaticRouteConfig{Dir: fixturesDir, Path: "/"},
+		)
 
 		// First request - file doesn't exist (cache miss)
 		req1 := httptest.NewRequest(http.MethodGet, "/"+testFile, nil)
 		w1 := httptest.NewRecorder()
 		handler.ServeHTTP(w1, req1)
-		assert.Equal(t, http.StatusNotFound, w1.Code, "File should not exist initially")
+		assert.Equal(
+			t, http.StatusNotFound, w1.Code,
+			"File should not exist initially",
+		)
 
 		// Second request immediately - should hit cache and still return 404
 		req2 := httptest.NewRequest(http.MethodGet, "/"+testFile, nil)
 		w2 := httptest.NewRecorder()
 		handler.ServeHTTP(w2, req2)
-		assert.Equal(t, http.StatusNotFound, w2.Code, "Cache should return 404 for non-existent file")
+		assert.Equal(
+			t, http.StatusNotFound, w2.Code,
+			"Cache should return 404 for non-existent file",
+		)
 
 		// Create the file now
-		err = os.WriteFile(testPath, []byte("test content"), 0o644)
+		err = os.WriteFile(testPath, []byte("test content"), 0o600)
 		require.NoError(t, err)
 
 		// Third request immediately - cache still says file doesn't exist
 		req3 := httptest.NewRequest(http.MethodGet, "/"+testFile, nil)
 		w3 := httptest.NewRecorder()
 		handler.ServeHTTP(w3, req3)
-		assert.Equal(t, http.StatusNotFound, w3.Code, "Cache should still return 404 until TTL expires")
+		assert.Equal(
+			t, http.StatusNotFound, w3.Code,
+			"Cache should still return 404 until TTL expires",
+		)
 
 		// Wait for cache to expire (2+ seconds)
 		time.Sleep(3 * time.Second)
@@ -276,18 +309,25 @@ func TestServer_FileCacheComprehensive(t *testing.T) {
 		req4 := httptest.NewRequest(http.MethodGet, "/"+testFile, nil)
 		w4 := httptest.NewRecorder()
 		handler.ServeHTTP(w4, req4)
-		assert.Equal(t, http.StatusOK, w4.Code, "After cache expiry, should find the file")
+		assert.Equal(
+			t, http.StatusOK, w4.Code,
+			"After cache expiry, should find the file",
+		)
 		assert.Equal(t, "test content", w4.Body.String())
 
 		// Delete the file
 		err = os.Remove(testPath)
 		require.NoError(t, err)
 
-		// Fifth request immediately - cache says file exists but ServeFile will return 404
+		// Fifth request immediately - cache says file exists but
+		// ServeFile will return 404
 		req5 := httptest.NewRequest(http.MethodGet, "/"+testFile, nil)
 		w5 := httptest.NewRecorder()
 		handler.ServeHTTP(w5, req5)
-		assert.Equal(t, http.StatusNotFound, w5.Code, "ServeFile returns 404 even if cache says file exists")
+		assert.Equal(
+			t, http.StatusNotFound, w5.Code,
+			"ServeFile returns 404 even if cache says file exists",
+		)
 
 		// Wait for cache to expire again
 		time.Sleep(3 * time.Second)
@@ -296,16 +336,25 @@ func TestServer_FileCacheComprehensive(t *testing.T) {
 		req6 := httptest.NewRequest(http.MethodGet, "/"+testFile, nil)
 		w6 := httptest.NewRecorder()
 		handler.ServeHTTP(w6, req6)
-		assert.Equal(t, http.StatusNotFound, w6.Code, "After cache expiry, should return 404 for deleted file")
+		assert.Equal(
+			t, http.StatusNotFound, w6.Code,
+			"After cache expiry, should return 404 for deleted file",
+		)
 
-		t.Logf("File cache TTL behavior verified: caches for %v then expires correctly", server.fileCache.ttl)
+		t.Logf(
+			"File cache TTL behavior verified: caches for %v then expires correctly",
+			server.fileCache.ttl,
+		)
 	})
 
 	t.Run("file cache handles file to directory changes", func(t *testing.T) {
-		fixturesDir := filepath.Join(os.TempDir(), "cache-dir-test-"+time.Now().Format("20060102-150405"))
-		err := os.MkdirAll(fixturesDir, 0o755)
+		fixturesDir := filepath.Join(
+			os.TempDir(), "cache-dir-test-"+time.Now().Format("20060102-150405"),
+		)
+		err := os.MkdirAll(fixturesDir, 0o750)
 		require.NoError(t, err)
-		defer os.RemoveAll(fixturesDir)
+
+		defer func() { _ = os.RemoveAll(fixturesDir) }()
 
 		server, err := NewWithConfig(Config{
 			ListenAddress: "127.0.0.1:0",
@@ -321,12 +370,14 @@ func TestServer_FileCacheComprehensive(t *testing.T) {
 		server.router = router
 
 		server.fileCache.ttl = 2 * time.Second
-		handler := server.createSecureStaticHandler(StaticRouteConfig{Dir: fixturesDir, Path: "/"})
+		handler := server.createSecureStaticHandler(
+			StaticRouteConfig{Dir: fixturesDir, Path: "/"},
+		)
 
 		// Create a file
 		testName := "file-to-dir"
 		testPath := filepath.Join(fixturesDir, testName)
-		err = os.WriteFile(testPath, []byte("file content"), 0o644)
+		err = os.WriteFile(testPath, []byte("file content"), 0o600)
 		require.NoError(t, err)
 
 		// Request the file
@@ -338,15 +389,19 @@ func TestServer_FileCacheComprehensive(t *testing.T) {
 		// Remove file and create directory with same name
 		err = os.Remove(testPath)
 		require.NoError(t, err)
-		err = os.Mkdir(testPath, 0o755)
+		err = os.Mkdir(testPath, 0o750)
 		require.NoError(t, err)
 
-		// Request immediately - cache thinks it's still a file but ServeFile redirects to directory
+		// Request immediately - cache thinks it's still a file
+		// but ServeFile redirects to directory
 		req2 := httptest.NewRequest(http.MethodGet, "/"+testName, nil)
 		w2 := httptest.NewRecorder()
 		handler.ServeHTTP(w2, req2)
 		// ServeFile redirects when serving a directory path without trailing slash
-		assert.Equal(t, http.StatusMovedPermanently, w2.Code, "ServeFile redirects to directory path")
+		assert.Equal(
+			t, http.StatusMovedPermanently, w2.Code,
+			"ServeFile redirects to directory path",
+		)
 
 		// Wait for cache expiry
 		time.Sleep(3 * time.Second)
@@ -355,16 +410,25 @@ func TestServer_FileCacheComprehensive(t *testing.T) {
 		req3 := httptest.NewRequest(http.MethodGet, "/"+testName, nil)
 		w3 := httptest.NewRecorder()
 		handler.ServeHTTP(w3, req3)
-		assert.Equal(t, http.StatusForbidden, w3.Code, "Directory access should be forbidden")
+		assert.Equal(
+			t, http.StatusForbidden, w3.Code,
+			"Directory access should be forbidden",
+		)
 
-		t.Logf("File cache correctly handles file->directory transitions after TTL expiry")
+		t.Logf(
+			"File cache correctly handles file->directory " +
+				"transitions after TTL expiry",
+		)
 	})
 
 	t.Run("file cache max size eviction works", func(t *testing.T) {
-		fixturesDir := filepath.Join(os.TempDir(), "cache-evict-test-"+time.Now().Format("20060102-150405"))
-		err := os.MkdirAll(fixturesDir, 0o755)
+		fixturesDir := filepath.Join(
+			os.TempDir(), "cache-evict-test-"+time.Now().Format("20060102-150405"),
+		)
+		err := os.MkdirAll(fixturesDir, 0o750)
 		require.NoError(t, err)
-		defer os.RemoveAll(fixturesDir)
+
+		defer func() { _ = os.RemoveAll(fixturesDir) }()
 
 		server, err := NewWithConfig(Config{
 			ListenAddress: "127.0.0.1:0",
@@ -381,7 +445,9 @@ func TestServer_FileCacheComprehensive(t *testing.T) {
 
 		// Set very small cache size for testing
 		server.fileCache.maxSize = 3
-		handler := server.createSecureStaticHandler(StaticRouteConfig{Dir: fixturesDir, Path: "/"})
+		handler := server.createSecureStaticHandler(
+			StaticRouteConfig{Dir: fixturesDir, Path: "/"},
+		)
 
 		// Make requests to different non-existent files
 		files := []string{"file1.txt", "file2.txt", "file3.txt", "file4.txt"}
@@ -401,61 +467,74 @@ func TestServer_FileCacheComprehensive(t *testing.T) {
 			}
 		}
 
-		t.Logf("Cache eviction works - max size %d enforced", server.fileCache.maxSize)
+		t.Logf(
+			"Cache eviction works - max size %d enforced",
+			server.fileCache.maxSize,
+		)
 	})
 }
 
-// Test to prove server goroutine leak by checking actual goroutine behavior
+// Test to prove server goroutine leak by checking actual goroutine behavior.
 func TestServer_GoroutineLeak(t *testing.T) {
-	t.Run("server Start() creates goroutine that doesn't die on context cancel", func(t *testing.T) {
-		server, err := New()
-		require.NoError(t, err)
+	t.Run(
+		"server Start() creates goroutine that doesn't die on context cancel",
+		func(t *testing.T) {
+			server, err := New()
+			require.NoError(t, err)
 
-		// Start server context that we'll cancel
-		ctx, cancel := context.WithCancel(context.Background())
+			// Start server context that we'll cancel
+			ctx, cancel := context.WithCancel(context.Background())
 
-		// Channel to track if Start() returns
-		startReturnedCh := make(chan error, 1)
+			// Channel to track if Start() returns
+			startReturnedCh := make(chan error, 1)
 
-		// Start the server in a goroutine
-		go func() {
-			startReturnedCh <- server.Start(ctx, &Router{})
-		}()
+			// Start the server in a goroutine
+			go func() {
+				startReturnedCh <- server.Start(ctx, &Router{})
+			}()
 
-		// Give server time to actually start up
-		time.Sleep(20 * time.Millisecond)
+			// Give server time to actually start up
+			time.Sleep(20 * time.Millisecond)
 
-		// Cancel the context but DO NOT call Stop()
-		cancel()
+			// Cancel the context but DO NOT call Stop()
+			cancel()
 
-		// Wait to see if Start() returns due to context cancellation
-		select {
-		case err := <-startReturnedCh:
-			// If Start() returned, check what error we got
-			t.Logf("Start() returned with error: %v", err)
-			// If it's context.Canceled, that's expected behavior
-			if err == context.Canceled {
-				t.Log("Start() properly returned on context cancellation - no leak")
-			} else {
-				t.Log("Start() returned with unexpected error")
+			// Wait to see if Start() returns due to context cancellation
+			select {
+			case err := <-startReturnedCh:
+				// If Start() returned, check what error we got
+				t.Logf("Start() returned with error: %v", err)
+				// If it's context.Canceled, that's expected behavior
+				if errors.Is(err, context.Canceled) {
+					t.Log("Start() properly returned on context cancellation - no leak")
+				} else {
+					t.Log("Start() returned with unexpected error")
+				}
+			case <-time.After(100 * time.Millisecond):
+				// Start() didn't return within 100ms of context cancellation
+				// This proves the goroutine leak - Start() is still running
+				t.Log(
+					"Start() did not return after context cancellation" +
+						" - GOROUTINE LEAK CONFIRMED",
+				)
+
+				// The HTTP server goroutine is still running even though
+				// context was cancelled
+				// This is the leak - Start() should return when context is cancelled
+				assert.True(
+					t, true,
+					"Server.Start() goroutine leaked - doesn't respect context cancellation",
+				)
+
+				// Clean up to prevent actual leak in test
+				_ = server.Stop(context.Background())
+
+				return
 			}
-		case <-time.After(100 * time.Millisecond):
-			// Start() didn't return within 100ms of context cancellation
-			// This proves the goroutine leak - Start() is still running
-			t.Log("Start() did not return after context cancellation - GOROUTINE LEAK CONFIRMED")
 
-			// The HTTP server goroutine is still running even though context was cancelled
-			// This is the leak - Start() should return when context is cancelled
-			assert.True(t, true, "Server.Start() goroutine leaked - doesn't respect context cancellation")
-
-			// Clean up to prevent actual leak in test
-			server.Stop(context.Background())
-			return
-		}
-
-		// If we get here, Start() returned properly
-		assert.True(t, true, "No goroutine leak detected")
-	})
+			// If we get here, Start() returned properly
+			assert.True(t, true, "No goroutine leak detected")
+		})
 }
 
 func TestServer_Stop(t *testing.T) {
@@ -468,8 +547,10 @@ func TestServer_Stop(t *testing.T) {
 		{
 			name: "basic idempotent stop",
 			setupServer: func(t *testing.T) *Server {
+				t.Helper()
 				server, err := New()
 				require.NoError(t, err)
+
 				return server
 			},
 			setupMocks:  func(*Server) {},
@@ -478,25 +559,32 @@ func TestServer_Stop(t *testing.T) {
 		{
 			name: "stop with timeout context",
 			setupServer: func(t *testing.T) *Server {
+				t.Helper()
 				server, err := New()
 				require.NoError(t, err)
+
 				return server
 			},
 			setupMocks: func(server *Server) {
-				server.httpServer = &http.Server{Handler: server.mux}
+				server.httpServer = &http.Server{
+					Handler:           server.mux,
+					ReadHeaderTimeout: 10 * time.Second,
+				}
 			},
 			expectError: false,
 		},
 		{
 			name: "stop with TLS server",
 			setupServer: func(t *testing.T) *Server {
+				t.Helper()
 				server, err := New()
 				require.NoError(t, err)
+
 				return server
 			},
 			setupMocks: func(server *Server) {
-				server.httpServer = &http.Server{}
-				server.httpsServer = &http.Server{}
+				server.httpServer = &http.Server{ReadHeaderTimeout: 10 * time.Second}
+				server.httpsServer = &http.Server{ReadHeaderTimeout: 10 * time.Second}
 				server.config.TLSEnabled = true
 			},
 			expectError: false,
@@ -507,7 +595,7 @@ func TestServer_Stop(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			server := tt.setupServer(t)
 			tt.setupMocks(server)
-			
+
 			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 			defer cancel()
 
@@ -531,8 +619,9 @@ func TestServer_Stop(t *testing.T) {
 // RACE CONDITION TESTS (merged from server_race_test.go)
 // ============================================================================
 
-// TestServer_ConcurrentRootGroupAccess tests concurrent access to GetRootGroup()
-// which uses sync.Once and could potentially have race conditions
+// TestServer_ConcurrentRootGroupAccess tests concurrent access to
+// GetRootGroup()
+// which uses sync.Once and could potentially have race conditions.
 func TestServer_ConcurrentRootGroupAccess(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping race condition test in short mode")
@@ -543,14 +632,18 @@ func TestServer_ConcurrentRootGroupAccess(t *testing.T) {
 	require.NoError(t, err)
 
 	const numGoroutines = 50
+
 	var wg sync.WaitGroup
+
 	results := make([]*Group, numGoroutines)
 
 	// Launch multiple goroutines trying to get root group concurrently
 	for i := range numGoroutines {
 		wg.Add(1)
+
 		go func(index int) {
 			defer wg.Done()
+
 			results[index] = server.GetRootGroup()
 		}(i)
 	}
@@ -562,11 +655,14 @@ func TestServer_ConcurrentRootGroupAccess(t *testing.T) {
 	require.NotNil(t, firstGroup)
 
 	for i := 1; i < numGoroutines; i++ {
-		assert.Same(t, firstGroup, results[i], "All GetRootGroup() calls should return the same instance")
+		assert.Same(
+			t, firstGroup, results[i],
+			"All GetRootGroup() calls should return the same instance",
+		)
 	}
 }
 
-// TestServer_ConcurrentStopCalls tests multiple concurrent Stop() calls
+// TestServer_ConcurrentStopCalls tests multiple concurrent Stop() calls.
 func TestServer_ConcurrentStopCalls(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping race condition test in short mode")
@@ -577,7 +673,9 @@ func TestServer_ConcurrentStopCalls(t *testing.T) {
 	require.NoError(t, err)
 
 	const numStoppers = 20
+
 	var wg sync.WaitGroup
+
 	results := make([]error, numStoppers)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -586,8 +684,10 @@ func TestServer_ConcurrentStopCalls(t *testing.T) {
 	// Launch multiple goroutines trying to stop the server concurrently
 	for i := range numStoppers {
 		wg.Add(1)
+
 		go func(index int) {
 			defer wg.Done()
+
 			results[index] = server.Stop(ctx)
 		}(i)
 	}
@@ -601,7 +701,7 @@ func TestServer_ConcurrentStopCalls(t *testing.T) {
 	}
 }
 
-// TestServer_ConcurrentMiddlewareAccess tests concurrent access to middleware
+// TestServer_ConcurrentMiddlewareAccess tests concurrent access to middleware.
 func TestServer_ConcurrentMiddlewareAccess(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping race condition test in short mode")
@@ -611,11 +711,13 @@ func TestServer_ConcurrentMiddlewareAccess(t *testing.T) {
 	require.NoError(t, err)
 
 	const numRequests = 100
+
 	var wg sync.WaitGroup
+
 	results := make([]int, numRequests)
 
 	// Handler that just returns 200
-	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	handler := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	})
 
@@ -626,6 +728,7 @@ func TestServer_ConcurrentMiddlewareAccess(t *testing.T) {
 	// Launch multiple concurrent requests to test middleware race conditions
 	for i := range numRequests {
 		wg.Add(1)
+
 		go func(index int) {
 			defer wg.Done()
 
@@ -642,7 +745,7 @@ func TestServer_ConcurrentMiddlewareAccess(t *testing.T) {
 	}
 }
 
-// TestGroup_ConcurrentRouteRegistration tests concurrent route registration
+// TestGroup_ConcurrentRouteRegistration tests concurrent route registration.
 func TestGroup_ConcurrentRouteRegistration(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping race condition test in short mode")
@@ -653,15 +756,17 @@ func TestGroup_ConcurrentRouteRegistration(t *testing.T) {
 	group := NewGroup(mux, "/api", logger)
 
 	const numRoutes = 50
+
 	var wg sync.WaitGroup
 
-	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	handler := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	})
 
 	// Register routes concurrently
 	for i := range numRoutes {
 		wg.Add(1)
+
 		go func(index int) {
 			defer wg.Done()
 
@@ -678,7 +783,7 @@ func TestGroup_ConcurrentRouteRegistration(t *testing.T) {
 	wg.Wait()
 }
 
-// TestMiddleware_ConcurrentExecution tests concurrent middleware execution
+// TestMiddleware_ConcurrentExecution tests concurrent middleware execution.
 func TestMiddleware_ConcurrentExecution(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping race condition test in short mode")
@@ -693,7 +798,7 @@ func TestMiddleware_ConcurrentExecution(t *testing.T) {
 		middleware.CORS(),
 	}
 
-	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	handler := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	})
 
@@ -701,24 +806,30 @@ func TestMiddleware_ConcurrentExecution(t *testing.T) {
 	chainedHandler := middleware.Chain(handler, middlewares...)
 
 	const numRequests = 100
+
 	var wg sync.WaitGroup
+
 	results := make([]error, numRequests)
 
 	// Execute middleware chain concurrently
 	for i := range numRequests {
 		wg.Add(1)
+
 		go func(index int) {
 			defer wg.Done()
 
 			defer func() {
 				if r := recover(); r != nil {
-					results[index] = fmt.Errorf("panic: %v", r)
+					results[index] = ctxerrors.Wrapf(errTestPanic, "panic occurred: %v", r)
 				}
 			}()
 
-			req, err := http.NewRequest(http.MethodGet, "/test", nil)
+			req, err := http.NewRequestWithContext(
+				context.Background(), http.MethodGet, "/test", nil,
+			)
 			if err != nil {
 				results[index] = err
+
 				return
 			}
 
@@ -728,6 +839,7 @@ func TestMiddleware_ConcurrentExecution(t *testing.T) {
 			}
 
 			chainedHandler.ServeHTTP(w, req)
+
 			results[index] = nil
 		}(i)
 	}
@@ -740,7 +852,8 @@ func TestMiddleware_ConcurrentExecution(t *testing.T) {
 	}
 }
 
-// concurrentSafeRecorder wraps httptest.ResponseRecorder to be safer for concurrent use
+// concurrentSafeRecorder wraps httptest.ResponseRecorder to be safer
+// for concurrent use.
 type concurrentSafeRecorder struct {
 	*httptest.ResponseRecorder
 	mu sync.Mutex
@@ -749,18 +862,26 @@ type concurrentSafeRecorder struct {
 func (r *concurrentSafeRecorder) Header() http.Header {
 	r.mu.Lock()
 	defer r.mu.Unlock()
+
 	return r.ResponseRecorder.Header()
 }
 
 func (r *concurrentSafeRecorder) Write(data []byte) (int, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	return r.ResponseRecorder.Write(data)
+
+	n, err := r.ResponseRecorder.Write(data)
+	if err != nil {
+		return n, ctxerrors.Wrap(err, "failed to write response data")
+	}
+
+	return n, nil
 }
 
 func (r *concurrentSafeRecorder) WriteHeader(statusCode int) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
+
 	r.ResponseRecorder.WriteHeader(statusCode)
 }
 
@@ -768,7 +889,7 @@ func (r *concurrentSafeRecorder) WriteHeader(statusCode int) {
 // COVERAGE TESTS (merged from server_coverage_test.go)
 // ============================================================================
 
-// TestNew_ErrorCases tests error paths in New function
+// TestNew_ErrorCases tests error paths in New function.
 func TestNew_ErrorCases(t *testing.T) {
 	// Test case where parseConfig fails by setting invalid env vars
 	t.Setenv(aichteeteapee.EnvVarNameHTTPServerReadTimeout, "invalid-duration")
@@ -778,7 +899,7 @@ func TestNew_ErrorCases(t *testing.T) {
 	assert.Contains(t, err.Error(), "failed to parse config")
 }
 
-// TestNewWithConfig_EdgeCases covers missing branches
+// TestNewWithConfig_EdgeCases covers missing branches.
 func TestNewWithConfig_EdgeCases(t *testing.T) {
 	t.Run("router with existing global middlewares", func(t *testing.T) {
 		config := Config{
@@ -795,7 +916,8 @@ func TestNewWithConfig_EdgeCases(t *testing.T) {
 		// GetRootGroup should work and initialize rootGroup
 		rootGroup := server.GetRootGroup()
 		assert.NotNil(t, rootGroup)
-		assert.NotNil(t, server.router.rootGroup) // Now router.rootGroup should be initialized
+		// Now router.rootGroup should be initialized
+		assert.NotNil(t, server.router.rootGroup)
 	})
 
 	t.Run("router with groups and routes", func(t *testing.T) {
@@ -809,7 +931,7 @@ func TestNewWithConfig_EdgeCases(t *testing.T) {
 	})
 }
 
-// TestSetupRoute_ErrorCases tests missing error paths
+// TestSetupRoute_ErrorCases tests missing error paths.
 func TestSetupRoute_ErrorCases(t *testing.T) {
 	server, err := New()
 	require.NoError(t, err)
@@ -827,19 +949,19 @@ func TestSetupRoute_ErrorCases(t *testing.T) {
 	server.setupRoute(group, routeConfig)
 }
 
-// TestCreateSecureStaticHandler_AllPaths tests all branches of static handler
+// TestCreateSecureStaticHandler_AllPaths tests all branches of static handler.
 func TestCreateSecureStaticHandler_AllPaths(t *testing.T) {
 	// Create temporary directory structure for testing
 	tempDir := t.TempDir()
 
 	// Create a test file
 	testFile := filepath.Join(tempDir, "test.txt")
-	err := os.WriteFile(testFile, []byte("test content"), 0o644)
+	err := os.WriteFile(testFile, []byte("test content"), 0o600)
 	require.NoError(t, err)
 
 	// Create a test directory
 	testSubDir := filepath.Join(tempDir, "subdir")
-	err = os.Mkdir(testSubDir, 0o755)
+	err = os.Mkdir(testSubDir, 0o750)
 	require.NoError(t, err)
 
 	server, err := New()
@@ -847,9 +969,12 @@ func TestCreateSecureStaticHandler_AllPaths(t *testing.T) {
 
 	// Set up router static configuration for the handler to work
 	staticDir := tempDir
-	staticPath := "/static/"
+	staticPath := testStaticPath
 
-	handler := server.createSecureStaticHandler(StaticRouteConfig{Dir: staticDir, Path: staticPath})
+	handler := server.createSecureStaticHandler(StaticRouteConfig{
+		Dir:  staticDir,
+		Path: staticPath,
+	})
 
 	tests := []struct {
 		name           string
@@ -865,7 +990,7 @@ func TestCreateSecureStaticHandler_AllPaths(t *testing.T) {
 		},
 		{
 			name:           "empty relative path (dot)",
-			requestPath:    "/static/",
+			requestPath:    testStaticPath,
 			expectedStatus: http.StatusForbidden,
 		},
 		{
@@ -905,13 +1030,16 @@ func TestCreateSecureStaticHandler_AllPaths(t *testing.T) {
 
 			// For error cases, should return JSON
 			if tt.expectedStatus >= 400 {
-				assert.Equal(t, aichteeteapee.ContentTypeJSON, w.Header().Get(aichteeteapee.HeaderNameContentType))
+				assert.Equal(
+					t, aichteeteapee.ContentTypeJSON,
+					w.Header().Get(aichteeteapee.HeaderNameContentType),
+				)
 			}
 		})
 	}
 }
 
-// TestSetupStaticRoute_EdgeCases tests edge cases in static route setup
+// TestSetupStaticRoute_EdgeCases tests edge cases in static route setup.
 func TestSetupStaticRoute_EdgeCases(t *testing.T) {
 	t.Run("static path without trailing slash", func(t *testing.T) {
 		server, err := New()
@@ -936,7 +1064,7 @@ func TestSetupStaticRoute_EdgeCases(t *testing.T) {
 	})
 }
 
-// TestSetupRouteGroup_NestedGroups tests nested group setup
+// TestSetupRouteGroup_NestedGroups tests nested group setup.
 func TestSetupRouteGroup_NestedGroups(t *testing.T) {
 	server, err := New()
 	require.NoError(t, err)
@@ -950,7 +1078,7 @@ func TestSetupRouteGroup_NestedGroups(t *testing.T) {
 			{
 				Method:  http.MethodGet,
 				Path:    "/test",
-				Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}),
+				Handler: http.HandlerFunc(func(_ http.ResponseWriter, _ *http.Request) {}),
 			},
 		},
 		Groups: []GroupConfig{
@@ -958,9 +1086,11 @@ func TestSetupRouteGroup_NestedGroups(t *testing.T) {
 				Path: "/v1",
 				Routes: []RouteConfig{
 					{
-						Method:  http.MethodPost,
-						Path:    "/nested",
-						Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}),
+						Method: http.MethodPost,
+						Path:   "/nested",
+						Handler: http.HandlerFunc(
+							func(_ http.ResponseWriter, _ *http.Request) {},
+						),
 					},
 				},
 			},
@@ -971,7 +1101,7 @@ func TestSetupRouteGroup_NestedGroups(t *testing.T) {
 	server.setupRouteGroup(groupConfig, rootGroup)
 }
 
-// TestStart_Comprehensive tests all branches of Start function
+// TestStart_Comprehensive tests all branches of Start function.
 func TestStart_Comprehensive(t *testing.T) {
 	t.Run("start with listener creation failure", func(t *testing.T) {
 		server, err := New()
@@ -1016,7 +1146,8 @@ func TestStart_Comprehensive(t *testing.T) {
 		// Start Stop in a goroutine after a short delay
 		go func() {
 			time.Sleep(10 * time.Millisecond)
-			server.Stop(context.Background())
+
+			_ = server.Stop(context.Background())
 		}()
 
 		err = server.Start(ctx, &Router{})
@@ -1028,19 +1159,24 @@ func TestStart_Comprehensive(t *testing.T) {
 		require.NoError(t, err)
 
 		// Create a listener and then close it to force Serve error
-		listener, err := net.Listen("tcp", "127.0.0.1:0")
+		lc := &net.ListenConfig{}
+		listener, err := lc.Listen(context.Background(), "tcp", "127.0.0.1:0")
 		require.NoError(t, err)
 
 		// Use the address from our listener
 		server.httpServer.Addr = listener.Addr().String()
 
 		// Close the listener to make the address unavailable
-		listener.Close()
+		_ = listener.Close()
 
 		// Now bind to the same address - this should cause a conflict
-		listener2, err := net.Listen("tcp", listener.Addr().String())
+		lc2 := &net.ListenConfig{}
+
+		listener2, err := lc2.Listen(
+			context.Background(), "tcp", listener.Addr().String(),
+		)
 		if err == nil {
-			defer listener2.Close()
+			defer func() { _ = listener2.Close() }()
 		}
 
 		ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
@@ -1052,7 +1188,7 @@ func TestStart_Comprehensive(t *testing.T) {
 	})
 }
 
-// TestServer_Stop_Comprehensive tests all branches of Stop function
+// TestServer_Stop_Comprehensive tests all branches of Stop function.
 func TestServer_Stop_Comprehensive(t *testing.T) {
 	t.Run("stop with shutdown timeout", func(t *testing.T) {
 		server, err := New()
@@ -1060,7 +1196,8 @@ func TestServer_Stop_Comprehensive(t *testing.T) {
 
 		// Create a mock HTTP server that blocks on shutdown
 		server.httpServer = &http.Server{
-			Handler: server.mux,
+			Handler:           server.mux,
+			ReadHeaderTimeout: 10 * time.Second,
 		}
 
 		// Create a context that will timeout immediately to force shutdown error
@@ -1095,11 +1232,12 @@ func TestServer_Stop_Comprehensive(t *testing.T) {
 		require.NoError(t, err)
 
 		// Create a real listener and set it on the server
-		listener, err := net.Listen("tcp", "127.0.0.1:0")
+		lc := &net.ListenConfig{}
+		listener, err := lc.Listen(context.Background(), "tcp", "127.0.0.1:0")
 		require.NoError(t, err)
 
 		// Close it first to make the second close fail
-		listener.Close()
+		_ = listener.Close()
 
 		// Set the already-closed listener on the server using the new API
 		server.listenerMu.Lock()
@@ -1109,7 +1247,8 @@ func TestServer_Stop_Comprehensive(t *testing.T) {
 		ctx := context.Background()
 		err = server.Stop(ctx)
 
-		// Should not error because we now handle "already closed" listeners gracefully
+		// Should not error because we now handle "already closed"
+		// listeners gracefully
 		assert.NoError(t, err)
 	})
 
@@ -1150,21 +1289,21 @@ func TestServer_StaticIndexServing(t *testing.T) {
 
 	// Create index.html in root
 	indexFile := filepath.Join(tempDir, aichteeteapee.FileNameIndexHTML)
-	err := os.WriteFile(indexFile, []byte("<h1>Index Works!</h1>"), 0o644)
+	err := os.WriteFile(indexFile, []byte("<h1>Index Works!</h1>"), 0o600)
 	require.NoError(t, err)
 
 	// Create subdirectory with index.html
 	subDir := filepath.Join(tempDir, "subdir")
-	err = os.Mkdir(subDir, 0o755)
+	err = os.Mkdir(subDir, 0o750)
 	require.NoError(t, err)
 
 	subIndexFile := filepath.Join(subDir, aichteeteapee.FileNameIndexHTML)
-	err = os.WriteFile(subIndexFile, []byte("<h1>Sub Index Works!</h1>"), 0o644)
+	err = os.WriteFile(subIndexFile, []byte("<h1>Sub Index Works!</h1>"), 0o600)
 	require.NoError(t, err)
 
 	// Create subdirectory without index.html
 	emptySubDir := filepath.Join(tempDir, "empty")
-	err = os.Mkdir(emptySubDir, 0o755)
+	err = os.Mkdir(emptySubDir, 0o750)
 	require.NoError(t, err)
 
 	tests := []struct {
@@ -1175,7 +1314,7 @@ func TestServer_StaticIndexServing(t *testing.T) {
 	}{
 		{
 			name:           "root directory serves index.html",
-			requestPath:    "/static/",
+			requestPath:    testStaticPath,
 			expectedStatus: http.StatusOK,
 			expectedBody:   "<h1>Index Works!</h1>",
 		},
@@ -1199,9 +1338,11 @@ func TestServer_StaticIndexServing(t *testing.T) {
 
 			// Set up router static configuration for the handler to work
 			staticDir := tempDir
-			staticPath := "/static/"
+			staticPath := testStaticPath
 
-			handler := server.createSecureStaticHandler(StaticRouteConfig{Dir: staticDir, Path: staticPath})
+			handler := server.createSecureStaticHandler(
+				StaticRouteConfig{Dir: staticDir, Path: staticPath},
+			)
 
 			req := httptest.NewRequest(http.MethodGet, tt.requestPath, nil)
 			w := httptest.NewRecorder()
@@ -1242,7 +1383,8 @@ func TestStaticFileDirectoryBehavior(t *testing.T) {
 </html>`,
 		},
 		{
-			name:           "directory with index.html without trailing slash serves index file",
+			name: "directory with index.html without trailing slash " +
+				"serves index file",
 			requestPath:    "/static/index",
 			expectedStatus: http.StatusOK,
 			expectedContent: `<!DOCTYPE html>
@@ -1261,14 +1403,15 @@ func TestStaticFileDirectoryBehavior(t *testing.T) {
 			requestPath:    "/static/noindex/",
 			expectedStatus: http.StatusForbidden,
 			checkJSONError: true,
-			errorCode:      string(aichteeteapee.ErrorCodeDirectoryListingNotSupported),
+			errorCode:      aichteeteapee.ErrorCodeDirectoryListingNotSupported,
 		},
 		{
-			name:           "directory without index.html (no trailing slash) returns 403 with JSON error",
+			name: "directory without index.html (no trailing slash) " +
+				"returns 403 with JSON error",
 			requestPath:    "/static/noindex",
 			expectedStatus: http.StatusForbidden,
 			checkJSONError: true,
-			errorCode:      string(aichteeteapee.ErrorCodeDirectoryListingNotSupported),
+			errorCode:      aichteeteapee.ErrorCodeDirectoryListingNotSupported,
 		},
 		{
 			name:           "individual files in index directory are accessible",
@@ -1282,7 +1425,8 @@ Line 3 of data.`,
 			name:           "individual files in noindex directory are accessible",
 			requestPath:    "/static/noindex/secret.txt",
 			expectedStatus: http.StatusOK,
-			expectedContent: `This is a secret file that should not be accessible via directory listing.
+			expectedContent: `This is a secret file that should not be ` +
+				`accessible via directory listing.
 Only direct file access should work.`,
 		},
 		{
@@ -1319,14 +1463,14 @@ h1 {
 			requestPath:    "/static/index/nonexistent.txt",
 			expectedStatus: http.StatusNotFound,
 			checkJSONError: true,
-			errorCode:      string(aichteeteapee.ErrorCodeFileNotFound),
+			errorCode:      aichteeteapee.ErrorCodeFileNotFound,
 		},
 		{
 			name:           "non-existent directory returns 404 with JSON error",
 			requestPath:    "/static/nonexistent/",
 			expectedStatus: http.StatusNotFound,
 			checkJSONError: true,
-			errorCode:      string(aichteeteapee.ErrorCodeFileNotFound),
+			errorCode:      aichteeteapee.ErrorCodeFileNotFound,
 		},
 	}
 
@@ -1350,6 +1494,7 @@ h1 {
 			if len(router.GlobalMiddlewares) > 0 {
 				server.setupGlobalMiddlewares()
 			}
+
 			server.setupRoutes()
 
 			// Create test request
@@ -1360,24 +1505,34 @@ h1 {
 			server.GetMux().ServeHTTP(w, req)
 
 			// Check status code
-			assert.Equal(t, tt.expectedStatus, w.Code, "Status code mismatch for %s", tt.requestPath)
+			assert.Equal(
+				t, tt.expectedStatus, w.Code,
+				"Status code mismatch for %s", tt.requestPath,
+			)
 
 			// Check response content
 			body := w.Body.String()
 
 			if tt.checkJSONError {
 				// Verify JSON error response format
-				assert.Equal(t, aichteeteapee.ContentTypeJSON, w.Header().Get(aichteeteapee.HeaderNameContentType))
+				assert.Equal(
+					t, aichteeteapee.ContentTypeJSON,
+					w.Header().Get(aichteeteapee.HeaderNameContentType),
+				)
 
 				var errorResponse aichteeteapee.ErrorResponse
+
 				err := json.Unmarshal(w.Body.Bytes(), &errorResponse)
 				require.NoError(t, err, "Failed to parse JSON error response")
 
-				assert.Equal(t, tt.errorCode, string(errorResponse.Code))
+				assert.Equal(t, tt.errorCode, errorResponse.Code)
 				assert.NotEmpty(t, errorResponse.Message)
 			} else {
 				// Verify content matches exactly
-				assert.Equal(t, tt.expectedContent, body, "Response body should match expected content exactly")
+				assert.Equal(
+					t, tt.expectedContent, body,
+					"Response body should match expected content exactly",
+				)
 			}
 		})
 	}
@@ -1415,22 +1570,30 @@ func TestMultipleStaticRoutes_Integration(t *testing.T) {
 		expectedContent string
 	}{
 		{
-			name:            "assets route - style.css",
-			requestPath:     "/assets/style.css",
-			expectedStatus:  http.StatusOK,
-			expectedContent: "body {\n    background-color: #f0f0f0;\n    font-family: Arial, sans-serif;\n    margin: 0;\n    padding: 20px;\n}\n\n.header {\n    color: #333;\n    text-align: center;\n}",
+			name:           "assets route - style.css",
+			requestPath:    "/assets/style.css",
+			expectedStatus: http.StatusOK,
+			expectedContent: "body {\n    background-color: #f0f0f0;\n    " +
+				"font-family: Arial, sans-serif;\n    margin: 0;\n    " +
+				"padding: 20px;\n}\n\n.header {\n    color: #333;\n    " +
+				"text-align: center;\n}",
 		},
 		{
-			name:            "assets route - app.js",
-			requestPath:     "/assets/app.js",
-			expectedStatus:  http.StatusOK,
-			expectedContent: "console.log('Test JavaScript file for multiple static routes');\n\nfunction initApp() {\n    console.log('App initialized');\n}\n\ninitApp();",
+			name:           "assets route - app.js",
+			requestPath:    "/assets/app.js",
+			expectedStatus: http.StatusOK,
+			expectedContent: "console.log('Test JavaScript file for " +
+				"multiple static routes');\n\n" +
+				"function initApp() {\n    console.log('App initialized');\n}\n\n" +
+				"initApp();",
 		},
 		{
-			name:            "uploads route - data.json",
-			requestPath:     "/uploads/data.json",
-			expectedStatus:  http.StatusOK,
-			expectedContent: "{\n    \"id\": 123,\n    \"name\": \"Test Upload\",\n    \"type\": \"file\",\n    \"size\": 1024,\n    \"created\": \"2023-01-01T00:00:00Z\"\n}",
+			name:           "uploads route - data.json",
+			requestPath:    "/uploads/data.json",
+			expectedStatus: http.StatusOK,
+			expectedContent: "{\n    \"id\": 123,\n    \"name\": " +
+				"\"Test Upload\",\n    \"type\": \"file\",\n    \"size\": 1024,\n    " +
+				"\"created\": \"2023-01-01T00:00:00Z\"\n}",
 		},
 		{
 			name:            "uploads route - image.png",
@@ -1439,16 +1602,25 @@ func TestMultipleStaticRoutes_Integration(t *testing.T) {
 			expectedContent: "fake png binary data for testing",
 		},
 		{
-			name:            "documentation route - readme.md",
-			requestPath:     "/documentation/readme.md",
-			expectedStatus:  http.StatusOK,
-			expectedContent: "# Documentation\n\nThis is a test documentation file for multiple static routes testing.\n\n## Features\n\n- Multiple static route support\n- Secure file serving\n- Directory traversal protection\n\n## Usage\n\nConfigure multiple static routes in your server.",
+			name:           "documentation route - readme.md",
+			requestPath:    "/documentation/readme.md",
+			expectedStatus: http.StatusOK,
+			expectedContent: "# Documentation\n\nThis is a test " +
+				"documentation file for multiple static routes testing.\n\n" +
+				"## Features\n\n- Multiple static route support\n" +
+				"- Secure file serving\n- Directory traversal " +
+				"protection\n\n## Usage\n\nConfigure multiple static " +
+				"routes in your server.",
 		},
 		{
-			name:            "documentation route - guide.txt",
-			requestPath:     "/documentation/guide.txt",
-			expectedStatus:  http.StatusOK,
-			expectedContent: "Static Routes Configuration Guide\n\n1. Define your static routes in the Router struct\n2. Each route maps a URL path to a filesystem directory\n3. Files are served securely with directory traversal protection\n4. Directory listing is disabled for security",
+			name:           "documentation route - guide.txt",
+			requestPath:    "/documentation/guide.txt",
+			expectedStatus: http.StatusOK,
+			expectedContent: "Static Routes Configuration Guide\n\n" +
+				"1. Define your static routes in the Router struct\n" +
+				"2. Each route maps a URL path to a filesystem directory\n" +
+				"3. Files are served securely with directory traversal " +
+				"protection\n4. Directory listing is disabled for security",
 		},
 		{
 			name:           "non-existent file in assets route",
@@ -1479,10 +1651,16 @@ func TestMultipleStaticRoutes_Integration(t *testing.T) {
 
 			server.GetMux().ServeHTTP(w, req)
 
-			assert.Equal(t, tt.expectedStatus, w.Code, "Status code mismatch for %s", tt.requestPath)
+			assert.Equal(
+				t, tt.expectedStatus, w.Code,
+				"Status code mismatch for %s", tt.requestPath,
+			)
 
 			if tt.expectedContent != "" {
-				assert.Equal(t, tt.expectedContent, w.Body.String(), "Response body should match expected content")
+				assert.Equal(
+					t, tt.expectedContent, w.Body.String(),
+					"Response body should match expected content",
+				)
 			}
 		})
 	}
@@ -1497,19 +1675,24 @@ func TestDirectoryIndexing_HTML(t *testing.T) {
 	// Create temp directory with test files
 	tempDir, err := os.MkdirTemp("", "directory-indexing-test-*")
 	require.NoError(t, err)
-	defer os.RemoveAll(tempDir)
+
+	defer func() { _ = os.RemoveAll(tempDir) }()
 
 	// Create test files and subdirectory
 	testFiles := []string{"file1.txt", "file2.json", "README.md"}
 	for _, file := range testFiles {
-		err := os.WriteFile(filepath.Join(tempDir, file), []byte("test content"), 0o644)
+		err := os.WriteFile(
+			filepath.Join(tempDir, file), []byte("test content"), 0o600,
+		)
 		require.NoError(t, err)
 	}
 
 	subDir := filepath.Join(tempDir, "subdir")
-	err = os.MkdirAll(subDir, 0o755)
+	err = os.MkdirAll(subDir, 0o750)
 	require.NoError(t, err)
-	err = os.WriteFile(filepath.Join(subDir, "nested.txt"), []byte("nested content"), 0o644)
+	err = os.WriteFile(
+		filepath.Join(subDir, "nested.txt"), []byte("nested content"), 0o600,
+	)
 	require.NoError(t, err)
 
 	router := &Router{
@@ -1553,15 +1736,16 @@ func TestDirectoryIndexing_JSON(t *testing.T) {
 	// Create temp directory with test files
 	tempDir, err := os.MkdirTemp("", "directory-indexing-json-test-*")
 	require.NoError(t, err)
-	defer os.RemoveAll(tempDir)
+
+	defer func() { _ = os.RemoveAll(tempDir) }()
 
 	// Create test files and subdirectory
 	testFile := filepath.Join(tempDir, "test.txt")
-	err = os.WriteFile(testFile, []byte("test content"), 0o644)
+	err = os.WriteFile(testFile, []byte("test content"), 0o600)
 	require.NoError(t, err)
 
 	subDir := filepath.Join(tempDir, "subdir")
-	err = os.MkdirAll(subDir, 0o755)
+	err = os.MkdirAll(subDir, 0o750)
 	require.NoError(t, err)
 
 	router := &Router{
@@ -1587,6 +1771,7 @@ func TestDirectoryIndexing_JSON(t *testing.T) {
 	assert.Equal(t, "application/json", w.Header().Get("Content-Type"))
 
 	var entries []DirectoryEntry
+
 	err = json.Unmarshal(w.Body.Bytes(), &entries)
 	require.NoError(t, err)
 
@@ -1594,6 +1779,7 @@ func TestDirectoryIndexing_JSON(t *testing.T) {
 
 	// Check entries are properly structured
 	var fileEntry, dirEntry DirectoryEntry
+
 	for _, entry := range entries {
 		if entry.IsDir {
 			dirEntry = entry
@@ -1621,7 +1807,8 @@ func TestDirectoryIndexing_Disabled(t *testing.T) {
 	// Create temp directory
 	tempDir, err := os.MkdirTemp("", "directory-indexing-disabled-test-*")
 	require.NoError(t, err)
-	defer os.RemoveAll(tempDir)
+
+	defer func() { _ = os.RemoveAll(tempDir) }()
 
 	router := &Router{
 		Static: []StaticRouteConfig{
@@ -1646,9 +1833,13 @@ func TestDirectoryIndexing_Disabled(t *testing.T) {
 	assert.Equal(t, "application/json", w.Header().Get("Content-Type"))
 
 	var errorResponse aichteeteapee.ErrorResponse
+
 	err = json.Unmarshal(w.Body.Bytes(), &errorResponse)
 	require.NoError(t, err)
-	assert.Equal(t, string(aichteeteapee.ErrorCodeDirectoryListingNotSupported), string(errorResponse.Code))
+	assert.Equal(
+		t, aichteeteapee.ErrorCodeDirectoryListingNotSupported,
+		errorResponse.Code,
+	)
 }
 
 func TestServer_GetHTTPSListenerAddr(t *testing.T) {
@@ -1671,8 +1862,10 @@ func TestServer_GetHTTPSListenerAddr(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			var server *Server
-			var err error
+			var (
+				server *Server
+				err    error
+			)
 
 			if tt.setupTLS {
 				// Create a server with TLS configuration
@@ -1687,17 +1880,13 @@ func TestServer_GetHTTPSListenerAddr(t *testing.T) {
 				// Create a server without TLS
 				server, err = New()
 			}
+
 			require.NoError(t, err)
 
 			addr := server.GetHTTPSListenerAddr()
 
-			if tt.expectNil {
-				assert.Nil(t, addr)
-			} else {
-				// For TLS case, we won't actually start the server so it will be nil
-				// but the function will have been called and covered
-				assert.Nil(t, addr) // Still nil because listener not started
-			}
+			// For all test cases, addr will be nil because listener not started
+			assert.Nil(t, addr)
 		})
 	}
 }
@@ -1714,6 +1903,7 @@ func TestServer_validateTLSConfig(t *testing.T) {
 			setupServer: func() *Server {
 				srv, _ := New()
 				srv.config.TLSEnabled = false
+
 				return srv
 			},
 			expectError: false,
@@ -1725,6 +1915,7 @@ func TestServer_validateTLSConfig(t *testing.T) {
 				srv.config.TLSEnabled = true
 				srv.config.TLSCertFile = ""
 				srv.config.TLSKeyFile = "key.pem"
+
 				return srv
 			},
 			expectError:    true,
@@ -1737,6 +1928,7 @@ func TestServer_validateTLSConfig(t *testing.T) {
 				srv.config.TLSEnabled = true
 				srv.config.TLSCertFile = "cert.pem"
 				srv.config.TLSKeyFile = ""
+
 				return srv
 			},
 			expectError:    true,
@@ -1749,6 +1941,7 @@ func TestServer_validateTLSConfig(t *testing.T) {
 				srv.config.TLSEnabled = true
 				srv.config.TLSCertFile = "/nonexistent/cert.pem"
 				srv.config.TLSKeyFile = "/nonexistent/key.pem"
+
 				return srv
 			},
 			expectError:    true,
@@ -1762,12 +1955,13 @@ func TestServer_validateTLSConfig(t *testing.T) {
 				if err != nil {
 					panic(err)
 				}
-				defer tmpFile.Close()
+				defer func() { _ = tmpFile.Close() }()
 
 				srv, _ := New()
 				srv.config.TLSEnabled = true
 				srv.config.TLSCertFile = tmpFile.Name()
 				srv.config.TLSKeyFile = "/nonexistent/key.pem"
+
 				return srv
 			},
 			expectError:    true,
@@ -1782,6 +1976,7 @@ func TestServer_validateTLSConfig(t *testing.T) {
 
 			if tt.expectError {
 				assert.Error(t, err)
+
 				if tt.expectedErrMsg != "" {
 					assert.Contains(t, err.Error(), tt.expectedErrMsg)
 				}
@@ -1807,6 +2002,7 @@ func TestServer_createListeners(t *testing.T) {
 					ListenAddress: "127.0.0.1:0", // Use port 0 for automatic assignment
 					TLSEnabled:    false,
 				})
+
 				return srv
 			},
 			expectError: false,
@@ -1820,6 +2016,7 @@ func TestServer_createListeners(t *testing.T) {
 					TLSEnabled:       true,
 					TLSListenAddress: "127.0.0.1:0",
 				})
+
 				return srv
 			},
 			expectError: false,
@@ -1832,6 +2029,7 @@ func TestServer_createListeners(t *testing.T) {
 					ListenAddress: "999.999.999.999:80", // Invalid address
 					TLSEnabled:    false,
 				})
+
 				return srv
 			},
 			expectError:    true,
@@ -1847,34 +2045,55 @@ func TestServer_createListeners(t *testing.T) {
 			httpListener, httpsListener, err := srv.createListeners(ctx)
 
 			if tt.expectError {
-				assert.Error(t, err)
-				assert.Nil(t, httpListener)
-				assert.Nil(t, httpsListener)
-				if tt.expectedErrMsg != "" {
-					assert.Contains(t, err.Error(), tt.expectedErrMsg)
-				}
+				validateCreateListenersError(
+					t, err, httpListener, httpsListener, tt.expectedErrMsg,
+				)
 			} else {
-				assert.NoError(t, err)
-				assert.NotNil(t, httpListener)
-
-				if tt.expectHTTPS {
-					assert.NotNil(t, httpsListener)
-				} else {
-					assert.Nil(t, httpsListener)
-				}
-
-				// Clean up listeners
-				if httpListener != nil {
-					httpListener.Close()
-				}
-				if httpsListener != nil {
-					httpsListener.Close()
-				}
+				validateCreateListenersSuccess(
+					t, err, httpListener, httpsListener, tt.expectHTTPS,
+				)
 			}
 		})
 	}
 }
 
+func validateCreateListenersError(
+	t *testing.T, err error, httpListener, httpsListener net.Listener,
+	expectedErrMsg string,
+) {
+	t.Helper()
+	assert.Error(t, err)
+	assert.Nil(t, httpListener)
+	assert.Nil(t, httpsListener)
+
+	if expectedErrMsg != "" {
+		assert.Contains(t, err.Error(), expectedErrMsg)
+	}
+}
+
+func validateCreateListenersSuccess(
+	t *testing.T, err error, httpListener, httpsListener net.Listener,
+	expectHTTPS bool,
+) {
+	t.Helper()
+	assert.NoError(t, err)
+	assert.NotNil(t, httpListener)
+
+	if expectHTTPS {
+		assert.NotNil(t, httpsListener)
+	} else {
+		assert.Nil(t, httpsListener)
+	}
+
+	// Clean up listeners
+	if httpListener != nil {
+		_ = httpListener.Close()
+	}
+
+	if httpsListener != nil {
+		_ = httpsListener.Close()
+	}
+}
 
 func TestServer_StartWithTLSError(t *testing.T) {
 	srv, err := NewWithConfig(Config{
@@ -1896,5 +2115,96 @@ func TestServer_StartWithTLSError(t *testing.T) {
 	assert.Contains(t, err.Error(), "TLS cert file not accessible")
 }
 
+func TestServer_HandleCachedResultNonExistentFile(t *testing.T) {
+	server, err := New()
+	require.NoError(t, err)
 
+	req := httptest.NewRequest(http.MethodGet, "/nonexistent.txt", nil)
+	w := httptest.NewRecorder()
 
+	// Test handleCachedResult with non-existent file
+	result := server.handleCachedResult(
+		w, req, "/nonexistent.txt", false, false, StaticRouteConfig{},
+	)
+	assert.False(t, result)
+	assert.Equal(t, http.StatusNotFound, w.Code)
+}
+
+func TestServer_HandleCachedResultDirectory(t *testing.T) {
+	server, err := New()
+	require.NoError(t, err)
+
+	tmpDir := t.TempDir()
+	req := httptest.NewRequest(http.MethodGet, "/testdir/", nil)
+	w := httptest.NewRecorder()
+
+	// Test handleCachedResult with directory
+	result := server.handleCachedResult(
+		w, req, tmpDir, true, true, StaticRouteConfig{
+			DirectoryIndexingType: DirectoryIndexingTypeHTML,
+		})
+	assert.False(t, result)
+}
+
+func TestServer_LogServerStartHTTPS(t *testing.T) {
+	server, err := New()
+	require.NoError(t, err)
+
+	// Create listeners
+	lc := &net.ListenConfig{}
+	server.httpListener, _ = lc.Listen(context.Background(), "tcp", "127.0.0.1:0")
+	server.httpsListener, _ = lc.Listen(context.Background(), "tcp", "127.0.0.1:0")
+	server.config.TLSEnabled = true
+
+	// This should not panic and should log both HTTP and HTTPS
+	server.logServerStart()
+}
+
+func TestServer_StartServersWithTLS(t *testing.T) {
+	server, err := New()
+	require.NoError(t, err)
+
+	// Create temp cert files
+	certFile := filepath.Join(t.TempDir(), "cert.pem")
+	keyFile := filepath.Join(t.TempDir(), "key.pem")
+
+	// Write minimal cert/key content
+	err = os.WriteFile(
+		certFile,
+		[]byte("-----BEGIN CERTIFICATE-----\ntest\n-----END CERTIFICATE-----"),
+		0o600,
+	)
+	require.NoError(t, err)
+	err = os.WriteFile(
+		keyFile,
+		[]byte("-----BEGIN PRIVATE KEY-----\ntest\n-----END PRIVATE KEY-----"),
+		0o600,
+	)
+	require.NoError(t, err)
+
+	server.config.TLSEnabled = true
+	server.config.TLSCertFile = certFile
+	server.config.TLSKeyFile = keyFile
+
+	// Create listeners
+	lc := &net.ListenConfig{}
+	server.httpListener, _ = lc.Listen(context.Background(), "tcp", "127.0.0.1:0")
+	server.httpsListener, _ = lc.Listen(context.Background(), "tcp", "127.0.0.1:0")
+
+	// Create servers
+	server.httpServer = &http.Server{
+		Handler:           server.mux,
+		ReadHeaderTimeout: 10 * time.Second,
+	}
+	server.httpsServer = &http.Server{
+		Handler:           server.mux,
+		ReadHeaderTimeout: 10 * time.Second,
+	}
+
+	// Start servers in goroutine (will fail due to invalid cert, but
+	// tests the code path)
+	go server.startServers(server.httpListener, server.httpsListener)
+
+	// Give it a moment to start
+	time.Sleep(50 * time.Millisecond)
+}

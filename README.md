@@ -9,7 +9,9 @@ _pronounced "HTTP" because comedic genius was involved here_
 - [🚀 30-Second Quick Start](#30-second-quick-start)
 - [📦 Root Utilities](#the-root-utilities-use-anywhere)
 - [🖥️ Full Server](#the-full-server-beast-mode)
-- [🔌 WebSocket Magic](#websocket-magic-️)
+- [🔌 WebSocket System](#websocket-system)
+  - [WebSocket Hub (wshub)](#websocket-hub-wshub)
+  - [Unix Socket Bridge (wsunixbridge)](#unix-socket-bridge-wsunixbridge)
 - [📁 Static Files & Uploads](#static-files--uploads)
 - [🛠️ Middleware System](#middleware-system)
 - [⚙️ Configuration](#configuration)
@@ -158,84 +160,6 @@ func NewWithConfigAndLogger(config Config, logger *logrus.Logger) (*Server, erro
 
 </details>
 
-<details>
-<summary><strong>WebSocket Package Types</strong></summary>
-
-```go
-// Hub manages WebSocket clients and routes events
-type Hub interface {
-    Name() string
-    Close()
-    AddClient(client *Client)
-    RemoveClient(clientID uuid.UUID)
-    GetClient(clientID uuid.UUID) *Client
-    GetOrCreateClient(clientID uuid.UUID, opts ...ClientOption) (*Client, bool)
-    GetAllClients() map[uuid.UUID]*Client
-    RegisterEventHandler(eventType EventType, handler EventHandler)
-    RegisterEventHandlers(handlers map[EventType]EventHandler)
-    UnregisterEventHandler(eventType EventType)
-    ProcessEvent(client *Client, event *Event)
-    BroadcastToAll(event *Event)
-    BroadcastToClients(clientIDs []uuid.UUID, event *Event)
-    BroadcastToSubscribers(eventType EventType, event *Event)
-    Done() <-chan struct{}
-}
-
-// Client represents a WebSocket client with multiple connections
-type Client struct {
-    // Exported methods:
-    ID() uuid.UUID
-    SendEvent(event *Event)
-    ConnectionCount() int
-    GetConnections() map[uuid.UUID]*Connection
-    IsSubscribedTo(eventType EventType) bool
-}
-
-// Connection represents a single WebSocket connection (clients can have multiple)
-type Connection struct {
-    // Exported methods:
-    Send(event *Event)
-    Stop()
-    GetHubName() string
-    GetClientID() uuid.UUID
-}
-
-// Event is the core message structure
-type Event struct {
-    // Auto-generated UUID
-    ID        uuid.UUID         `json:"id"`
-    // String event type
-    Type      EventType         `json:"type"`
-    // Your event payload
-    Data      json.RawMessage   `json:"data"`
-    // Unix timestamp
-    Timestamp int64             `json:"timestamp"`
-    // Key-value metadata
-    Metadata  *EventMetadataMap `json:"metadata"`
-}
-
-// EventHandler processes incoming events
-type EventHandler func(hub Hub, client *Client, event *Event) error
-
-// EventType is a string-based event type
-type EventType string
-
-// Built-in event types
-const (
-    EventTypeSystemLog   EventType = "system.log"
-    EventTypeShellExec   EventType = "shell.exec"
-    EventTypeEchoRequest EventType = "echo.request"
-    EventTypeEchoReply   EventType = "echo.reply"
-    EventTypeError       EventType = "error"
-)
-
-// WebSocket constructors and functions
-func NewHub(name string) Hub
-func NewEvent(eventType EventType, data any) *Event
-func UpgradeHandler(hub Hub, opts ...HandlerOption) http.HandlerFunc
-```
-
-</details>
 
 <details>
 <summary><strong>Middleware Package Types</strong></summary>
@@ -312,6 +236,7 @@ import (
     "github.com/psyb0t/aichteeteapee/server"
     "github.com/psyb0t/aichteeteapee/server/middleware"
     "github.com/psyb0t/aichteeteapee/server/websocket"
+    "github.com/psyb0t/aichteeteapee/server/websocket/wshub"
 )
 
 func main() {
@@ -322,15 +247,15 @@ func main() {
     }
 
     // Create WebSocket hub for real-time features
-    hub := websocket.NewHub("my-app")
+    hub := wshub.NewHub("my-app")
 
     // Setup WebSocket event handlers
-    hub.RegisterEventHandler(websocket.EventTypeEchoRequest, func(hub websocket.Hub, client *websocket.Client, event *websocket.Event) error {
+    hub.RegisterEventHandler(websocket.EventTypeEchoRequest, func(hub wshub.Hub, client *wshub.Client, event *websocket.Event) error {
         // Echo it back to the sender
         return client.SendEvent(websocket.NewEvent(websocket.EventTypeEchoReply, event.Data))
     })
 
-    hub.RegisterEventHandler("file.delete", func(hub websocket.Hub, client *websocket.Client, event *websocket.Event) error {
+    hub.RegisterEventHandler("file.delete", func(hub wshub.Hub, client *wshub.Client, event *websocket.Event) error {
         type deleteMsg struct {
             FilePath string `json:"filePath"`
         }
@@ -458,90 +383,88 @@ func main() {
 }
 ```
 
-## WebSocket Magic ✨
+## WebSocket System
 
-Create a hub and register event handlers:
+The WebSocket system in aichteeteapee is organized into three packages:
+
+- **`server/websocket`** - Base WebSocket configuration and utilities
+- **`server/websocket/wshub`** - Event-driven WebSocket hub system
+- **`server/websocket/wsunixbridge`** - WebSocket to Unix socket bridge
+
+### WebSocket Hub (wshub)
+
+The hub system provides event-driven WebSocket communication with client management and broadcasting.
+
+**Basic Hub Setup:**
 
 ```go
-hub := websocket.NewHub("my-hub")
+import (
+    "github.com/psyb0t/aichteeteapee/server/websocket"
+    "github.com/psyb0t/aichteeteapee/server/websocket/wshub"
+)
 
-// Built-in echo handler for testing
-hub.RegisterEventHandler(websocket.EventTypeEchoRequest, func(hub websocket.Hub, client *websocket.Client, event *websocket.Event) error {
+// Create a hub
+hub := wshub.NewHub("my-app")
+
+// Register event handlers
+hub.RegisterEventHandler(websocket.EventTypeEchoRequest, func(hub wshub.Hub, client *wshub.Client, event *websocket.Event) error {
+    // Echo back to sender
     return client.SendEvent(websocket.NewEvent(websocket.EventTypeEchoReply, event.Data))
 })
 
 // Custom event handlers
-hub.RegisterEventHandler("user.login", func(hub websocket.Hub, client *websocket.Client, event *websocket.Event) error {
-    // Process login event
-    hub.BroadcastToAll(websocket.NewEvent("user.online", map[string]string{
+hub.RegisterEventHandler("user.login", func(hub wshub.Hub, client *wshub.Client, event *websocket.Event) error {
+    // Broadcast to all clients
+    return hub.BroadcastToAll(websocket.NewEvent("user.online", map[string]string{
         "userId": "123",
         "status": "online",
     }))
-    return nil
 })
+
+// Add to your router
+router := &server.Router{
+    Groups: []server.GroupConfig{
+        {
+            Path: "/",
+            Routes: []server.RouteConfig{
+                {
+                    Method:  http.MethodGet,
+                    Path:    "/ws",
+                    Handler: websocket.UpgradeHandler(hub),
+                },
+            },
+        },
+    },
+}
 ```
 
-Create events like this:
+**Event Creation:**
 
 ```go
-// Basic event creation
+// Create events with any data
 event := websocket.NewEvent("user.message", map[string]string{
     "message": "Hello world!",
     "username": "john",
 })
 
-// Or chain metadata:
-event = websocket.NewEvent("system.alert", alertData).
-    WithMetadata("priority", "high").
-    WithMetadata("source", "monitoring")
+// Events have metadata support
+event.SetMetadata("priority", "high")
+event.SetMetadata("source", "web-client")
 ```
 
-**Broadcasting options:**
+**Broadcasting Options:**
 
 - `client.SendEvent(event)` - Send to specific client only
 - `hub.BroadcastToAll(event)` - Send to everyone in the hub
-- `hub.BroadcastToClients([]uuid.UUID{id1, id2}, event)` - Send to specific clients
-- `hub.BroadcastToSubscribers(eventType, event)` - Send to subscribers of event type
+- `hub.BroadcastToClients(clientIDs, event)` - Send to specific clients
 
-### Multiple Hubs Pattern
-
-You can run multiple specialized hubs:
+**Multiple Hubs:**
 
 ```go
-func setupMultipleHubs() (websocket.Hub, websocket.Hub, websocket.Hub) {
-    // Different hubs for different features
-    chatHub := websocket.NewHub("chat-system")
-    notificationHub := websocket.NewHub("notifications")
-    systemHub := websocket.NewHub("system-monitoring")
+chatHub := wshub.NewHub("chat")
+notificationHub := wshub.NewHub("notifications")
 
-    // Chat hub handles user messages
-    chatHub.RegisterEventHandler("chat.message", func(hub websocket.Hub, client *websocket.Client, event *websocket.Event) error {
-        type ChatMsg struct {
-            Username string `json:"username"`
-            Message  string `json:"message"`
-            Room     string `json:"room"`
-        }
-
-        var msg ChatMsg
-        json.Unmarshal(event.Data, &msg)
-
-        // Broadcast to all clients in the chat hub
-        return hub.BroadcastToAll(websocket.NewEvent("chat.broadcast", msg))
-    })
-
-    // Notification hub handles alerts
-    notificationHub.RegisterEventHandler("alert.create", func(hub websocket.Hub, client *websocket.Client, event *websocket.Event) error {
-        // Only broadcast high-priority alerts
-        if priority := event.Metadata.Get("priority"); priority == "high" {
-            return hub.BroadcastToAll(event)
-        }
-        return client.SendEvent(event) // Send only to requesting client
-    })
-
-    return chatHub, notificationHub, systemHub
-}
-
-// Then in your Router:
+// Different endpoints for different purposes
 router := &server.Router{
     Groups: []server.GroupConfig{
         {
@@ -549,61 +472,76 @@ router := &server.Router{
             Routes: []server.RouteConfig{
                 {Method: http.MethodGet, Path: "/ws/chat", Handler: websocket.UpgradeHandler(chatHub)},
                 {Method: http.MethodGet, Path: "/ws/notifications", Handler: websocket.UpgradeHandler(notificationHub)},
-                {Method: http.MethodGet, Path: "/ws/system", Handler: websocket.UpgradeHandler(systemHub)},
             },
         },
     },
 }
 ```
 
-### Client Structure
+### Unix Socket Bridge (wsunixbridge)
 
-In your event handlers, you get a `*websocket.Client` that represents the WebSocket client:
+The Unix socket bridge creates Unix domain sockets that external tools can connect to for bidirectional communication with WebSocket clients.
+
+**How it works:**
+
+- **WriterUnixSock (`_output`)**: WebSocket data → Unix socket → external tools READ
+- **ReaderUnixSock (`_input`)**: External tools WRITE → Unix socket → WebSocket
+
+**Basic Setup:**
 
 ```go
-hub.RegisterEventHandler("user.action", func(hub websocket.Hub, client *websocket.Client, event *websocket.Event) error {
-    // Client has these useful methods:
+import "github.com/psyb0t/aichteeteapee/server/websocket/wsunixbridge"
 
-    clientID := client.ID()                    // Get client UUID
-    connectionCount := client.ConnectionCount() // How many connections this client has
+socketsDir := "./sockets"
 
-    // Send event only to this specific client
-    if err := client.SendEvent(websocket.NewEvent("response", responseData)); err != nil {
-        return err
-    }
-
-    // Check if client is subscribed to event types (always true by default)
-    if client.IsSubscribedTo("notifications") {
-        if err := client.SendEvent(notificationEvent); err != nil {
-            return err
-        }
-    }
-
-    // Get all connections for this client (for advanced use cases)
-    connections := client.GetConnections() // map[uuid.UUID]*Connection
-
+// Connection handler (optional)
+connectionHandler := func(conn *wsunixbridge.Connection) error {
+    log.Printf("Unix socket bridge connection: %s", conn.ID)
+    log.Printf("Output socket: %s/%s_output", socketsDir, conn.ID)
+    log.Printf("Input socket: %s/%s_input", socketsDir, conn.ID)
     return nil
-})
+}
+
+// Add to your router
+router := &server.Router{
+    Groups: []server.GroupConfig{
+        {
+            Path: "/",
+            Routes: []server.RouteConfig{
+                {
+                    Method:  http.MethodGet,
+                    Path:    "/unixsock",
+                    Handler: wsunixbridge.NewUpgradeHandler(socketsDir, connectionHandler),
+                },
+            },
+        },
+    },
+}
 ```
 
-**Multi-Connection Clients:**
+**External Tool Integration:**
 
-A single client can have multiple WebSocket connections (e.g., multiple browser tabs):
+Once a WebSocket connection is established, you get Unix sockets you can connect to:
 
-```go
-hub.RegisterEventHandler("user.status", func(hub websocket.Hub, client *websocket.Client, event *websocket.Event) error {
-    connectionCount := client.ConnectionCount()
+```bash
+# Connection ID shown in server logs, e.g., f744bda5-1346-43a4-809b-6332e43fb993
 
-    if connectionCount > 1 {
-        // User has multiple tabs open, send tab-specific response
-        return client.SendEvent(websocket.NewEvent("multi.tab.warning", map[string]any{
-            "message": fmt.Sprintf("You have %d tabs open", connectionCount),
-        }))
-    }
+# Read WebSocket data from external tools:
+nc -U ./sockets/f744bda5-1346-43a4-809b-6332e43fb993_output
+socat - UNIX-CONNECT:./sockets/f744bda5-1346-43a4-809b-6332e43fb993_output
 
-    return client.SendEvent(websocket.NewEvent("single.tab.response", responseData))
-})
+# Send data to WebSocket from external tools:
+echo "Hello from terminal!" | nc -U ./sockets/f744bda5-1346-43a4-809b-6332e43fb993_input
+cat audio.mp3 | socat - UNIX-CONNECT:./sockets/f744bda5-1346-43a4-809b-6332e43fb993_input
 ```
+
+**Use Cases:**
+
+- Stream audio/video from external tools to WebSocket clients
+- Send terminal output to web browsers in real-time
+- Bridge legacy tools with modern web applications
+- Real-time data processing pipelines
+- IoT device integration
 
 ## Static Files & Uploads
 
@@ -991,7 +929,7 @@ Groups: []server.GroupConfig{
 }
 
 // ✅ SECURE WEBSOCKET - Configure CheckOrigin for production:
-hub := websocket.NewHub("secure-hub")
+hub := wshub.NewHub("secure-hub")
 secureUpgradeHandler := websocket.UpgradeHandler(hub, websocket.WithCheckOrigin(func(r *http.Request) bool {
     origin := r.Header.Get("Origin")
     // Only allow your trusted domains
@@ -1065,7 +1003,7 @@ secureHandler := websocket.UpgradeHandler(hub,
 )
 
 // ✅ ADD AUTHENTICATION TO EVENT HANDLERS:
-hub.RegisterEventHandler("sensitive.action", func(hub websocket.Hub, client *websocket.Client, event *websocket.Event) error {
+hub.RegisterEventHandler("sensitive.action", func(hub wshub.Hub, client *wshub.Client, event *websocket.Event) error {
     // Validate user permissions here before processing
     userID := client.GetUserID() // You need to implement this
     if !isAuthorized(userID, "sensitive.action") {

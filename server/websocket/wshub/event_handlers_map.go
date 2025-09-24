@@ -1,10 +1,11 @@
-package websocket
+package wshub
 
 import (
 	"sync"
 )
 
-// EventHandler processes events with access to the hub, client, and event, and returns an error if processing fails
+// EventHandler processes events with access to the hub, client, and event,
+// and returns an error if processing fails.
 type EventHandler func(hub Hub, client *Client, event *Event) error
 
 // Hub interface is implemented in hub.go

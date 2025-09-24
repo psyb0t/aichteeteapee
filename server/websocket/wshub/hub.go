@@ -1,4 +1,4 @@
-package websocket
+package wshub
 
 import (
 	"sync"
@@ -8,7 +8,9 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-//nolint:interfacebloat // Hub interface needs all methods for complete functionality
+// Hub interface needs all methods for complete functionality
+//
+//nolint:interfacebloat
 type Hub interface {
 	Name() string
 	Close()
@@ -37,7 +39,7 @@ type hub struct {
 	mu       sync.Mutex
 }
 
-func NewHub(name string) Hub { //nolint:ireturn // Hub needs to be injectable
+func NewHub(name string) Hub {
 	logger := logrus.WithField(aichteeteapee.FieldHubName, name)
 	logger.Info("creating new hub")
 
@@ -66,7 +68,8 @@ func (h *hub) Close() {
 
 		// Stop all clients
 		clients := h.clients.GetAll()
-		logger.WithField(aichteeteapee.FieldTotalClients, len(clients)).Debug("stopping all hub clients")
+		logger.WithField(aichteeteapee.FieldTotalClients, len(clients)).
+			Debug("stopping all hub clients")
 
 		for _, client := range clients {
 			go client.Stop()
@@ -132,7 +135,9 @@ func (h *hub) GetClient(clientID uuid.UUID) *Client {
 	return h.clients.Get(clientID)
 }
 
-func (h *hub) GetOrCreateClient(clientID uuid.UUID, opts ...ClientOption) (*Client, bool) {
+func (h *hub) GetOrCreateClient(
+	clientID uuid.UUID, opts ...ClientOption,
+) (*Client, bool) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 
@@ -153,7 +158,8 @@ func (h *hub) GetOrCreateClient(clientID uuid.UUID, opts ...ClientOption) (*Clie
 
 	newClient := NewClientWithID(clientID, opts...)
 
-	// Set up the client properly (same as AddClient but without the lock since we already have it)
+	// Set up the client properly (same as AddClient but without
+	// the lock since we already have it)
 	newClient.SetHub(h)
 	h.clients.Add(newClient)
 
@@ -193,7 +199,8 @@ func (h *hub) RegisterEventHandlers(handlers map[EventType]EventHandler) {
 		aichteeteapee.FieldHubName: h.name,
 	})
 
-	logger.WithField("count", len(handlers)).Info("registering multiple event handlers")
+	logger.WithField("count", len(handlers)).
+		Info("registering multiple event handlers")
 
 	for eventType, handler := range handlers {
 		h.RegisterEventHandler(eventType, handler)

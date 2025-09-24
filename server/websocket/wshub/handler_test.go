@@ -1,4 +1,4 @@
-package websocket
+package wshub
 
 import (
 	"net/http"
@@ -23,12 +23,16 @@ func TestUpgradeHandler_BasicUpgrade(t *testing.T) {
 	// Convert HTTP URL to WebSocket URL
 	u, err := url.Parse(server.URL)
 	require.NoError(t, err)
+
 	u.Scheme = "ws"
 
 	// Connect to WebSocket
-	conn, _, err := websocket.DefaultDialer.Dial(u.String(), nil)
+	conn, resp, err := websocket.DefaultDialer.Dial(u.String(), nil)
 	require.NoError(t, err)
-	defer conn.Close()
+
+	defer func() { _ = resp.Body.Close() }()
+
+	defer func() { _ = conn.Close() }()
 
 	// Verify connection is established
 	assert.NotNil(t, conn)
@@ -40,12 +44,20 @@ func TestUpgradeHandler_BasicUpgrade(t *testing.T) {
 		if len(clients) == 1 {
 			break
 		}
+
 		time.Sleep(100 * time.Millisecond)
 	}
-	assert.Len(t, clients, 1, "Client should be added to hub after WebSocket connection")
+
+	assert.Len(
+		t, clients, 1,
+		"Client should be added to hub after WebSocket connection",
+	)
 
 	// Close connection
-	err = conn.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""))
+	err = conn.WriteMessage(
+		websocket.CloseMessage,
+		websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""),
+	)
 	assert.NoError(t, err)
 
 	// Give some time for cleanup
@@ -62,15 +74,19 @@ func TestUpgradeHandler_WithClientID(t *testing.T) {
 	// Convert HTTP URL to WebSocket URL with client ID
 	u, err := url.Parse(server.URL)
 	require.NoError(t, err)
+
 	u.Scheme = "ws"
 
 	expectedClientID := uuid.New()
 	u.RawQuery = "clientID=" + expectedClientID.String()
 
 	// Connect to WebSocket
-	conn, _, err := websocket.DefaultDialer.Dial(u.String(), nil)
+	conn, resp, err := websocket.DefaultDialer.Dial(u.String(), nil)
 	require.NoError(t, err)
-	defer conn.Close()
+
+	defer func() { _ = resp.Body.Close() }()
+
+	defer func() { _ = conn.Close() }()
 
 	// Wait for client to be added to hub with retry mechanism
 	var clients map[uuid.UUID]*Client
@@ -79,13 +95,19 @@ func TestUpgradeHandler_WithClientID(t *testing.T) {
 		if len(clients) == 1 {
 			break
 		}
+
 		time.Sleep(100 * time.Millisecond)
 	}
-	assert.Len(t, clients, 1, "Client should be added to hub after WebSocket connection")
+
+	assert.Len(
+		t, clients, 1,
+		"Client should be added to hub after WebSocket connection",
+	)
 
 	var foundClient *Client
 	for _, client := range clients {
 		foundClient = client
+
 		break
 	}
 
@@ -103,6 +125,7 @@ func TestUpgradeHandler_WithClientIDHeader(t *testing.T) {
 	// Convert HTTP URL to WebSocket URL
 	u, err := url.Parse(server.URL)
 	require.NoError(t, err)
+
 	u.Scheme = "ws"
 
 	expectedClientID := uuid.New()
@@ -110,9 +133,12 @@ func TestUpgradeHandler_WithClientIDHeader(t *testing.T) {
 	headers.Set("X-Client-ID", expectedClientID.String())
 
 	// Connect to WebSocket with custom header
-	conn, _, err := websocket.DefaultDialer.Dial(u.String(), headers)
+	conn, resp, err := websocket.DefaultDialer.Dial(u.String(), headers)
 	require.NoError(t, err)
-	defer conn.Close()
+
+	defer func() { _ = resp.Body.Close() }()
+
+	defer func() { _ = conn.Close() }()
 
 	// Wait for client to be added to hub with retry mechanism
 	var clients map[uuid.UUID]*Client
@@ -121,13 +147,19 @@ func TestUpgradeHandler_WithClientIDHeader(t *testing.T) {
 		if len(clients) == 1 {
 			break
 		}
+
 		time.Sleep(100 * time.Millisecond)
 	}
-	assert.Len(t, clients, 1, "Client should be added to hub after WebSocket connection")
+
+	assert.Len(
+		t, clients, 1,
+		"Client should be added to hub after WebSocket connection",
+	)
 
 	var foundClient *Client
 	for _, client := range clients {
 		foundClient = client
+
 		break
 	}
 
@@ -145,13 +177,17 @@ func TestUpgradeHandler_InvalidClientID(t *testing.T) {
 	// Convert HTTP URL to WebSocket URL with invalid client ID
 	u, err := url.Parse(server.URL)
 	require.NoError(t, err)
+
 	u.Scheme = "ws"
 	u.RawQuery = "clientID=invalid-uuid-format"
 
 	// Connect to WebSocket
-	conn, _, err := websocket.DefaultDialer.Dial(u.String(), nil)
+	conn, resp, err := websocket.DefaultDialer.Dial(u.String(), nil)
 	require.NoError(t, err)
-	defer conn.Close()
+
+	defer func() { _ = resp.Body.Close() }()
+
+	defer func() { _ = conn.Close() }()
 
 	// Wait for client to be added to hub with retry mechanism
 	var clients map[uuid.UUID]*Client
@@ -160,13 +196,19 @@ func TestUpgradeHandler_InvalidClientID(t *testing.T) {
 		if len(clients) == 1 {
 			break
 		}
+
 		time.Sleep(100 * time.Millisecond)
 	}
-	assert.Len(t, clients, 1, "Client should be added to hub after WebSocket connection")
+
+	assert.Len(
+		t, clients, 1,
+		"Client should be added to hub after WebSocket connection",
+	)
 
 	var foundClient *Client
 	for _, client := range clients {
 		foundClient = client
+
 		break
 	}
 
@@ -180,9 +222,9 @@ func TestUpgradeHandler_WithHandlerOptions(t *testing.T) {
 
 	// Create handler with custom options
 	handler := UpgradeHandler(hub,
-		WithHandlerBufferSizes(2048, 4096),
-		WithHandshakeTimeout(30*time.Second),
-		WithCompression(true),
+		WithUpgradeHandlerBufferSizes(2048, 4096),
+		WithUpgradeHandlerHandshakeTimeout(30*time.Second),
+		WithUpgradeHandlerCompression(true),
 	)
 
 	server := httptest.NewServer(handler)
@@ -191,12 +233,16 @@ func TestUpgradeHandler_WithHandlerOptions(t *testing.T) {
 	// Convert HTTP URL to WebSocket URL
 	u, err := url.Parse(server.URL)
 	require.NoError(t, err)
+
 	u.Scheme = "ws"
 
 	// Connect to WebSocket
-	conn, _, err := websocket.DefaultDialer.Dial(u.String(), nil)
+	conn, resp, err := websocket.DefaultDialer.Dial(u.String(), nil)
 	require.NoError(t, err)
-	defer conn.Close()
+
+	defer func() { _ = resp.Body.Close() }()
+
+	defer func() { _ = conn.Close() }()
 
 	// Verify connection is established
 	assert.NotNil(t, conn)
@@ -208,9 +254,14 @@ func TestUpgradeHandler_WithHandlerOptions(t *testing.T) {
 		if len(clients) == 1 {
 			break
 		}
+
 		time.Sleep(100 * time.Millisecond)
 	}
-	assert.Len(t, clients, 1, "Client should be added to hub after WebSocket connection")
+
+	assert.Len(
+		t, clients, 1,
+		"Client should be added to hub after WebSocket connection",
+	)
 }
 
 func TestUpgradeHandler_CheckOrigin(t *testing.T) {
@@ -218,8 +269,9 @@ func TestUpgradeHandler_CheckOrigin(t *testing.T) {
 
 	// Create handler with restrictive origin check
 	handler := UpgradeHandler(hub,
-		WithCheckOrigin(func(r *http.Request) bool {
+		WithUpgradeHandlerCheckOrigin(func(r *http.Request) bool {
 			origin := r.Header.Get("Origin")
+
 			return origin == "https://allowed.example.com"
 		}),
 	)
@@ -230,20 +282,27 @@ func TestUpgradeHandler_CheckOrigin(t *testing.T) {
 	// Convert HTTP URL to WebSocket URL
 	u, err := url.Parse(server.URL)
 	require.NoError(t, err)
+
 	u.Scheme = "ws"
 
 	// Test with allowed origin
 	headers := http.Header{}
 	headers.Set("Origin", "https://allowed.example.com")
 
-	conn, _, err := websocket.DefaultDialer.Dial(u.String(), headers)
+	conn, resp, err := websocket.DefaultDialer.Dial(u.String(), headers)
 	require.NoError(t, err)
-	conn.Close()
+
+	defer func() { _ = resp.Body.Close() }()
+
+	_ = conn.Close()
 
 	// Test with disallowed origin
 	headers.Set("Origin", "https://evil.example.com")
 
-	conn, _, err = websocket.DefaultDialer.Dial(u.String(), headers)
+	conn, resp, err = websocket.DefaultDialer.Dial(u.String(), headers)
+	if err == nil {
+		defer func() { _ = resp.Body.Close() }()
+	}
 	// Should fail upgrade due to origin check
 	assert.Error(t, err)
 	assert.Nil(t, conn)
@@ -254,7 +313,7 @@ func TestUpgradeHandler_NonWebSocketRequest(t *testing.T) {
 	handler := UpgradeHandler(hub)
 
 	// Create a regular HTTP request (not WebSocket upgrade)
-	req := httptest.NewRequest("GET", "/ws", nil)
+	req := httptest.NewRequest(http.MethodGet, "/ws", nil)
 	w := httptest.NewRecorder()
 
 	handler(w, req)
@@ -273,15 +332,19 @@ func TestUpgradeHandler_MultipleConnections(t *testing.T) {
 	// Convert HTTP URL to WebSocket URL
 	u, err := url.Parse(server.URL)
 	require.NoError(t, err)
+
 	u.Scheme = "ws"
 
 	// Create multiple connections
-	var conns []*websocket.Conn
 	numConns := 3
+	conns := make([]*websocket.Conn, 0, numConns)
 
 	for range numConns {
-		conn, _, err := websocket.DefaultDialer.Dial(u.String(), nil)
+		conn, resp, err := websocket.DefaultDialer.Dial(u.String(), nil)
 		require.NoError(t, err)
+
+		defer func() { _ = resp.Body.Close() }()
+
 		conns = append(conns, conn)
 	}
 
@@ -292,13 +355,18 @@ func TestUpgradeHandler_MultipleConnections(t *testing.T) {
 		if len(clients) == numConns {
 			break
 		}
+
 		time.Sleep(100 * time.Millisecond)
 	}
-	assert.Len(t, clients, numConns, "All clients should be added to hub after WebSocket connections")
+
+	assert.Len(
+		t, clients, numConns,
+		"All clients should be added to hub after WebSocket connections",
+	)
 
 	// Clean up connections
 	for _, conn := range conns {
-		conn.Close()
+		_ = conn.Close()
 	}
 }
 
@@ -312,11 +380,14 @@ func TestUpgradeHandler_ContextCancellation(t *testing.T) {
 	// Convert HTTP URL to WebSocket URL
 	u, err := url.Parse(server.URL)
 	require.NoError(t, err)
+
 	u.Scheme = "ws"
 
 	// Connect to WebSocket
-	conn, _, err := websocket.DefaultDialer.Dial(u.String(), nil)
+	conn, resp, err := websocket.DefaultDialer.Dial(u.String(), nil)
 	require.NoError(t, err)
+
+	defer func() { _ = resp.Body.Close() }()
 
 	// Close connection immediately to trigger context cancellation
 	err = conn.Close()
@@ -341,7 +412,10 @@ func TestExtractClientIDFromRequest(t *testing.T) {
 		{
 			name: "client ID in query parameter",
 			setupReq: func() *http.Request {
-				req := httptest.NewRequest("GET", "/ws?clientID=test-client-123", nil)
+				req := httptest.NewRequest(
+					http.MethodGet, "/ws?clientID=test-client-123", nil,
+				)
+
 				return req
 			},
 			expected: "test-client-123",
@@ -349,8 +423,9 @@ func TestExtractClientIDFromRequest(t *testing.T) {
 		{
 			name: "client ID in header",
 			setupReq: func() *http.Request {
-				req := httptest.NewRequest("GET", "/ws", nil)
+				req := httptest.NewRequest(http.MethodGet, "/ws", nil)
 				req.Header.Set("X-Client-ID", "header-client-456")
+
 				return req
 			},
 			expected: "header-client-456",
@@ -358,8 +433,9 @@ func TestExtractClientIDFromRequest(t *testing.T) {
 		{
 			name: "query parameter takes precedence over header",
 			setupReq: func() *http.Request {
-				req := httptest.NewRequest("GET", "/ws?clientID=query-client", nil)
+				req := httptest.NewRequest(http.MethodGet, "/ws?clientID=query-client", nil)
 				req.Header.Set("X-Client-ID", "header-client")
+
 				return req
 			},
 			expected: "query-client",
@@ -367,7 +443,7 @@ func TestExtractClientIDFromRequest(t *testing.T) {
 		{
 			name: "no client ID provided",
 			setupReq: func() *http.Request {
-				return httptest.NewRequest("GET", "/ws", nil)
+				return httptest.NewRequest(http.MethodGet, "/ws", nil)
 			},
 			expected: "",
 		},

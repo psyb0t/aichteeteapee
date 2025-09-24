@@ -19,7 +19,7 @@ func TestChain(t *testing.T) {
 		assert.NotEmpty(t, reqID)
 
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("chained response"))
+		_, _ = w.Write([]byte("chained response"))
 	})
 
 	// Chain multiple middlewares

@@ -1,4 +1,4 @@
-package websocket
+package wshub
 
 import (
 	"encoding/json"
@@ -31,10 +31,12 @@ func TestNewEvent(t *testing.T) {
 
 	// Test data marshaling worked
 	var unmarshaled map[string]any
+
 	err := json.Unmarshal(event.Data, &unmarshaled)
 	require.NoError(t, err)
 	assert.Equal(t, "hello world", unmarshaled["message"])
-	assert.Equal(t, float64(123), unmarshaled["userID"]) // JSON unmarshals numbers as float64
+	// JSON unmarshals numbers as float64
+	assert.Equal(t, float64(123), unmarshaled["userID"])
 }
 
 func TestNewEvent_NilData(t *testing.T) {
@@ -64,7 +66,8 @@ func TestEvent_WithMetadata(t *testing.T) {
 	event := NewEvent(EventTypeSystemLog, "test")
 
 	// Test chaining - this modifies the event in place
-	result := event.WithMetadata("userID", "user123").WithMetadata("room", "general")
+	result := event.WithMetadata("userID", "user123").
+		WithMetadata("room", "general")
 
 	userID, exists := result.Metadata.Get("userID")
 	assert.True(t, exists)
@@ -186,6 +189,7 @@ func TestEvent_JSONMarshaling(t *testing.T) {
 
 	// Unmarshal back
 	var unmarshaled Event
+
 	err = json.Unmarshal(jsonData, &unmarshaled)
 	require.NoError(t, err)
 
@@ -198,6 +202,7 @@ func TestEvent_JSONMarshaling(t *testing.T) {
 
 	// Verify data content
 	var originalData, unmarshaledData map[string]any
+
 	err = json.Unmarshal(event.Data, &originalData)
 	require.NoError(t, err)
 	err = json.Unmarshal(unmarshaled.Data, &unmarshaledData)

@@ -1,4 +1,4 @@
-package websocket
+package wshub
 
 import (
 	"net/http"
@@ -9,29 +9,42 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestNewHandlerConfig(t *testing.T) {
-	config := NewHandlerConfig()
+func TestNewUpgradeHandlerConfig(t *testing.T) {
+	config := NewUpgradeHandlerConfig()
 
 	// Test defaults from http/defaults.go
-	assert.Equal(t, aichteeteapee.DefaultWebSocketHandlerReadBufferSize, config.ReadBufferSize)
-	assert.Equal(t, aichteeteapee.DefaultWebSocketHandlerWriteBufferSize, config.WriteBufferSize)
-	assert.Equal(t, aichteeteapee.DefaultWebSocketHandlerHandshakeTimeout, config.HandshakeTimeout)
-	assert.Equal(t, aichteeteapee.DefaultWebSocketHandlerEnableCompression, config.EnableCompression)
+	assert.Equal(
+		t, aichteeteapee.DefaultWebSocketHandlerReadBufferSize,
+		config.ReadBufferSize,
+	)
+	assert.Equal(
+		t, aichteeteapee.DefaultWebSocketHandlerWriteBufferSize,
+		config.WriteBufferSize,
+	)
+	assert.Equal(
+		t, aichteeteapee.DefaultWebSocketHandlerHandshakeTimeout,
+		config.HandshakeTimeout,
+	)
+	assert.Equal(
+		t, aichteeteapee.DefaultWebSocketHandlerEnableCompression,
+		config.EnableCompression,
+	)
 	assert.NotNil(t, config.CheckOrigin)
 	assert.Empty(t, config.Subprotocols)
 	assert.Empty(t, config.ClientOptions)
 }
 
-func TestHandlerConfigOptions(t *testing.T) {
+func TestUpgradeHandlerConfigOptions(t *testing.T) {
 	tests := []struct {
 		name         string
-		option       HandlerOption
-		validateFunc func(*testing.T, HandlerConfig, HandlerConfig)
+		option       UpgradeHandlerOption
+		validateFunc func(*testing.T, UpgradeHandlerConfig, UpgradeHandlerConfig)
 	}{
 		{
-			name:   "WithHandlerBufferSizes",
-			option: WithHandlerBufferSizes(2048, 4096),
-			validateFunc: func(t *testing.T, original, modified HandlerConfig) {
+			name:   "WithUpgradeHandlerBufferSizes",
+			option: WithUpgradeHandlerBufferSizes(2048, 4096),
+			validateFunc: func(t *testing.T, original, modified UpgradeHandlerConfig) {
+				t.Helper()
 				assert.Equal(t, 2048, modified.ReadBufferSize)
 				assert.Equal(t, 4096, modified.WriteBufferSize)
 				assert.NotEqual(t, original.ReadBufferSize, modified.ReadBufferSize)
@@ -39,9 +52,10 @@ func TestHandlerConfigOptions(t *testing.T) {
 			},
 		},
 		{
-			name:   "WithHandshakeTimeout",
-			option: WithHandshakeTimeout(60 * time.Second),
-			validateFunc: func(t *testing.T, original, modified HandlerConfig) {
+			name:   "WithUpgradeHandlerHandshakeTimeout",
+			option: WithUpgradeHandlerHandshakeTimeout(60 * time.Second),
+			validateFunc: func(t *testing.T, original, modified UpgradeHandlerConfig) {
+				t.Helper()
 				assert.Equal(t, 60*time.Second, modified.HandshakeTimeout)
 				assert.NotEqual(t, original.HandshakeTimeout, modified.HandshakeTimeout)
 			},
@@ -50,15 +64,15 @@ func TestHandlerConfigOptions(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			original := NewHandlerConfig()
-			modified := NewHandlerConfig()
+			original := NewUpgradeHandlerConfig()
+			modified := NewUpgradeHandlerConfig()
 			tt.option(&modified)
 			tt.validateFunc(t, original, modified)
 		})
 	}
 }
 
-func TestWithCompression(t *testing.T) {
+func TestWithUpgradeHandlerCompression(t *testing.T) {
 	tests := []struct {
 		name     string
 		value    bool
@@ -78,13 +92,14 @@ func TestWithCompression(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			config := NewHandlerConfig()
+			config := NewUpgradeHandlerConfig()
 			originalCompression := config.EnableCompression
 
-			opt := WithCompression(tt.value)
+			opt := WithUpgradeHandlerCompression(tt.value)
 			opt(&config)
 
 			assert.Equal(t, tt.expected, config.EnableCompression)
+
 			if tt.value != originalCompression {
 				assert.NotEqual(t, originalCompression, config.EnableCompression)
 			}
@@ -92,20 +107,20 @@ func TestWithCompression(t *testing.T) {
 	}
 }
 
-func TestWithSubprotocols(t *testing.T) {
-	config := NewHandlerConfig()
+func TestWithUpgradeHandlerSubprotocols(t *testing.T) {
+	config := NewUpgradeHandlerConfig()
 	assert.Empty(t, config.Subprotocols)
 
 	protocols := []string{"chat", "echo", "json"}
-	opt := WithSubprotocols(protocols...)
+	opt := WithUpgradeHandlerSubprotocols(protocols...)
 	opt(&config)
 
 	assert.Equal(t, protocols, config.Subprotocols)
 	assert.Len(t, config.Subprotocols, 3)
 }
 
-func TestWithCheckOrigin(t *testing.T) {
-	config := NewHandlerConfig()
+func TestWithUpgradeHandlerCheckOrigin(t *testing.T) {
+	config := NewUpgradeHandlerConfig()
 
 	// Test that default CheckOrigin allows all origins
 	req := &http.Request{
@@ -117,10 +132,11 @@ func TestWithCheckOrigin(t *testing.T) {
 	// Test custom CheckOrigin function
 	customCheckOrigin := func(r *http.Request) bool {
 		origin := r.Header.Get("Origin")
+
 		return origin == "https://trusted.example.com"
 	}
 
-	opt := WithCheckOrigin(customCheckOrigin)
+	opt := WithUpgradeHandlerCheckOrigin(customCheckOrigin)
 	opt(&config)
 
 	// Test with trusted origin
@@ -138,29 +154,29 @@ func TestWithCheckOrigin(t *testing.T) {
 	assert.False(t, config.CheckOrigin(untrustedReq))
 }
 
-func TestWithHandlerClientOptions(t *testing.T) {
-	config := NewHandlerConfig()
+func TestWithUpgradeHandlerClientOptions(t *testing.T) {
+	config := NewUpgradeHandlerConfig()
 	assert.Empty(t, config.ClientOptions)
 
 	// Create mock client options
 	opt1 := WithSendBufferSize(512)
 	opt2 := WithReadTimeout(30 * time.Second)
 
-	handlerOpt := WithHandlerClientOptions(opt1, opt2)
+	handlerOpt := WithUpgradeHandlerClientOptions(opt1, opt2)
 	handlerOpt(&config)
 
 	assert.Len(t, config.ClientOptions, 2)
 
 	// Add more options
 	opt3 := WithWriteTimeout(15 * time.Second)
-	handlerOpt2 := WithHandlerClientOptions(opt3)
+	handlerOpt2 := WithUpgradeHandlerClientOptions(opt3)
 	handlerOpt2(&config)
 
 	assert.Len(t, config.ClientOptions, 3)
 }
 
-func TestHandlerConfig_ProductionReadyDefaults(t *testing.T) {
-	config := NewHandlerConfig()
+func TestUpgradeHandlerConfig_ProductionReadyDefaults(t *testing.T) {
+	config := NewUpgradeHandlerConfig()
 
 	// Test that defaults are reasonable for production
 	assert.Greater(t, config.ReadBufferSize, 0)
@@ -178,10 +194,11 @@ func TestHandlerConfig_ProductionReadyDefaults(t *testing.T) {
 	assert.NotNil(t, config.CheckOrigin)
 }
 
-func TestHandlerConfig_SecurityDefaults(t *testing.T) {
-	config := NewHandlerConfig()
+func TestUpgradeHandlerConfig_SecurityDefaults(t *testing.T) {
+	config := NewUpgradeHandlerConfig()
 
-	// Test default CheckOrigin behavior - should allow all (dev-friendly, but needs configuration for production)
+	// Test default CheckOrigin behavior - should allow all
+	// (dev-friendly, but needs configuration for production)
 	req := &http.Request{
 		Header: make(http.Header),
 	}
@@ -199,20 +216,23 @@ func TestHandlerConfig_SecurityDefaults(t *testing.T) {
 		req.Header.Set("Origin", origin)
 		// Default allows all - this is by design for development ease
 		// Production deployments should configure a proper CheckOrigin function
-		assert.True(t, config.CheckOrigin(req), "Default CheckOrigin should allow origin: %s", origin)
+		assert.True(
+			t, config.CheckOrigin(req),
+			"Default CheckOrigin should allow origin: %s", origin,
+		)
 	}
 }
 
-func TestHandlerOptions_Chaining(t *testing.T) {
-	config := NewHandlerConfig()
+func TestUpgradeHandlerOptions_Chaining(t *testing.T) {
+	config := NewUpgradeHandlerConfig()
 
 	// Test that we can chain multiple options
-	opts := []HandlerOption{
-		WithHandlerBufferSizes(2048, 4096),
-		WithHandshakeTimeout(30 * time.Second),
-		WithCompression(true),
-		WithSubprotocols("chat", "echo"),
-		WithHandlerClientOptions(WithSendBufferSize(256)),
+	opts := []UpgradeHandlerOption{
+		WithUpgradeHandlerBufferSizes(2048, 4096),
+		WithUpgradeHandlerHandshakeTimeout(30 * time.Second),
+		WithUpgradeHandlerCompression(true),
+		WithUpgradeHandlerSubprotocols("chat", "echo"),
+		WithUpgradeHandlerClientOptions(WithSendBufferSize(256)),
 	}
 
 	// Apply all options
@@ -229,11 +249,23 @@ func TestHandlerOptions_Chaining(t *testing.T) {
 }
 
 func TestHandlerConfig_DefaultsMatchConstants(t *testing.T) {
-	config := NewHandlerConfig()
+	config := NewUpgradeHandlerConfig()
 
 	// Verify that our config defaults exactly match the constants in defaults.go
-	assert.Equal(t, aichteeteapee.DefaultWebSocketHandlerReadBufferSize, config.ReadBufferSize)
-	assert.Equal(t, aichteeteapee.DefaultWebSocketHandlerWriteBufferSize, config.WriteBufferSize)
-	assert.Equal(t, aichteeteapee.DefaultWebSocketHandlerHandshakeTimeout, config.HandshakeTimeout)
-	assert.Equal(t, aichteeteapee.DefaultWebSocketHandlerEnableCompression, config.EnableCompression)
+	assert.Equal(
+		t, aichteeteapee.DefaultWebSocketHandlerReadBufferSize,
+		config.ReadBufferSize,
+	)
+	assert.Equal(
+		t, aichteeteapee.DefaultWebSocketHandlerWriteBufferSize,
+		config.WriteBufferSize,
+	)
+	assert.Equal(
+		t, aichteeteapee.DefaultWebSocketHandlerHandshakeTimeout,
+		config.HandshakeTimeout,
+	)
+	assert.Equal(
+		t, aichteeteapee.DefaultWebSocketHandlerEnableCompression,
+		config.EnableCompression,
+	)
 }
