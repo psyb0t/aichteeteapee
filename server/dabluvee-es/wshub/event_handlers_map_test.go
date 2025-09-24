@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
+	dabluveees "github.com/psyb0t/aichteeteapee/server/dabluvee-es"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -39,26 +40,30 @@ func (mh *mockHubForHandlers) GetAllClients() map[uuid.UUID]*Client {
 }
 
 func (mh *mockHubForHandlers) RegisterEventHandler(
-	_ EventType, _ EventHandler,
+	_ dabluveees.EventType, _ EventHandler,
 ) {
 }
 
 func (mh *mockHubForHandlers) RegisterEventHandlers(
-	_ map[EventType]EventHandler,
+	_ map[dabluveees.EventType]EventHandler,
 ) {
 }
-func (mh *mockHubForHandlers) UnregisterEventHandler(_ EventType) {}
-func (mh *mockHubForHandlers) ProcessEvent(_ *Client, _ *Event)   {}
-func (mh *mockHubForHandlers) BroadcastToAll(_ *Event)            {}
+func (mh *mockHubForHandlers) UnregisterEventHandler(_ dabluveees.EventType) {}
+func (mh *mockHubForHandlers) ProcessEvent(_ *Client, _ *dabluveees.Event)   {}
+func (mh *mockHubForHandlers) BroadcastToAll(_ *dabluveees.Event)            {}
 func (mh *mockHubForHandlers) BroadcastToClients(
-	_ []uuid.UUID, _ *Event,
+	_ []uuid.UUID, _ *dabluveees.Event,
 ) {
 }
-func (mh *mockHubForHandlers) BroadcastToSubscribers(_ EventType, _ *Event) {}
+
+func (mh *mockHubForHandlers) BroadcastToSubscribers(
+	_ dabluveees.EventType, _ *dabluveees.Event,
+) {
+}
 
 // MockEventHandler creates a mock event handler for testing.
 func newMockEventHandler(returnError bool) EventHandler {
-	return func(_ Hub, _ *Client, _ *Event) error {
+	return func(_ Hub, _ *Client, _ *dabluveees.Event) error {
 		if returnError {
 			return errMock
 		}
@@ -68,7 +73,7 @@ func newMockEventHandler(returnError bool) EventHandler {
 }
 
 func TestNewEventHandlersMap(t *testing.T) {
-	ehm := newEventHandlersMap()
+	ehm := NewEventHandlersMap()
 
 	assert.NotNil(t, ehm)
 	assert.NotNil(t, ehm.handlers)
@@ -76,97 +81,97 @@ func TestNewEventHandlersMap(t *testing.T) {
 }
 
 func TestEventHandlersMap_Add(t *testing.T) {
-	ehm := newEventHandlersMap()
+	ehm := NewEventHandlersMap()
 	handler1 := newMockEventHandler(false)
 	handler2 := newMockEventHandler(true)
 
 	// Test adding handlers
-	ehm.Add(EventTypeSystemLog, handler1)
-	ehm.Add(EventTypeShellExec, handler2)
+	ehm.Add(dabluveees.EventTypeSystemLog, handler1)
+	ehm.Add(dabluveees.EventTypeShellExec, handler2)
 
 	// Verify handlers were added
-	retrieved1, exists1 := ehm.Get(EventTypeSystemLog)
+	retrieved1, exists1 := ehm.Get(dabluveees.EventTypeSystemLog)
 	assert.True(t, exists1)
 	assert.NotNil(t, retrieved1)
 
-	retrieved2, exists2 := ehm.Get(EventTypeShellExec)
+	retrieved2, exists2 := ehm.Get(dabluveees.EventTypeShellExec)
 	assert.True(t, exists2)
 	assert.NotNil(t, retrieved2)
 
 	// Test overwriting handler
 	handler3 := newMockEventHandler(false)
-	ehm.Add(EventTypeSystemLog, handler3)
-	retrieved3, exists3 := ehm.Get(EventTypeSystemLog)
+	ehm.Add(dabluveees.EventTypeSystemLog, handler3)
+	retrieved3, exists3 := ehm.Get(dabluveees.EventTypeSystemLog)
 	assert.True(t, exists3)
 	assert.NotNil(t, retrieved3)
 	// Note: We can't directly compare function pointers, but we can test behavior
 }
 
 func TestEventHandlersMap_Get(t *testing.T) {
-	ehm := newEventHandlersMap()
+	ehm := NewEventHandlersMap()
 	handler1 := newMockEventHandler(false)
 	handler2 := newMockEventHandler(true)
 
-	ehm.Add(EventTypeSystemLog, handler1)
-	ehm.Add(EventTypeError, handler2)
+	ehm.Add(dabluveees.EventTypeSystemLog, handler1)
+	ehm.Add(dabluveees.EventTypeError, handler2)
 
 	// Test getting existing handlers
-	retrieved1, exists1 := ehm.Get(EventTypeSystemLog)
+	retrieved1, exists1 := ehm.Get(dabluveees.EventTypeSystemLog)
 	assert.True(t, exists1)
 	assert.NotNil(t, retrieved1)
 
-	retrieved2, exists2 := ehm.Get(EventTypeError)
+	retrieved2, exists2 := ehm.Get(dabluveees.EventTypeError)
 	assert.True(t, exists2)
 	assert.NotNil(t, retrieved2)
 
 	// Test getting non-existent handler
-	retrieved3, exists3 := ehm.Get(EventTypeShellExec)
+	retrieved3, exists3 := ehm.Get(dabluveees.EventTypeShellExec)
 	assert.False(t, exists3)
 	assert.Nil(t, retrieved3)
 }
 
 func TestEventHandlersMap_Remove(t *testing.T) {
-	ehm := newEventHandlersMap()
+	ehm := NewEventHandlersMap()
 	handler1 := newMockEventHandler(false)
 	handler2 := newMockEventHandler(true)
 
-	ehm.Add(EventTypeSystemLog, handler1)
-	ehm.Add(EventTypeError, handler2)
+	ehm.Add(dabluveees.EventTypeSystemLog, handler1)
+	ehm.Add(dabluveees.EventTypeError, handler2)
 
 	// Verify handlers exist
-	_, exists1 := ehm.Get(EventTypeSystemLog)
-	_, exists2 := ehm.Get(EventTypeError)
+	_, exists1 := ehm.Get(dabluveees.EventTypeSystemLog)
+	_, exists2 := ehm.Get(dabluveees.EventTypeError)
 
 	assert.True(t, exists1)
 	assert.True(t, exists2)
 
 	// Remove one handler
-	ehm.Remove(EventTypeSystemLog)
+	ehm.Remove(dabluveees.EventTypeSystemLog)
 
 	// Verify removal
-	_, exists1After := ehm.Get(EventTypeSystemLog)
-	_, exists2After := ehm.Get(EventTypeError)
+	_, exists1After := ehm.Get(dabluveees.EventTypeSystemLog)
+	_, exists2After := ehm.Get(dabluveees.EventTypeError)
 
 	assert.False(t, exists1After)
 	assert.True(t, exists2After) // Other handler should remain
 
 	// Test removing non-existent handler (should not panic)
-	ehm.Remove(EventTypeShellExec)
+	ehm.Remove(dabluveees.EventTypeShellExec)
 
 	// Remove remaining handler
-	ehm.Remove(EventTypeError)
-	_, exists2Final := ehm.Get(EventTypeError)
+	ehm.Remove(dabluveees.EventTypeError)
+	_, exists2Final := ehm.Get(dabluveees.EventTypeError)
 	assert.False(t, exists2Final)
 }
 
 func TestEventHandlersMap_HandlerInvocation(t *testing.T) {
-	ehm := newEventHandlersMap()
+	ehm := NewEventHandlersMap()
 	hub := &mockHubForHandlers{name: "test-hub"}
 	testClient := NewClient()
-	event := NewEvent(EventTypeSystemLog, "test data")
+	event := dabluveees.NewEvent(dabluveees.EventTypeSystemLog, "test data")
 
 	// Test handler that succeeds
-	successHandler := func(h Hub, c *Client, e *Event) error {
+	successHandler := func(h Hub, c *Client, e *dabluveees.Event) error {
 		assert.Equal(t, hub, h)
 		assert.NotNil(t, c)
 		assert.Equal(t, event.Type, e.Type)
@@ -176,27 +181,27 @@ func TestEventHandlersMap_HandlerInvocation(t *testing.T) {
 	}
 
 	// Test handler that fails
-	errorHandler := func(h Hub, c *Client, e *Event) error {
+	errorHandler := func(h Hub, c *Client, e *dabluveees.Event) error {
 		assert.Equal(t, hub, h)
 		assert.NotNil(t, c)
-		assert.Equal(t, EventTypeError, e.Type) // Expect error event type
+		assert.Equal(t, dabluveees.EventTypeError, e.Type) // Expect error event type
 
 		return errTest
 	}
 
-	ehm.Add(EventTypeSystemLog, successHandler)
-	ehm.Add(EventTypeError, errorHandler)
+	ehm.Add(dabluveees.EventTypeSystemLog, successHandler)
+	ehm.Add(dabluveees.EventTypeError, errorHandler)
 
 	// Test successful handler invocation
-	handler1, exists1 := ehm.Get(EventTypeSystemLog)
+	handler1, exists1 := ehm.Get(dabluveees.EventTypeSystemLog)
 	assert.True(t, exists1)
 
 	err1 := handler1(hub, testClient, event)
 	assert.NoError(t, err1)
 
 	// Test error handler invocation
-	errorEvent := NewEvent(EventTypeError, "error data")
-	handler2, exists2 := ehm.Get(EventTypeError)
+	errorEvent := dabluveees.NewEvent(dabluveees.EventTypeError, "error data")
+	handler2, exists2 := ehm.Get(dabluveees.EventTypeError)
 	assert.True(t, exists2)
 
 	err2 := handler2(hub, testClient, errorEvent)
@@ -205,7 +210,7 @@ func TestEventHandlersMap_HandlerInvocation(t *testing.T) {
 }
 
 func TestEventHandlersMap_ThreadSafety(t *testing.T) {
-	ehm := newEventHandlersMap()
+	ehm := NewEventHandlersMap()
 
 	var wg sync.WaitGroup
 
@@ -218,8 +223,8 @@ func TestEventHandlersMap_ThreadSafety(t *testing.T) {
 		go func(id int) {
 			defer wg.Done()
 
-			eventType := EventType(fmt.Sprintf("test.event.%d", id))
-			handler := func(_ Hub, _ *Client, _ *Event) error {
+			eventType := dabluveees.EventType(fmt.Sprintf("test.event.%d", id))
+			handler := func(_ Hub, _ *Client, _ *dabluveees.Event) error {
 				return nil
 			}
 			ehm.Add(eventType, handler)
@@ -233,7 +238,9 @@ func TestEventHandlersMap_ThreadSafety(t *testing.T) {
 		go func(id int) {
 			defer wg.Done()
 
-			eventType := EventType(fmt.Sprintf("test.event.%d", id%numGoroutines))
+			eventType := dabluveees.EventType(
+				fmt.Sprintf("test.event.%d", id%numGoroutines),
+			)
 			ehm.Get(eventType)
 		}(i)
 	}
@@ -242,14 +249,14 @@ func TestEventHandlersMap_ThreadSafety(t *testing.T) {
 
 	// Verify all handlers were added
 	for i := range numGoroutines {
-		eventType := EventType(fmt.Sprintf("test.event.%d", i))
+		eventType := dabluveees.EventType(fmt.Sprintf("test.event.%d", i))
 		_, exists := ehm.Get(eventType)
 		assert.True(t, exists, "Handler for %s should exist", eventType)
 	}
 }
 
 func TestEventHandlersMap_ConcurrentAddRemove(t *testing.T) {
-	ehm := newEventHandlersMap()
+	ehm := NewEventHandlersMap()
 
 	var wg sync.WaitGroup
 
@@ -263,8 +270,8 @@ func TestEventHandlersMap_ConcurrentAddRemove(t *testing.T) {
 			defer wg.Done()
 
 			// Reuse event types
-			eventType := EventType(fmt.Sprintf("test.event.%d", id%10))
-			handler := func(_ Hub, _ *Client, _ *Event) error {
+			eventType := dabluveees.EventType(fmt.Sprintf("test.event.%d", id%10))
+			handler := func(_ Hub, _ *Client, _ *dabluveees.Event) error {
 				return nil
 			}
 			ehm.Add(eventType, handler)
@@ -274,7 +281,7 @@ func TestEventHandlersMap_ConcurrentAddRemove(t *testing.T) {
 			defer wg.Done()
 
 			// Same event types
-			eventType := EventType(fmt.Sprintf("test.event.%d", id%10))
+			eventType := dabluveees.EventType(fmt.Sprintf("test.event.%d", id%10))
 			ehm.Remove(eventType)
 		}(i)
 	}
@@ -285,7 +292,7 @@ func TestEventHandlersMap_ConcurrentAddRemove(t *testing.T) {
 	// We can't predict final state due to race conditions,
 	// but we can verify no crashes
 	for i := range 10 {
-		eventType := EventType(fmt.Sprintf("test.event.%d", i))
+		eventType := dabluveees.EventType(fmt.Sprintf("test.event.%d", i))
 
 		handler, exists := ehm.Get(eventType)
 		if exists {
@@ -297,28 +304,28 @@ func TestEventHandlersMap_ConcurrentAddRemove(t *testing.T) {
 }
 
 func TestEventHandlersMap_HandlerTypes(t *testing.T) {
-	ehm := newEventHandlersMap()
+	ehm := NewEventHandlersMap()
 
 	// Test different handler implementations
 	tests := []struct {
 		name        string
-		eventType   EventType
+		eventType   dabluveees.EventType
 		handler     EventHandler
 		expectError bool
 		errorMsg    string
 	}{
 		{
 			name:      "success handler",
-			eventType: EventTypeSystemLog,
-			handler: func(_ Hub, _ *Client, _ *Event) error {
+			eventType: dabluveees.EventTypeSystemLog,
+			handler: func(_ Hub, _ *Client, _ *dabluveees.Event) error {
 				return nil
 			},
 			expectError: false,
 		},
 		{
 			name:      "error handler",
-			eventType: EventTypeError,
-			handler: func(_ Hub, _ *Client, _ *Event) error {
+			eventType: dabluveees.EventTypeError,
+			handler: func(_ Hub, _ *Client, _ *dabluveees.Event) error {
 				return errProcessingFailed
 			},
 			expectError: true,
@@ -326,8 +333,8 @@ func TestEventHandlersMap_HandlerTypes(t *testing.T) {
 		},
 		{
 			name:      "data processing handler",
-			eventType: EventTypeShellExec,
-			handler: func(_ Hub, _ *Client, event *Event) error {
+			eventType: dabluveees.EventTypeShellExec,
+			handler: func(_ Hub, _ *Client, event *dabluveees.Event) error {
 				// Simulate data processing
 				if event.Data == nil {
 					return errNoDataProvided
@@ -351,7 +358,7 @@ func TestEventHandlersMap_HandlerTypes(t *testing.T) {
 			// Test handler execution
 			hub := &mockHubForHandlers{name: "test"}
 			testClient := NewClient()
-			event := NewEvent(tt.eventType, nil) // No data for testing
+			event := dabluveees.NewEvent(tt.eventType, nil) // No data for testing
 
 			err := handler(hub, testClient, event)
 			if tt.expectError {

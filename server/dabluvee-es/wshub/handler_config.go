@@ -4,20 +4,20 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/psyb0t/aichteeteapee/server/websocket"
+	dabluveees "github.com/psyb0t/aichteeteapee/server/dabluvee-es"
 )
 
 // UpgradeHandlerConfig extends the shared websocket config
 // with hub-specific options.
 type UpgradeHandlerConfig struct {
-	websocket.UpgradeHandlerConfig
+	dabluveees.UpgradeHandlerConfig
 	ClientOptions []ClientOption
 }
 
 // NewUpgradeHandlerConfig creates config with defaults.
 func NewUpgradeHandlerConfig() UpgradeHandlerConfig {
 	return UpgradeHandlerConfig{
-		UpgradeHandlerConfig: websocket.NewUpgradeHandlerConfig(),
+		UpgradeHandlerConfig: dabluveees.NewUpgradeHandlerConfig(),
 		ClientOptions:        []ClientOption{},
 	}
 }
@@ -37,7 +37,7 @@ func WithUpgradeHandlerClientOptions(
 // Wrapper functions for shared websocket options.
 func WithUpgradeHandlerBufferSizes(read, write int) UpgradeHandlerOption {
 	return func(c *UpgradeHandlerConfig) {
-		websocket.WithUpgradeHandlerBufferSizes(read, write)(&c.UpgradeHandlerConfig)
+		dabluveees.WithUpgradeHandlerBufferSizes(read, write)(&c.UpgradeHandlerConfig)
 	}
 }
 
@@ -45,19 +45,21 @@ func WithUpgradeHandlerHandshakeTimeout(
 	timeout time.Duration,
 ) UpgradeHandlerOption {
 	return func(c *UpgradeHandlerConfig) {
-		websocket.WithUpgradeHandlerHandshakeTimeout(timeout)(&c.UpgradeHandlerConfig)
+		dabluveees.WithUpgradeHandlerHandshakeTimeout(timeout)(
+			&c.UpgradeHandlerConfig,
+		)
 	}
 }
 
 func WithUpgradeHandlerCompression(enable bool) UpgradeHandlerOption {
 	return func(c *UpgradeHandlerConfig) {
-		websocket.WithUpgradeHandlerCompression(enable)(&c.UpgradeHandlerConfig)
+		dabluveees.WithUpgradeHandlerCompression(enable)(&c.UpgradeHandlerConfig)
 	}
 }
 
 func WithUpgradeHandlerSubprotocols(protocols ...string) UpgradeHandlerOption {
 	return func(c *UpgradeHandlerConfig) {
-		websocket.WithUpgradeHandlerSubprotocols(protocols...)(
+		dabluveees.WithUpgradeHandlerSubprotocols(protocols...)(
 			&c.UpgradeHandlerConfig,
 		)
 	}
@@ -67,6 +69,6 @@ func WithUpgradeHandlerCheckOrigin(
 	checkOrigin func(*http.Request) bool,
 ) UpgradeHandlerOption {
 	return func(c *UpgradeHandlerConfig) {
-		websocket.WithUpgradeHandlerCheckOrigin(checkOrigin)(&c.UpgradeHandlerConfig)
+		dabluveees.WithUpgradeHandlerCheckOrigin(checkOrigin)(&c.UpgradeHandlerConfig)
 	}
 }

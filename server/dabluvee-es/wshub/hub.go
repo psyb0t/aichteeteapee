@@ -5,6 +5,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/psyb0t/aichteeteapee"
+	dabluveees "github.com/psyb0t/aichteeteapee/server/dabluvee-es"
 	"github.com/sirupsen/logrus"
 )
 
@@ -19,35 +20,34 @@ type Hub interface {
 	GetClient(clientID uuid.UUID) *Client
 	GetOrCreateClient(clientID uuid.UUID, opts ...ClientOption) (*Client, bool)
 	GetAllClients() map[uuid.UUID]*Client
-	RegisterEventHandler(eventType EventType, handler EventHandler)
-	RegisterEventHandlers(handlers map[EventType]EventHandler)
-	UnregisterEventHandler(eventType EventType)
-	ProcessEvent(client *Client, event *Event)
-	BroadcastToAll(event *Event)
-	BroadcastToClients(clientIDs []uuid.UUID, event *Event)
-	BroadcastToSubscribers(eventType EventType, event *Event)
+	RegisterEventHandler(eventType dabluveees.EventType, handler EventHandler)
+	RegisterEventHandlers(handlers map[dabluveees.EventType]EventHandler)
+	UnregisterEventHandler(eventType dabluveees.EventType)
+	ProcessEvent(client *Client, event *dabluveees.Event)
+	BroadcastToAll(event *dabluveees.Event)
+	BroadcastToClients(clientIDs []uuid.UUID, event *dabluveees.Event)
+	BroadcastToSubscribers(eventType dabluveees.EventType, event *dabluveees.Event)
 	Done() <-chan struct{}
 }
 
 type hub struct {
 	name     string
 	clients  *clientsMap
-	handlers *eventHandlersMap
+	handlers *EventHandlersMap
 	doneCh   chan struct{}
 	wg       sync.WaitGroup
 	stopOnce sync.Once
 	mu       sync.Mutex
 }
 
-//nolint:ireturn
-func NewHub(name string) Hub {
+func NewHub(name string) Hub { //nolint:ireturn
 	logger := logrus.WithField(aichteeteapee.FieldHubName, name)
 	logger.Info("creating new hub")
 
 	return &hub{
 		name:     name,
 		clients:  newClientsMap(),
-		handlers: newEventHandlersMap(),
+		handlers: NewEventHandlersMap(),
 		doneCh:   make(chan struct{}),
 	}
 }
@@ -184,7 +184,9 @@ func (h *hub) GetAllClients() map[uuid.UUID]*Client {
 	return h.clients.GetAll()
 }
 
-func (h *hub) RegisterEventHandler(eventType EventType, handler EventHandler) {
+func (h *hub) RegisterEventHandler(
+	eventType dabluveees.EventType, handler EventHandler,
+) {
 	logger := logrus.WithFields(logrus.Fields{
 		aichteeteapee.FieldHubName:   h.name,
 		aichteeteapee.FieldEventType: string(eventType),
@@ -195,7 +197,9 @@ func (h *hub) RegisterEventHandler(eventType EventType, handler EventHandler) {
 	h.handlers.Add(eventType, handler)
 }
 
-func (h *hub) RegisterEventHandlers(handlers map[EventType]EventHandler) {
+func (h *hub) RegisterEventHandlers(
+	handlers map[dabluveees.EventType]EventHandler,
+) {
 	logger := logrus.WithFields(logrus.Fields{
 		aichteeteapee.FieldHubName: h.name,
 	})
@@ -208,11 +212,11 @@ func (h *hub) RegisterEventHandlers(handlers map[EventType]EventHandler) {
 	}
 }
 
-func (h *hub) UnregisterEventHandler(eventType EventType) {
+func (h *hub) UnregisterEventHandler(eventType dabluveees.EventType) {
 	h.handlers.Remove(eventType)
 }
 
-func (h *hub) ProcessEvent(client *Client, event *Event) {
+func (h *hub) ProcessEvent(client *Client, event *dabluveees.Event) {
 	logger := logrus.WithFields(logrus.Fields{
 		aichteeteapee.FieldHubName:   h.name,
 		aichteeteapee.FieldClientID:  client.ID(),
@@ -235,14 +239,16 @@ func (h *hub) ProcessEvent(client *Client, event *Event) {
 	}
 }
 
-func (h *hub) BroadcastToAll(event *Event) {
+func (h *hub) BroadcastToAll(event *dabluveees.Event) {
 	clients := h.clients.GetAll()
 	for _, client := range clients {
 		client.SendEvent(event)
 	}
 }
 
-func (h *hub) BroadcastToClients(clientIDs []uuid.UUID, event *Event) {
+func (h *hub) BroadcastToClients(
+	clientIDs []uuid.UUID, event *dabluveees.Event,
+) {
 	for _, clientID := range clientIDs {
 		client := h.clients.Get(clientID)
 		if client != nil {
@@ -251,7 +257,9 @@ func (h *hub) BroadcastToClients(clientIDs []uuid.UUID, event *Event) {
 	}
 }
 
-func (h *hub) BroadcastToSubscribers(eventType EventType, event *Event) {
+func (h *hub) BroadcastToSubscribers(
+	eventType dabluveees.EventType, event *dabluveees.Event,
+) {
 	clients := h.clients.GetAll()
 	for _, client := range clients {
 		if client.IsSubscribedTo(eventType) {

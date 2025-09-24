@@ -7,22 +7,23 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/psyb0t/aichteeteapee"
+	dabluveees "github.com/psyb0t/aichteeteapee/server/dabluvee-es"
 	"github.com/sirupsen/logrus"
 )
 
 type Client struct {
-	id            uuid.UUID       // UUID4 client identifier
-	hub           Hub             // Reference to hub
-	hubMu         sync.RWMutex    // Protects hub field
-	connections   *connectionsMap // Thread-safe connection management
-	sendCh        chan *Event     // Client-level message channel
-	doneCh        chan struct{}   // Client shutdown signal
-	wg            sync.WaitGroup  // Wait for goroutines to finish
-	stopOnce      sync.Once       // Ensure single stop
-	config        ClientConfig    // Client configuration
-	isStopped     atomic.Bool     // Atomic flag for client stopped state
-	isRunning     atomic.Bool     // Atomic flag for client running state
-	readyToStopCh chan struct{}   // Channel to signal client is ready to stop
+	id            uuid.UUID              // UUID4 client identifier
+	hub           Hub                    // Reference to hub
+	hubMu         sync.RWMutex           // Protects hub field
+	connections   *connectionsMap        // Thread-safe connection management
+	sendCh        chan *dabluveees.Event // Client-level message channel
+	doneCh        chan struct{}          // Client shutdown signal
+	wg            sync.WaitGroup         // Wait for goroutines to finish
+	stopOnce      sync.Once              // Ensure single stop
+	config        ClientConfig           // Client configuration
+	isStopped     atomic.Bool            // Atomic flag for client stopped state
+	isRunning     atomic.Bool            // Atomic flag for client running state
+	readyToStopCh chan struct{}          // Channel to signal ready to stop
 }
 
 // GetHubName safely returns the hub name, handling nil cases.
@@ -55,7 +56,7 @@ func NewClientWithID(clientID uuid.UUID, opts ...ClientOption) *Client {
 		id:            clientID,
 		hub:           nil, // Hub will be set when added to hub
 		connections:   newConnectionsMap(),
-		sendCh:        make(chan *Event, config.SendBufferSize),
+		sendCh:        make(chan *dabluveees.Event, config.SendBufferSize),
 		doneCh:        make(chan struct{}),
 		readyToStopCh: make(chan struct{}),
 		config:        config,
@@ -166,12 +167,12 @@ func (c *Client) ConnectionCount() int {
 
 // SendEvent sends an event to all client connections
 // (alias for Send for hub compatibility).
-func (c *Client) SendEvent(event *Event) {
+func (c *Client) SendEvent(event *dabluveees.Event) {
 	c.Send(event)
 }
 
 // Send sends an event to the client's send channel for distribution.
-func (c *Client) Send(event *Event) {
+func (c *Client) Send(event *dabluveees.Event) {
 	logger := logrus.WithFields(logrus.Fields{
 		aichteeteapee.FieldHubName:   c.GetHubName(),
 		aichteeteapee.FieldClientID:  c.id,
@@ -203,7 +204,7 @@ func (c *Client) Send(event *Event) {
 }
 
 // IsSubscribedTo checks if client is subscribed to an event type.
-func (c *Client) IsSubscribedTo(_ EventType) bool {
+func (c *Client) IsSubscribedTo(_ dabluveees.EventType) bool {
 	return true // For now, accept all events
 }
 

@@ -8,18 +8,19 @@ import (
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
 	"github.com/psyb0t/aichteeteapee"
+	dabluveees "github.com/psyb0t/aichteeteapee/server/dabluvee-es"
 	"github.com/sirupsen/logrus"
 )
 
 type Connection struct {
-	id       uuid.UUID       // UUID4 connection identifier
-	conn     *websocket.Conn // WebSocket connection
-	client   *Client         // Reference to parent client
-	sendCh   chan *Event     // Per-connection message channel
-	doneCh   chan struct{}   // Connection shutdown signal
-	stopOnce sync.Once       // Ensure single stop
-	isDone   atomic.Bool     // Atomic flag for connection state
-	sendWg   sync.WaitGroup  // Wait for in-flight sends to complete
+	id       uuid.UUID              // UUID4 connection identifier
+	conn     *websocket.Conn        // WebSocket connection
+	client   *Client                // Reference to parent client
+	sendCh   chan *dabluveees.Event // Per-connection message channel
+	doneCh   chan struct{}          // Connection shutdown signal
+	stopOnce sync.Once              // Ensure single stop
+	isDone   atomic.Bool            // Atomic flag for connection state
+	sendWg   sync.WaitGroup         // Wait for in-flight sends to complete
 }
 
 // NewConnection creates a new WebSocket connection.
@@ -31,7 +32,7 @@ func NewConnection(
 		id:       uuid.New(),
 		conn:     conn,
 		client:   client,
-		sendCh:   make(chan *Event, client.config.SendBufferSize),
+		sendCh:   make(chan *dabluveees.Event, client.config.SendBufferSize),
 		doneCh:   make(chan struct{}),
 		stopOnce: sync.Once{},
 	}
@@ -56,7 +57,7 @@ func (c *Connection) GetClientID() uuid.UUID {
 }
 
 // Send sends an event to the connection's send channel.
-func (c *Connection) Send(event *Event) {
+func (c *Connection) Send(event *dabluveees.Event) {
 	logger := logrus.WithFields(logrus.Fields{
 		aichteeteapee.FieldHubName:      c.GetHubName(),
 		aichteeteapee.FieldClientID:     c.GetClientID(),
@@ -271,7 +272,7 @@ func (c *Connection) readPump() { //nolint:cyclop,funlen
 		default:
 		}
 
-		var event Event
+		var event dabluveees.Event
 		if err := c.conn.ReadJSON(&event); err != nil {
 			if websocket.IsCloseError(err,
 				websocket.CloseNormalClosure,

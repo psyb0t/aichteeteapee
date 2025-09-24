@@ -12,6 +12,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
 	"github.com/psyb0t/aichteeteapee"
+	dabluveees "github.com/psyb0t/aichteeteapee/server/dabluvee-es"
 	"github.com/sirupsen/logrus"
 	"github.com/sirupsen/logrus/hooks/test"
 	"github.com/stretchr/testify/assert"
@@ -74,7 +75,7 @@ func TestSingleClient(t *testing.T) {
 	assert.NoError(t, err)
 
 	// Send message to client
-	testEvent := NewEvent("response", map[string]any{
+	testEvent := dabluveees.NewEvent("response", map[string]any{
 		"message": "hello from server",
 	})
 	client.SendEvent(testEvent)
@@ -164,7 +165,7 @@ func TestMultiClientBroadcast(t *testing.T) {
 	require.Len(t, clients, numClients, "All clients should be connected")
 
 	// Broadcast message from hub
-	broadcastEvent := NewEvent("broadcast", map[string]any{
+	broadcastEvent := dabluveees.NewEvent("broadcast", map[string]any{
 		"message": "hello everyone",
 		"sender":  "server",
 	})
@@ -308,7 +309,7 @@ func TestMultiDeviceUser(t *testing.T) {
 	assert.Equal(t, userID, targetClient.ID())
 
 	// Send message to user - should reach all devices
-	userEvent := NewEvent("user-message", map[string]any{
+	userEvent := dabluveees.NewEvent("user-message", map[string]any{
 		"message": "hello user",
 		"target":  userID.String(),
 	})
@@ -462,7 +463,9 @@ func TestEventHandlers(t *testing.T) {
 		handlerMutex  sync.Mutex
 	)
 
-	hub.RegisterEventHandler("custom", func(hub Hub, _ *Client, _ *Event) error {
+	hub.RegisterEventHandler("custom", func(
+		hub Hub, _ *Client, _ *dabluveees.Event,
+	) error {
 		handlerMutex.Lock()
 
 		handledEvents = append(handledEvents, "custom:"+hub.Name())
@@ -472,7 +475,9 @@ func TestEventHandlers(t *testing.T) {
 		return nil
 	})
 
-	hub.RegisterEventHandler("error", func(hub Hub, _ *Client, _ *Event) error {
+	hub.RegisterEventHandler("error", func(
+		hub Hub, _ *Client, _ *dabluveees.Event,
+	) error {
 		handlerMutex.Lock()
 
 		handledEvents = append(handledEvents, "error:"+hub.Name())
@@ -526,8 +531,10 @@ func TestEventHandlers(t *testing.T) {
 	require.NotNil(t, targetClient)
 
 	// Send events of various types
-	customEvent := NewEvent("custom", map[string]any{"action": "test"})
-	errorEvent := NewEvent("error", map[string]any{"message": "test error"})
+	customEvent := dabluveees.NewEvent("custom", map[string]any{"action": "test"})
+	errorEvent := dabluveees.NewEvent(
+		"error", map[string]any{"message": "test error"},
+	)
 
 	hub.ProcessEvent(targetClient, customEvent)
 	hub.ProcessEvent(targetClient, errorEvent)
@@ -601,7 +608,7 @@ func TestErrorHandling(t *testing.T) {
 
 		// Try to send more messages than buffer can handle
 		for i := range 10 {
-			event := NewEvent("overflow", map[string]any{"index": i})
+			event := dabluveees.NewEvent("overflow", map[string]any{"index": i})
 			client.SendEvent(event)
 		}
 
@@ -683,7 +690,7 @@ func TestLoggingIntegration(t *testing.T) {
 	require.NotNil(t, targetClient)
 
 	// Send an event to generate more logs
-	testEvent := NewEvent("log-test", map[string]any{"test": true})
+	testEvent := dabluveees.NewEvent("log-test", map[string]any{"test": true})
 	targetClient.SendEvent(testEvent)
 
 	// Close connection gracefully to generate cleanup logs

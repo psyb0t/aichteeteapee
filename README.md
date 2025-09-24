@@ -235,8 +235,8 @@ import (
     "os"
     "github.com/psyb0t/aichteeteapee/server"
     "github.com/psyb0t/aichteeteapee/server/middleware"
-    "github.com/psyb0t/aichteeteapee/server/websocket"
-    "github.com/psyb0t/aichteeteapee/server/websocket/wshub"
+    dabluveees "github.com/psyb0t/aichteeteapee/server/dabluvee-es"
+    "github.com/psyb0t/aichteeteapee/server/dabluvee-es/wshub"
 )
 
 func main() {
@@ -250,12 +250,12 @@ func main() {
     hub := wshub.NewHub("my-app")
 
     // Setup WebSocket event handlers
-    hub.RegisterEventHandler(websocket.EventTypeEchoRequest, func(hub wshub.Hub, client *wshub.Client, event *websocket.Event) error {
+    hub.RegisterEventHandler(dabluveees.EventTypeEchoRequest, func(hub wshub.Hub, client *wshub.Client, event *dabluveees.Event) error {
         // Echo it back to the sender
-        return client.SendEvent(websocket.NewEvent(websocket.EventTypeEchoReply, event.Data))
+        return client.SendEvent(dabluveees.NewEvent(dabluveees.EventTypeEchoReply, event.Data))
     })
 
-    hub.RegisterEventHandler("file.delete", func(hub wshub.Hub, client *wshub.Client, event *websocket.Event) error {
+    hub.RegisterEventHandler("file.delete", func(hub wshub.Hub, client *wshub.Client, event *dabluveees.Event) error {
         type deleteMsg struct {
             FilePath string `json:"filePath"`
         }
@@ -266,7 +266,7 @@ func main() {
         // Do the file delete
         if err := os.Remove(msg.FilePath); err != nil {
             // Broadcast error to all clients
-            hub.BroadcastToAll(websocket.NewEvent("file.delete.error", map[string]string{
+            hub.BroadcastToAll(dabluveees.NewEvent("file.delete.error", map[string]string{
                 "error": err.Error(),
                 "file":  msg.FilePath,
             }))
@@ -274,7 +274,7 @@ func main() {
         }
 
         // Broadcast success to all clients
-        hub.BroadcastToAll(websocket.NewEvent("file.delete.success", map[string]string{
+        hub.BroadcastToAll(dabluveees.NewEvent("file.delete.success", map[string]string{
             "file": msg.FilePath,
         }))
         return nil
@@ -314,7 +314,7 @@ func main() {
                     {
                         Method:  http.MethodGet,
                         Path:    "/ws",
-                        Handler: websocket.UpgradeHandler(hub), // WebSocket endpoint
+                        Handler: dabluveees.UpgradeHandler(hub), // WebSocket endpoint
                     },
                     {
                         Method:  http.MethodPost,
@@ -385,11 +385,11 @@ func main() {
 
 ## WebSocket System
 
-The WebSocket system in aichteeteapee is organized into three packages:
+The WebSocket system in aichteeteapee is organized into the **dabluvee-es** package (_pronounced "WS" like double-v-S, because why the fuck not_):
 
-- **`server/websocket`** - Base WebSocket configuration and utilities
-- **`server/websocket/wshub`** - Event-driven WebSocket hub system
-- **`server/websocket/wsunixbridge`** - WebSocket to Unix socket bridge
+- **`server/dabluvee-es`** - Base WebSocket configuration, events, and utilities
+- **`server/dabluvee-es/wshub`** - Event-driven WebSocket hub system
+- **`server/dabluvee-es/wsunixbridge`** - WebSocket to Unix socket bridge
 
 ### WebSocket Hub (wshub)
 
@@ -399,23 +399,23 @@ The hub system provides event-driven WebSocket communication with client managem
 
 ```go
 import (
-    "github.com/psyb0t/aichteeteapee/server/websocket"
-    "github.com/psyb0t/aichteeteapee/server/websocket/wshub"
+    dabluveees "github.com/psyb0t/aichteeteapee/server/dabluvee-es"
+    "github.com/psyb0t/aichteeteapee/server/dabluvee-es/wshub"
 )
 
 // Create a hub
 hub := wshub.NewHub("my-app")
 
 // Register event handlers
-hub.RegisterEventHandler(websocket.EventTypeEchoRequest, func(hub wshub.Hub, client *wshub.Client, event *websocket.Event) error {
+hub.RegisterEventHandler(dabluveees.EventTypeEchoRequest, func(hub wshub.Hub, client *wshub.Client, event *dabluveees.Event) error {
     // Echo back to sender
-    return client.SendEvent(websocket.NewEvent(websocket.EventTypeEchoReply, event.Data))
+    return client.SendEvent(dabluveees.NewEvent(dabluveees.EventTypeEchoReply, event.Data))
 })
 
 // Custom event handlers
-hub.RegisterEventHandler("user.login", func(hub wshub.Hub, client *wshub.Client, event *websocket.Event) error {
+hub.RegisterEventHandler("user.login", func(hub wshub.Hub, client *wshub.Client, event *dabluveees.Event) error {
     // Broadcast to all clients
-    return hub.BroadcastToAll(websocket.NewEvent("user.online", map[string]string{
+    return hub.BroadcastToAll(dabluveees.NewEvent("user.online", map[string]string{
         "userId": "123",
         "status": "online",
     }))
@@ -430,7 +430,7 @@ router := &server.Router{
                 {
                     Method:  http.MethodGet,
                     Path:    "/ws",
-                    Handler: websocket.UpgradeHandler(hub),
+                    Handler: dabluveees.UpgradeHandler(hub),
                 },
             },
         },
@@ -442,14 +442,14 @@ router := &server.Router{
 
 ```go
 // Create events with any data
-event := websocket.NewEvent("user.message", map[string]string{
+event := dabluveees.NewEvent("user.message", map[string]string{
     "message": "Hello world!",
     "username": "john",
 })
 
 // Events have metadata support
-event.SetMetadata("priority", "high")
-event.SetMetadata("source", "web-client")
+event.Metadata.Set("priority", "high")
+event.Metadata.Set("source", "web-client")
 ```
 
 **Broadcasting Options:**
@@ -470,8 +470,8 @@ router := &server.Router{
         {
             Path: "/",
             Routes: []server.RouteConfig{
-                {Method: http.MethodGet, Path: "/ws/chat", Handler: websocket.UpgradeHandler(chatHub)},
-                {Method: http.MethodGet, Path: "/ws/notifications", Handler: websocket.UpgradeHandler(notificationHub)},
+                {Method: http.MethodGet, Path: "/ws/chat", Handler: dabluveees.UpgradeHandler(chatHub)},
+                {Method: http.MethodGet, Path: "/ws/notifications", Handler: dabluveees.UpgradeHandler(notificationHub)},
             },
         },
     },
@@ -490,7 +490,7 @@ The Unix socket bridge creates Unix domain sockets that external tools can conne
 **Basic Setup:**
 
 ```go
-import "github.com/psyb0t/aichteeteapee/server/websocket/wsunixbridge"
+import "github.com/psyb0t/aichteeteapee/server/dabluvee-es/wsunixbridge"
 
 socketsDir := "./sockets"
 
@@ -519,13 +519,26 @@ router := &server.Router{
 }
 ```
 
+**Initialization Event:**
+
+When a WebSocket connection is established, the server automatically sends an initialization event with socket paths:
+
+```go
+// Client receives this event first:
+{
+    "type": "wsunixbridge.init",
+    "data": {
+        "writerSocket": "./sockets/f744bda5-1346-43a4-809b-6332e43fb993_output",
+        "readerSocket": "./sockets/f744bda5-1346-43a4-809b-6332e43fb993_input"
+    }
+}
+```
+
 **External Tool Integration:**
 
-Once a WebSocket connection is established, you get Unix sockets you can connect to:
+Once you receive the initialization event, you can connect external tools to the Unix sockets:
 
 ```bash
-# Connection ID shown in server logs, e.g., f744bda5-1346-43a4-809b-6332e43fb993
-
 # Read WebSocket data from external tools:
 nc -U ./sockets/f744bda5-1346-43a4-809b-6332e43fb993_output
 socat - UNIX-CONNECT:./sockets/f744bda5-1346-43a4-809b-6332e43fb993_output
@@ -653,7 +666,7 @@ router := &server.Router{
             Path: "/",
             Routes: []server.RouteConfig{
                 {Method: http.MethodGet, Path: "/health", Handler: healthHandler},
-                {Method: http.MethodGet, Path: "/ws", Handler: websocket.UpgradeHandler(hub)},
+                {Method: http.MethodGet, Path: "/ws", Handler: dabluveees.UpgradeHandler(hub)},
             },
         },
 
@@ -930,7 +943,7 @@ Groups: []server.GroupConfig{
 
 // ✅ SECURE WEBSOCKET - Configure CheckOrigin for production:
 hub := wshub.NewHub("secure-hub")
-secureUpgradeHandler := websocket.UpgradeHandler(hub, websocket.WithCheckOrigin(func(r *http.Request) bool {
+secureUpgradeHandler := dabluveees.UpgradeHandler(hub, dabluveees.WithCheckOrigin(func(r *http.Request) bool {
     origin := r.Header.Get("Origin")
     // Only allow your trusted domains
     allowedOrigins := []string{
@@ -992,18 +1005,18 @@ Handler: s.FileUploadHandler("./uploads",
 
 ```go
 // ⚠️  DEFAULT BEHAVIOR - DANGEROUS:
-websocket.UpgradeHandler(hub) // Accepts connections from evil-site.com!
+dabluveees.UpgradeHandler(hub) // Accepts connections from evil-site.com!
 
 // ✅ PRODUCTION CONFIGURATION:
-secureHandler := websocket.UpgradeHandler(hub,
-    websocket.WithCheckOrigin(func(r *http.Request) bool {
+secureHandler := dabluveees.UpgradeHandler(hub,
+    dabluveees.WithCheckOrigin(func(r *http.Request) bool {
         origin := r.Header.Get("Origin")
         return origin == "https://yourtrustedsite.com"
     }),
 )
 
 // ✅ ADD AUTHENTICATION TO EVENT HANDLERS:
-hub.RegisterEventHandler("sensitive.action", func(hub wshub.Hub, client *wshub.Client, event *websocket.Event) error {
+hub.RegisterEventHandler("sensitive.action", func(hub wshub.Hub, client *wshub.Client, event *dabluveees.Event) error {
     // Validate user permissions here before processing
     userID := client.GetUserID() // You need to implement this
     if !isAuthorized(userID, "sensitive.action") {

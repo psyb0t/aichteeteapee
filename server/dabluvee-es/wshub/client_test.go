@@ -6,13 +6,14 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	dabluveees "github.com/psyb0t/aichteeteapee/server/dabluvee-es"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 // mockHub for testing.
 type mockHub struct {
-	processEventCalls []Event
+	processEventCalls []dabluveees.Event
 	mu                sync.Mutex
 	doneCh            chan struct{}
 }
@@ -23,7 +24,7 @@ func newMockHub() *mockHub {
 	}
 }
 
-func (h *mockHub) ProcessEvent(_ *Client, event *Event) {
+func (h *mockHub) ProcessEvent(_ *Client, event *dabluveees.Event) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 
@@ -42,16 +43,28 @@ func (h *mockHub) GetOrCreateClient(
 func (h *mockHub) GetAllClients() map[uuid.UUID]*Client {
 	return nil
 }
-func (h *mockHub) RegisterEventHandler(_ EventType, _ EventHandler) {}
-func (h *mockHub) RegisterEventHandlers(
-	_ map[EventType]EventHandler,
+
+func (h *mockHub) RegisterEventHandler(
+	_ dabluveees.EventType, _ EventHandler,
 ) {
 }
-func (h *mockHub) UnregisterEventHandler(_ EventType)           {}
-func (h *mockHub) BroadcastToAll(_ *Event)                      {}
-func (h *mockHub) BroadcastToClients(_ []uuid.UUID, _ *Event)   {}
-func (h *mockHub) BroadcastToSubscribers(_ EventType, _ *Event) {}
-func (h *mockHub) Close()                                       {}
+
+func (h *mockHub) RegisterEventHandlers(
+	_ map[dabluveees.EventType]EventHandler,
+) {
+}
+func (h *mockHub) UnregisterEventHandler(_ dabluveees.EventType) {}
+func (h *mockHub) BroadcastToAll(_ *dabluveees.Event)            {}
+func (h *mockHub) BroadcastToClients(
+	_ []uuid.UUID, _ *dabluveees.Event,
+) {
+}
+
+func (h *mockHub) BroadcastToSubscribers(
+	_ dabluveees.EventType, _ *dabluveees.Event,
+) {
+}
+func (h *mockHub) Close() {}
 func (h *mockHub) Done() <-chan struct{} {
 	return h.doneCh
 }
@@ -178,7 +191,7 @@ func TestClient_Send(_ *testing.T) {
 	hub := &mockHub{}
 	client := newMockClient(hub)
 
-	event := NewEvent(EventTypeSystemLog, "test-data")
+	event := dabluveees.NewEvent(dabluveees.EventTypeSystemLog, "test-data")
 
 	// Should be able to send
 	client.Send(event)
@@ -194,7 +207,7 @@ func TestClient_SendAfterStop(_ *testing.T) {
 
 	client.Stop()
 
-	event := NewEvent(EventTypeSystemLog, "test-data")
+	event := dabluveees.NewEvent(dabluveees.EventTypeSystemLog, "test-data")
 
 	// Should not block or panic when sending to stopped client
 	client.Send(event)
@@ -224,8 +237,8 @@ func TestClient_IsSubscribedTo(t *testing.T) {
 	client := newMockClient(hub)
 
 	// For now, should always return true
-	assert.True(t, client.IsSubscribedTo(EventTypeSystemLog))
-	assert.True(t, client.IsSubscribedTo(EventTypeError))
+	assert.True(t, client.IsSubscribedTo(dabluveees.EventTypeSystemLog))
+	assert.True(t, client.IsSubscribedTo(dabluveees.EventTypeError))
 }
 
 func TestClient_ThreadSafety(t *testing.T) {
@@ -286,7 +299,9 @@ func TestClient_ThreadSafety(t *testing.T) {
 		go func() {
 			defer wg.Done()
 
-			event := NewEvent(EventTypeSystemLog, "concurrent-test")
+			event := dabluveees.NewEvent(
+				dabluveees.EventTypeSystemLog, "concurrent-test",
+			)
 			client.Send(event)
 		}()
 	}
@@ -361,7 +376,9 @@ func TestClient_DistributionPump(_ *testing.T) {
 	go client.distributionPump()
 
 	// Send an event
-	event := NewEvent(EventTypeSystemLog, "distribution-test")
+	event := dabluveees.NewEvent(
+		dabluveees.EventTypeSystemLog, "distribution-test",
+	)
 	client.Send(event)
 
 	// Give some time for distribution
@@ -379,7 +396,7 @@ func TestClient_SendEvent(_ *testing.T) {
 	hub := &mockHub{}
 	client := newMockClient(hub)
 
-	event := NewEvent(EventTypeSystemLog, "test-data")
+	event := dabluveees.NewEvent(dabluveees.EventTypeSystemLog, "test-data")
 
 	// SendEvent should work as an alias for Send
 	client.SendEvent(event)
@@ -436,11 +453,11 @@ func TestClient_SendBufferFullHandling(t *testing.T) {
 	client.SetHub(hub)
 
 	// Fill the buffer
-	event1 := NewEvent(EventTypeSystemLog, "test-1")
+	event1 := dabluveees.NewEvent(dabluveees.EventTypeSystemLog, "test-1")
 	client.Send(event1)
 
 	// This should trigger the default case (buffer full) and log an error
-	event2 := NewEvent(EventTypeSystemLog, "test-2")
+	event2 := dabluveees.NewEvent(dabluveees.EventTypeSystemLog, "test-2")
 	client.Send(event2) // Should not block
 
 	// Verify client is still functional
@@ -459,7 +476,7 @@ func TestClient_SendWithNilChannels(t *testing.T) {
 	}
 
 	// This should hit the nil channels path and return early
-	event := NewEvent(EventTypeSystemLog, "test")
+	event := dabluveees.NewEvent(dabluveees.EventTypeSystemLog, "test")
 	client.Send(event) // Should not panic
 
 	// Verify client exists but channels are nil

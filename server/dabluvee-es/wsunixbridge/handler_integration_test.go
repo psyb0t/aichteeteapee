@@ -83,7 +83,7 @@ func TestSetupConnectionIntegration(t *testing.T) {
 			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 			defer cancel()
 
-			conn, _, err := dialer.DialContext(ctx, wsURL, nil)
+			conn, _, err := dialer.DialContext(ctx, wsURL, nil) //nolint:bodyclose
 			if tt.expectSuccess {
 				require.NoError(t, err)
 
@@ -98,7 +98,10 @@ func TestSetupConnectionIntegration(t *testing.T) {
 				if tt.hasHandler {
 					// Give handler time to execute
 					time.Sleep(100 * time.Millisecond)
-					assert.Equal(t, int32(1), atomic.LoadInt32(&handlerCalled), "connection handler should be called")
+					assert.Equal(
+						t, int32(1), atomic.LoadInt32(&handlerCalled),
+						"connection handler should be called",
+					)
 				}
 
 				// Test basic WebSocket communication
@@ -108,7 +111,10 @@ func TestSetupConnectionIntegration(t *testing.T) {
 
 				// Close connection gracefully
 
-				err = conn.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""))
+				err = conn.WriteMessage(
+					websocket.CloseMessage,
+					websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""),
+				)
 				assert.NoError(t, err)
 			} else {
 				assert.Error(t, err)
@@ -183,7 +189,7 @@ func TestWebSocketUnixBridgeIntegration(t *testing.T) {
 			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 			defer cancel()
 
-			conn, _, err := dialer.DialContext(ctx, wsURL, nil)
+			conn, _, err := dialer.DialContext(ctx, wsURL, nil) //nolint:bodyclose
 			require.NoError(t, err)
 
 			require.NotNil(t, conn)
@@ -212,7 +218,10 @@ func TestWebSocketUnixBridgeIntegration(t *testing.T) {
 
 			// Close connection gracefully
 
-			err = conn.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""))
+			err = conn.WriteMessage(
+				websocket.CloseMessage,
+				websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""),
+			)
 			assert.NoError(t, err)
 
 			// Wait for connection to close
@@ -293,7 +302,7 @@ func TestUnixSocketPathCreationIntegration(t *testing.T) {
 			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 			defer cancel()
 
-			conn, _, err := dialer.DialContext(ctx, wsURL, nil)
+			conn, _, err := dialer.DialContext(ctx, wsURL, nil) //nolint:bodyclose
 			require.NoError(t, err)
 
 			require.NotNil(t, conn)
@@ -309,7 +318,10 @@ func TestUnixSocketPathCreationIntegration(t *testing.T) {
 
 			// Close connection
 
-			err = conn.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""))
+			err = conn.WriteMessage(
+				websocket.CloseMessage,
+				websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""),
+			)
 			assert.NoError(t, err)
 
 			// Verify handler was called and paths were logged
@@ -379,7 +391,7 @@ func TestConnectionCleanupIntegration(t *testing.T) {
 			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 			defer cancel()
 
-			conn, _, err := dialer.DialContext(ctx, wsURL, nil)
+			conn, _, err := dialer.DialContext(ctx, wsURL, nil) //nolint:bodyclose
 			require.NoError(t, err)
 			require.NotNil(t, conn)
 
@@ -401,7 +413,7 @@ func TestConnectionCleanupIntegration(t *testing.T) {
 			err = conn.WriteMessage(websocket.CloseMessage, closeMsg)
 			assert.NoError(t, err)
 
-			conn.Close()
+			_ = conn.Close()
 
 			// Give time for cleanup
 			time.Sleep(200 * time.Millisecond)
@@ -456,7 +468,9 @@ func TestInvalidWebSocketUpgradeIntegration(t *testing.T) {
 			u, err := url.Parse(server.URL)
 			require.NoError(t, err)
 
-			req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, server.URL, nil)
+			req, err := http.NewRequestWithContext(
+				context.Background(), http.MethodGet, server.URL, nil,
+			)
 			require.NoError(t, err)
 
 			// Add test headers

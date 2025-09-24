@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	dabluveees "github.com/psyb0t/aichteeteapee/server/dabluvee-es"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -69,10 +70,10 @@ func TestHub_EventHandlers(t *testing.T) {
 		handlerCalled  bool
 		receivedHub    Hub
 		receivedClient *Client
-		receivedEvent  Event
+		receivedEvent  dabluveees.Event
 	)
 
-	handler := func(h Hub, c *Client, e *Event) error {
+	handler := func(h Hub, c *Client, e *dabluveees.Event) error {
 		handlerCalled = true
 		receivedHub = h
 		receivedClient = c
@@ -85,10 +86,10 @@ func TestHub_EventHandlers(t *testing.T) {
 	testClient := NewClient()
 
 	// Test RegisterEventHandler
-	hub.RegisterEventHandler(EventTypeSystemLog, handler)
+	hub.RegisterEventHandler(dabluveees.EventTypeSystemLog, handler)
 
 	// Test ProcessEvent
-	event := NewEvent(EventTypeSystemLog, "test data")
+	event := dabluveees.NewEvent(dabluveees.EventTypeSystemLog, "test data")
 	hub.ProcessEvent(testClient, event)
 
 	assert.True(t, handlerCalled)
@@ -100,7 +101,7 @@ func TestHub_EventHandlers(t *testing.T) {
 	// Test UnregisterEventHandler
 	handlerCalled = false
 
-	hub.UnregisterEventHandler(EventTypeSystemLog)
+	hub.UnregisterEventHandler(dabluveees.EventTypeSystemLog)
 	hub.ProcessEvent(testClient, event)
 
 	assert.False(t, handlerCalled)
@@ -111,7 +112,7 @@ func TestHub_ProcessEventNonExistent(_ *testing.T) {
 	testClient := NewClient()
 
 	// Processing event with no registered handler should not panic
-	event := NewEvent(EventTypeError, "test data")
+	event := dabluveees.NewEvent(dabluveees.EventTypeError, "test data")
 	hub.ProcessEvent(testClient, event)
 }
 
@@ -125,22 +126,28 @@ func TestHub_RegisterEventHandlers(t *testing.T) {
 	)
 
 	// Create multiple handlers
-	handlers := map[EventType]EventHandler{
-		EventTypeSystemLog: func(hub Hub, _ *Client, _ *Event) error {
+	handlers := map[dabluveees.EventType]EventHandler{
+		dabluveees.EventTypeSystemLog: func(
+			hub Hub, _ *Client, _ *dabluveees.Event,
+		) error {
 			handlerMutex.Lock()
 			handledEvents = append(handledEvents, "system:"+hub.Name())
 			handlerMutex.Unlock()
 
 			return nil
 		},
-		EventTypeError: func(hub Hub, _ *Client, _ *Event) error {
+		dabluveees.EventTypeError: func(
+			hub Hub, _ *Client, _ *dabluveees.Event,
+		) error {
 			handlerMutex.Lock()
 			handledEvents = append(handledEvents, "error:"+hub.Name())
 			handlerMutex.Unlock()
 
 			return nil
 		},
-		EventTypeShellExec: func(hub Hub, _ *Client, _ *Event) error {
+		dabluveees.EventTypeShellExec: func(
+			hub Hub, _ *Client, _ *dabluveees.Event,
+		) error {
 			handlerMutex.Lock()
 			handledEvents = append(handledEvents, "shell:"+hub.Name())
 			handlerMutex.Unlock()
@@ -153,9 +160,11 @@ func TestHub_RegisterEventHandlers(t *testing.T) {
 	hub.RegisterEventHandlers(handlers)
 
 	// Test each handler
-	systemEvent := NewEvent(EventTypeSystemLog, "system test")
-	errorEvent := NewEvent(EventTypeError, "error test")
-	shellEvent := NewEvent(EventTypeShellExec, "shell test")
+	systemEvent := dabluveees.NewEvent(
+		dabluveees.EventTypeSystemLog, "system test",
+	)
+	errorEvent := dabluveees.NewEvent(dabluveees.EventTypeError, "error test")
+	shellEvent := dabluveees.NewEvent(dabluveees.EventTypeShellExec, "shell test")
 
 	hub.ProcessEvent(testClient, systemEvent)
 	hub.ProcessEvent(testClient, errorEvent)
@@ -190,7 +199,7 @@ func TestHub_BroadcastOperations(_ *testing.T) {
 	hub.AddClient(client2)
 	hub.AddClient(client3)
 
-	event := NewEvent(EventTypeSystemLog, "broadcast test")
+	event := dabluveees.NewEvent(dabluveees.EventTypeSystemLog, "broadcast test")
 
 	// Test BroadcastToAll - should not panic with forward declarations
 	hub.BroadcastToAll(event)
@@ -200,7 +209,7 @@ func TestHub_BroadcastOperations(_ *testing.T) {
 	hub.BroadcastToClients(targetClients, event)
 
 	// Test BroadcastToSubscribers - should not panic with forward declarations
-	hub.BroadcastToSubscribers(EventTypeSystemLog, event)
+	hub.BroadcastToSubscribers(dabluveees.EventTypeSystemLog, event)
 }
 
 func TestHub_ConcurrentOperations(t *testing.T) {
@@ -229,8 +238,8 @@ func TestHub_ConcurrentOperations(t *testing.T) {
 		go func(id int) {
 			defer wg.Done()
 
-			eventType := EventType(fmt.Sprintf("test.event.%d", id))
-			handler := func(_ Hub, _ *Client, _ *Event) error {
+			eventType := dabluveees.EventType(fmt.Sprintf("test.event.%d", id))
+			handler := func(_ Hub, _ *Client, _ *dabluveees.Event) error {
 				return nil
 			}
 			hub.RegisterEventHandler(eventType, handler)
@@ -272,11 +281,11 @@ func TestHub_FullLifecycleIntegration(t *testing.T) {
 
 	// Register event handler
 	var (
-		processedEvents []Event
+		processedEvents []dabluveees.Event
 		mu              sync.Mutex
 	)
 
-	handler := func(h Hub, _ *Client, e *Event) error {
+	handler := func(h Hub, _ *Client, e *dabluveees.Event) error {
 		mu.Lock()
 		defer mu.Unlock()
 
@@ -288,11 +297,15 @@ func TestHub_FullLifecycleIntegration(t *testing.T) {
 		return nil
 	}
 
-	hub.RegisterEventHandler(EventTypeSystemLog, handler)
+	hub.RegisterEventHandler(dabluveees.EventTypeSystemLog, handler)
 
 	// Process some events
-	event1 := NewEvent(EventTypeSystemLog, "integration test 1")
-	event2 := NewEvent(EventTypeSystemLog, "integration test 2")
+	event1 := dabluveees.NewEvent(
+		dabluveees.EventTypeSystemLog, "integration test 1",
+	)
+	event2 := dabluveees.NewEvent(
+		dabluveees.EventTypeSystemLog, "integration test 2",
+	)
 
 	hub.ProcessEvent(client1, event1)
 	hub.ProcessEvent(client1, event2)
@@ -371,22 +384,24 @@ func TestHub_ErrorHandling(_ *testing.T) {
 	testClient := NewClient()
 
 	// Handler that returns an error
-	errorHandler := func(_ Hub, _ *Client, _ *Event) error {
+	errorHandler := func(_ Hub, _ *Client, _ *dabluveees.Event) error {
 		return errTestHub
 	}
 
-	hub.RegisterEventHandler(EventTypeError, errorHandler)
+	hub.RegisterEventHandler(dabluveees.EventTypeError, errorHandler)
 
 	// Processing event that causes handler error should not panic
-	event := NewEvent(EventTypeError, "error test")
+	event := dabluveees.NewEvent(dabluveees.EventTypeError, "error test")
 	hub.ProcessEvent(testClient, event)
 
 	// Should still be able to process other events
-	successHandler := func(_ Hub, _ *Client, _ *Event) error {
+	successHandler := func(_ Hub, _ *Client, _ *dabluveees.Event) error {
 		return nil
 	}
 
-	hub.RegisterEventHandler(EventTypeSystemLog, successHandler)
-	successEvent := NewEvent(EventTypeSystemLog, "success test")
+	hub.RegisterEventHandler(dabluveees.EventTypeSystemLog, successHandler)
+	successEvent := dabluveees.NewEvent(
+		dabluveees.EventTypeSystemLog, "success test",
+	)
 	hub.ProcessEvent(testClient, successEvent)
 }

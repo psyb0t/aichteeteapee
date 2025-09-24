@@ -175,7 +175,9 @@ func TestUnixSockBroadcast(t *testing.T) {
 					continue
 				}
 
-				assert.Equal(t, tt.data, received, "client %d should receive correct data", i)
+				assert.Equal(
+					t, tt.data, received, "client %d should receive correct data", i,
+				)
 			}
 		})
 	}
@@ -287,7 +289,7 @@ func TestCreateUnixSockets(t *testing.T) {
 
 			err := createUnixSockets(ctx, socketsDir, connID, conn, logger)
 
-			if tt.expectError {
+			if tt.expectError { //nolint:nestif
 				assert.Error(t, err)
 			} else {
 				assert.NoError(t, err)

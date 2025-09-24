@@ -127,11 +127,6 @@ linters:
           - funlen
           - gocognit
           - maintidx
-          - bodyclose  # WebSocket connections don't need body.Close()
-          - gosec      # Allow error ignoring in tests
-          - lll        # Allow longer lines in tests for readability
-          - nestif     # Allow complex nesting in test scenarios
-          - errcheck   # Allow unchecked errors in tests
 
 formatters:
   enable:

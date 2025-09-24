@@ -24,11 +24,11 @@ func TestSecurityHeaders(t *testing.T) {
 	// Check security headers
 
 	expectedHeaders := map[string]string{
-		aichteeteapee.HeaderNameXContentTypeOptions:     aichteeteapee.DefaultSecurityXContentTypeOptionsNoSniff,
-		aichteeteapee.HeaderNameXFrameOptions:           aichteeteapee.DefaultSecurityXFrameOptionsDeny,
-		aichteeteapee.HeaderNameXXSSProtection:          aichteeteapee.DefaultSecurityXXSSProtectionBlock,
-		aichteeteapee.HeaderNameStrictTransportSecurity: aichteeteapee.DefaultSecurityStrictTransportSecurity,
-		aichteeteapee.HeaderNameReferrerPolicy:          aichteeteapee.DefaultSecurityReferrerPolicyStrictOrigin,
+		aichteeteapee.HeaderNameXContentTypeOptions:     aichteeteapee.DefaultSecurityXContentTypeOptionsNoSniff, //nolint:lll
+		aichteeteapee.HeaderNameXFrameOptions:           aichteeteapee.DefaultSecurityXFrameOptionsDeny,          //nolint:lll
+		aichteeteapee.HeaderNameXXSSProtection:          aichteeteapee.DefaultSecurityXXSSProtectionBlock,        //nolint:lll
+		aichteeteapee.HeaderNameStrictTransportSecurity: aichteeteapee.DefaultSecurityStrictTransportSecurity,    //nolint:lll
+		aichteeteapee.HeaderNameReferrerPolicy:          aichteeteapee.DefaultSecurityReferrerPolicyStrictOrigin, //nolint:lll
 	}
 
 	assertSecurityHeaders(t, w, expectedHeaders)
@@ -49,16 +49,23 @@ func TestSecurityHeadersMiddleware_CustomOptions(t *testing.T) {
 
 		middleware(handler).ServeHTTP(w, req)
 
-		assert.Equal(t, "SAMEORIGIN", w.Header().Get(aichteeteapee.HeaderNameXFrameOptions))
+		assert.Equal(
+			t, "SAMEORIGIN", w.Header().Get(aichteeteapee.HeaderNameXFrameOptions),
+		)
 		assert.Equal(
 
-			t, "default-src 'self'", w.Header().Get(aichteeteapee.HeaderNameContentSecurityPolicy),
+			t, "default-src 'self'",
+			w.Header().Get(aichteeteapee.HeaderNameContentSecurityPolicy),
 		)
 
-		assert.Equal(t, "", w.Header().Get(aichteeteapee.HeaderNameStrictTransportSecurity)) // Disabled
+		assert.Equal(
+			t, "", w.Header().Get(aichteeteapee.HeaderNameStrictTransportSecurity),
+		) // Disabled
 		// Still enabled
 
-		assert.NotEmpty(t, w.Header().Get(aichteeteapee.HeaderNameXContentTypeOptions))
+		assert.NotEmpty(
+			t, w.Header().Get(aichteeteapee.HeaderNameXContentTypeOptions),
+		)
 	})
 
 	t.Run("all options disabled", func(t *testing.T) {
@@ -83,15 +90,21 @@ func TestSecurityHeadersMiddleware_CustomOptions(t *testing.T) {
 
 		// All disabled headers should be empty
 
-		assert.Equal(t, "", w.Header().Get(aichteeteapee.HeaderNameXContentTypeOptions))
+		assert.Equal(
+			t, "", w.Header().Get(aichteeteapee.HeaderNameXContentTypeOptions),
+		)
 		assert.Equal(t, "", w.Header().Get(aichteeteapee.HeaderNameXFrameOptions))
 		assert.Equal(t, "", w.Header().Get(aichteeteapee.HeaderNameXXSSProtection))
 		assert.Equal(t, "", w.Header().Get(aichteeteapee.HeaderNameReferrerPolicy))
 
-		assert.Equal(t, "", w.Header().Get(aichteeteapee.HeaderNameContentSecurityPolicy))
+		assert.Equal(
+			t, "", w.Header().Get(aichteeteapee.HeaderNameContentSecurityPolicy),
+		)
 
 		// HSTS should still be set (not disabled)
 
-		assert.NotEmpty(t, w.Header().Get(aichteeteapee.HeaderNameStrictTransportSecurity))
+		assert.NotEmpty(
+			t, w.Header().Get(aichteeteapee.HeaderNameStrictTransportSecurity),
+		)
 	})
 }

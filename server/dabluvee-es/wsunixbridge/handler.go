@@ -11,7 +11,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
 	"github.com/psyb0t/aichteeteapee"
-	wsconfig "github.com/psyb0t/aichteeteapee/server/websocket"
+	dabluveees "github.com/psyb0t/aichteeteapee/server/dabluvee-es"
 	commontypes "github.com/psyb0t/common-go/types"
 	"github.com/psyb0t/ctxerrors"
 	"github.com/sirupsen/logrus"
@@ -24,7 +24,16 @@ const (
 	// Socket constants.
 	writerUnixSockSuffix = "_output"
 	readerUnixSockSuffix = "_input"
+
+	// Event type for initialization.
+	EventTypeWSUnixBridgeInitialized dabluveees.EventType = "wsunixbridge.init"
 )
+
+// InitMessageData represents the data sent in the initialization event.
+type InitMessageData struct {
+	WriterSocket string `json:"writerSocket"`
+	ReaderSocket string `json:"readerSocket"`
+}
 
 // UnixSock represents Unix socket resources for a connection.
 type UnixSock struct {
@@ -73,7 +82,7 @@ func NewUpgradeHandler(
 	socketsDir string,
 	connHandler ConnectionHandler,
 ) http.HandlerFunc {
-	config := wsconfig.NewUpgradeHandlerConfig()
+	config := dabluveees.NewUpgradeHandlerConfig()
 
 	upgrader := websocket.Upgrader{
 		ReadBufferSize:    config.ReadBufferSize,
@@ -184,7 +193,7 @@ func createUnixSockets(
 	return nil
 }
 
-func setupConnection(
+func setupConnection( //nolint:funlen
 	ctx context.Context,
 	wsConn *websocket.Conn,
 	socketsDir string,
@@ -211,6 +220,21 @@ func setupConnection(
 		"outputPath", conn.WriterUnixSock.Path,
 		"inputPath", conn.ReaderUnixSock.Path,
 	)
+
+	// Send initialization event to client with socket paths
+	initData := InitMessageData{
+		WriterSocket: conn.WriterUnixSock.Path,
+		ReaderSocket: conn.ReaderUnixSock.Path,
+	}
+	initEvent := dabluveees.NewEvent(EventTypeWSUnixBridgeInitialized, initData)
+
+	if err := wsConn.WriteJSON(initEvent); err != nil {
+		logger.WithError(err).Error("failed to send initialization event")
+
+		return ctxerrors.Wrap(err, "failed to send initialization event")
+	}
+
+	logger.Info("sent wsunixbridge initialization event to client")
 
 	// Store connection
 	connectionSockets.Set(connID, conn)

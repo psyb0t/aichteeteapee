@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	dabluveees "github.com/psyb0t/aichteeteapee/server/dabluvee-es"
 	"github.com/stretchr/testify/require"
 )
 
@@ -14,7 +15,7 @@ func newMockConnection(id uuid.UUID, client *Client) *Connection {
 	return &Connection{
 		id:     id,
 		client: client,
-		sendCh: make(chan *Event, 10),
+		sendCh: make(chan *dabluveees.Event, 10),
 		doneCh: make(chan struct{}),
 	}
 }
@@ -88,7 +89,7 @@ func TestConnection_SendWithNilChannels(t *testing.T) {
 	}
 
 	// This should hit the nil channels path and return early
-	event := NewEvent(EventTypeSystemLog, "test")
+	event := dabluveees.NewEvent(dabluveees.EventTypeSystemLog, "test")
 	conn.Send(event) // Should not panic
 
 	// Verify connection exists but channels are nil
@@ -102,7 +103,7 @@ func TestConnection_SendAfterDone(t *testing.T) {
 		id:     uuid.New(),
 		conn:   nil,
 		client: nil,
-		sendCh: make(chan *Event, 1),
+		sendCh: make(chan *dabluveees.Event, 1),
 		doneCh: make(chan struct{}),
 	}
 
@@ -110,7 +111,7 @@ func TestConnection_SendAfterDone(t *testing.T) {
 	conn.isDone.Store(true)
 
 	// This should hit the isDone path and return early
-	event := NewEvent(EventTypeSystemLog, "test")
+	event := dabluveees.NewEvent(dabluveees.EventTypeSystemLog, "test")
 	conn.Send(event) // Should not block or panic
 
 	// Channel should be empty since event was not sent
@@ -122,7 +123,7 @@ func TestConnection_SendRaceCondition(_ *testing.T) {
 		id:     uuid.New(),
 		conn:   nil,
 		client: nil,
-		sendCh: make(chan *Event, 1),
+		sendCh: make(chan *dabluveees.Event, 1),
 		doneCh: make(chan struct{}),
 	}
 
@@ -134,7 +135,7 @@ func TestConnection_SendRaceCondition(_ *testing.T) {
 	}()
 
 	// Try to send while connection is being closed
-	event := NewEvent(EventTypeSystemLog, "test")
+	event := dabluveees.NewEvent(dabluveees.EventTypeSystemLog, "test")
 	conn.Send(event) // Should handle the race condition gracefully
 }
 
