@@ -497,8 +497,8 @@ socketsDir := "./sockets"
 // Connection handler (optional)
 connectionHandler := func(conn *wsunixbridge.Connection) error {
     log.Printf("Unix socket bridge connection: %s", conn.ID)
-    log.Printf("Output socket: %s/%s_output", socketsDir, conn.ID)
-    log.Printf("Input socket: %s/%s_input", socketsDir, conn.ID)
+    log.Printf("Output socket: %s", conn.WriterUnixSock.Path)
+    log.Printf("Input socket: %s", conn.ReaderUnixSock.Path)
     return nil
 }
 

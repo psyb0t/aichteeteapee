@@ -31,6 +31,7 @@ type UnixSock struct {
 	Listener   net.Listener
 	Clients    []net.Conn
 	ClientsMux sync.RWMutex
+	Path       string // Full path to the Unix socket file
 }
 
 // Broadcast sends data to all connected clients.
@@ -165,6 +166,7 @@ func createUnixSockets(
 	}
 
 	conn.WriterUnixSock.Listener = writerUnixSockListener
+	conn.WriterUnixSock.Path = outputPath
 
 	// Create input socket (external tools write data here to send to WebSocket)
 	readerUnixSockListener, err := lc.Listen(
@@ -177,6 +179,7 @@ func createUnixSockets(
 	}
 
 	conn.ReaderUnixSock.Listener = readerUnixSockListener
+	conn.ReaderUnixSock.Path = inputPath
 
 	return nil
 }
@@ -204,10 +207,9 @@ func setupConnection(
 		return err
 	}
 
-	basePath := filepath.Join(socketsDir, connID.String())
 	logger.Info("created connection Unix sockets",
-		"outputPath", basePath+writerUnixSockSuffix,
-		"inputPath", basePath+readerUnixSockSuffix,
+		"outputPath", conn.WriterUnixSock.Path,
+		"inputPath", conn.ReaderUnixSock.Path,
 	)
 
 	// Store connection
