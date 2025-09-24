@@ -200,8 +200,8 @@ func TestWebSocketUnixBridgeIntegration(t *testing.T) {
 				}
 			}()
 
-			// Give connection time to set up
-			time.Sleep(100 * time.Millisecond)
+			// Give connection time to set up (increased due to async goroutine)
+			time.Sleep(200 * time.Millisecond)
 
 			testConnectionMutex.Lock()
 			require.NotNil(t, testConnection, "connection should be tracked")
@@ -313,8 +313,8 @@ func TestUnixSocketPathCreationIntegration(t *testing.T) {
 				}
 			}()
 
-			// Give connection time to set up
-			time.Sleep(100 * time.Millisecond)
+			// Give connection time to set up (increased due to async goroutine)
+			time.Sleep(200 * time.Millisecond)
 
 			// Close connection
 
@@ -395,8 +395,8 @@ func TestConnectionCleanupIntegration(t *testing.T) {
 			require.NoError(t, err)
 			require.NotNil(t, conn)
 
-			// Give connection time to set up
-			time.Sleep(100 * time.Millisecond)
+			// Give connection time to set up (increased due to async goroutine)
+			time.Sleep(200 * time.Millisecond)
 
 			testConnectionMutex.Lock()
 			require.NotNil(t, testConnection)
