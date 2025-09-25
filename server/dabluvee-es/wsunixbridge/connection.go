@@ -77,10 +77,13 @@ func setupConnection( //nolint:funlen
 
 	logger.Info("sent wsunixbridge initialization event to client")
 
-	// Start socket servers
-	serverCtx, cancel := context.WithCancel(ctx)
+	// Start socket servers - use background context to prevent cancellation
+	// when HTTP request ends
+	serverCtx, cancel := context.WithCancel(context.Background())
 
+	//nolint:contextcheck // Intentional background context for accept goroutines
 	go acceptWriterUnixSockClients(serverCtx, conn, logger)
+	//nolint:contextcheck // Intentional background context for accept goroutines
 	go acceptReaderUnixSockClients(serverCtx, conn, logger)
 
 	// Call user handler

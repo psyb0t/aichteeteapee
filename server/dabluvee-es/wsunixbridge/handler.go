@@ -90,6 +90,16 @@ func handleWebSocketMessages(
 	conn *Connection,
 	logger *logrus.Entry,
 ) {
+	logger.Debugf(
+		"handling websocket messages for connection %s",
+		conn.ID,
+	)
+
+	defer logger.Debugf(
+		"finished handling websocket messages for connection %s",
+		conn.ID,
+	)
+
 	for {
 		messageType, data, err := wsConn.ReadMessage()
 		if err != nil {

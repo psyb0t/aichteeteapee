@@ -24,10 +24,14 @@ type UnixSock struct {
 
 // Broadcast sends data to all connected clients.
 func (us *UnixSock) Broadcast(data []byte, logger *logrus.Entry) {
+	logger.Debug("collecting clients to broadcast")
+
 	us.ClientsMux.RLock()
 	clients := make([]net.Conn, len(us.Clients))
 	copy(clients, us.Clients)
 	us.ClientsMux.RUnlock()
+
+	logger.Debugf("broadcasting %d clients", len(clients))
 
 	for _, client := range clients {
 		if _, err := client.Write(data); err != nil {
@@ -35,6 +39,8 @@ func (us *UnixSock) Broadcast(data []byte, logger *logrus.Entry) {
 				Debug("failed to write to UnixSock client")
 		}
 	}
+
+	logger.Debug("broadcast complete")
 }
 
 func createUnixSockets(
@@ -111,6 +117,8 @@ func acceptWriterUnixSockClients(
 				continue
 			}
 
+			logger.Debug("new WriterUnixSock client connected")
+
 			conn.WriterUnixSock.ClientsMux.Lock()
 			conn.WriterUnixSock.Clients = append(conn.WriterUnixSock.Clients, client)
 			conn.WriterUnixSock.ClientsMux.Unlock()
@@ -170,6 +178,8 @@ func acceptReaderUnixSockClients(
 
 				continue
 			}
+
+			logger.Debug("new ReaderUnixSock client connected")
 
 			conn.ReaderUnixSock.ClientsMux.Lock()
 			conn.ReaderUnixSock.Clients = append(conn.ReaderUnixSock.Clients, client)
