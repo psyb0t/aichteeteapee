@@ -117,8 +117,6 @@ func acceptWriterUnixSockClients(
 				continue
 			}
 
-			logger.Debug("new WriterUnixSock client connected")
-
 			conn.WriterUnixSock.ClientsMux.Lock()
 			conn.WriterUnixSock.Clients = append(conn.WriterUnixSock.Clients, client)
 			conn.WriterUnixSock.ClientsMux.Unlock()
@@ -126,34 +124,43 @@ func acceptWriterUnixSockClients(
 			logger.Debug("new WriterUnixSock client connected")
 
 			// Handle client disconnection
-			go func(c net.Conn) {
-				defer func() {
-					// Close connection and log any error
-					if err := c.Close(); err != nil {
-						logger.WithError(err).
-							Debug("error closing WriterUnixSock client connection")
-					}
+			go handleWriterUnixSockClient(ctx, conn, client, logger)
+		}
+	}
+}
 
-					// Remove client from list
-					conn.WriterUnixSock.ClientsMux.Lock()
+func handleWriterUnixSockClient(
+	ctx context.Context,
+	conn *Connection,
+	client net.Conn,
+	logger *logrus.Entry,
+) {
+	defer func() {
+		if err := client.Close(); err != nil {
+			logger.WithError(err).Debug("error closing WriterUnixSock client connection")
+		}
 
-					for i, connClient := range conn.WriterUnixSock.Clients {
-						if connClient == c {
-							//nolint:lll
-							conn.WriterUnixSock.Clients = append(conn.WriterUnixSock.Clients[:i], conn.WriterUnixSock.Clients[i+1:]...)
+		removeWriterUnixSockClient(conn, client)
+		logger.Debug("WriterUnixSock client disconnected")
+	}()
 
-							break
-						}
-					}
+	buffer := make([]byte, 1)
 
-					conn.WriterUnixSock.ClientsMux.Unlock()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		default:
+			_, err := client.Read(buffer)
+			if err != nil {
+				if ctx.Err() != nil {
+					return
+				}
 
-					logger.Debug("WriterUnixSock client disconnected")
-				}()
+				logger.WithError(err).Debug("WriterUnixSock client read error")
 
-				// Keep connection alive until context is cancelled
-				<-ctx.Done()
-			}(client)
+				return
+			}
 		}
 	}
 }
@@ -178,8 +185,6 @@ func acceptReaderUnixSockClients(
 
 				continue
 			}
-
-			logger.Debug("new ReaderUnixSock client connected")
 
 			conn.ReaderUnixSock.ClientsMux.Lock()
 			conn.ReaderUnixSock.Clients = append(conn.ReaderUnixSock.Clients, client)
@@ -248,6 +253,22 @@ func removeReaderUnixSockClient(conn *Connection, client net.Conn) {
 			conn.ReaderUnixSock.Clients = append(
 				conn.ReaderUnixSock.Clients[:i],
 				conn.ReaderUnixSock.Clients[i+1:]...,
+			)
+
+			break
+		}
+	}
+}
+
+func removeWriterUnixSockClient(conn *Connection, client net.Conn) {
+	conn.WriterUnixSock.ClientsMux.Lock()
+	defer conn.WriterUnixSock.ClientsMux.Unlock()
+
+	for i, connClient := range conn.WriterUnixSock.Clients {
+		if connClient == client {
+			conn.WriterUnixSock.Clients = append(
+				conn.WriterUnixSock.Clients[:i],
+				conn.WriterUnixSock.Clients[i+1:]...,
 			)
 
 			break
