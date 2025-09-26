@@ -198,6 +198,16 @@ srv, err := server.NewWithConfig(server.Config{
 - **File uploads**: Built-in multipart handling with postprocessing hooks
 - **Middleware system**: Composable, reusable middleware with proper ordering
 
+### 🛡️ **Built-in Middleware**
+- **CORS**: Cross-origin request handling for browser compatibility
+- **Basic Auth**: Simple authentication with configurable realms
+- **Security Headers**: HSTS, CSP, X-Frame-Options, and more
+- **Logger**: Structured request logging with configurable fields
+- **Recovery**: Panic recovery with stack traces and custom handlers
+- **Request ID**: Automatic generation and extraction utilities
+- **Timeout**: Configurable timeouts with presets (short/default/long)
+- **Content-Type Enforcement**: API protection with configurable types
+
 ### ⚡ **WebSocket Systems**
 > **Note**: WebSocket functionality lives in the `dabluveees` package - pronounced "dub-ell-vee-ess" (double-v-s = WS). More wordplay because memorable imports are better than boring ones.
 
@@ -213,24 +223,12 @@ srv, err := server.NewWithConfig(server.Config{
 - **File-based communication**: Simple read/write operations
 - **Tool chaining**: Connect WebSocket apps to existing Unix toolchain
 
-### 🔐 **Security First**
-- **Path traversal protection**: Multiple validation layers
-- **Security headers**: HSTS, CSP, X-Frame-Options, and more
-- **CORS**: Smart origin validation with preflight optimization
-- **Basic Auth**: Timing attack protection, configurable realms
-- **Request limits**: Timeouts, body size limits, rate limiting ready
-
 ### 🛠️ **Developer Experience**
 - **Sane defaults**: Works out of the box, customize when needed
-- **Structured logging**: Consistent field names, request tracing
-- **Request ID utilities**: Automatic generation and extraction helpers
-- **Content-type enforcement**: API protection with configurable types
-- **Timeout presets**: Short (5s), Default (30s), Long (5m) options
-- **Granular security headers**: Enable/disable individual headers
 - **File upload options**: UUID/DateTime/None filename prepending
 - **Event metadata system**: Thread-safe WebSocket event enrichment
 - **Error handling**: Proper HTTP status codes and JSON responses
-- **Middleware**: Composable, reusable, with proper ordering
+- **Middleware composability**: Easy to chain and customize
 
 ## Advanced Usage
 
