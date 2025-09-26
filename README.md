@@ -2,10 +2,10 @@
 
 > **Pronounced "HTTP"** - because sometimes the best fucking code comes with wordplay.
 
-**aichteeteapee** is a batteries-included HTTP utilities library that gets you from `go mod init` to production-ready server in under 10 lines of code. Built on the philosophy of sane defaults, zero boilerplate, and easy customization.
+**aichteeteapee** is a batteries-included HTTP utilities library that gets you from `go mod init` to working server with minimal configuration. Built on the philosophy of sane defaults, zero boilerplate, and easy customization.
 
 Perfect for:
-- 🚀 **Rapid prototyping** with production-ready foundations
+- 🚀 **Rapid prototyping** with solid foundations
 - 🏗️ **Microservices** that need HTTP + WebSocket capabilities
 - 📡 **APIs** requiring file uploads, static serving, and real-time features
 - 🛠️ **Any Go project** that wants HTTP functionality without the fucking boilerplate
@@ -27,6 +27,35 @@ Perfect for:
 - [License](#license)
 
 ## Quick Start - Zero to Hero
+
+**Minimal example:**
+
+```go
+package main
+
+import (
+    "context"
+    "net/http"
+    "github.com/psyb0t/aichteeteapee/server"
+)
+
+func main() {
+    srv, _ := server.New()
+    router := server.Router{
+        Groups: []server.GroupConfig{{
+            Path: "/",
+            Routes: []server.RouteConfig{
+                {Method: "GET", Path: "/", Handler: func(w http.ResponseWriter, r *http.Request) {
+                    w.Write([]byte("Hello, World!"))
+                }},
+            },
+        }},
+    }
+    srv.Start(context.Background(), router)
+}
+```
+
+**With features:**
 
 ```go
 package main
@@ -157,7 +186,7 @@ srv, err := server.NewWithConfig(server.Config{
 
 ## Key Features
 
-### 🎯 **Zero-Config Production Ready**
+### 🎯 **Zero-Config Defaults**
 - **Secure defaults**: HTTPS, security headers, CORS, timeouts
 - **Graceful shutdown**: Proper resource cleanup and connection draining
 - **Structured logging**: Consistent field names with request tracing
