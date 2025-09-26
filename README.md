@@ -199,7 +199,7 @@ srv, err := server.NewWithConfig(server.Config{
 - **Middleware system**: Composable, reusable middleware with proper ordering
 
 ### ⚡ **WebSocket Systems**
-> **Note**: WebSocket functionality lives in the `dabluveees` package - pronounced "dub-ell-vee-ees" (double-v-s = WS). More wordplay because memorable imports are better than boring ones.
+> **Note**: WebSocket functionality lives in the `dabluveees` package - pronounced "dub-ell-vee-ess" (double-v-s = WS). More wordplay because memorable imports are better than boring ones.
 
 **WebSocket Hub** (for real-time applications):
 - **Multi-client management**: Automatic connection lifecycle handling
