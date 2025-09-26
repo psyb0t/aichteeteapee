@@ -1,228 +1,99 @@
-# aichteeteapee 🌶️
+# aichteeteapee
 
-_pronounced "HTTP" because comedic genius was involved here_
+> **Pronounced "HTTP"** - because sometimes the best fucking code comes with wordplay.
 
-**📚 [API Reference](https://pkg.go.dev/github.com/psyb0t/aichteeteapee)**
+**aichteeteapee** is a batteries-included HTTP utilities library that gets you from `go mod init` to production-ready server in under 10 lines of code. Built on the philosophy of sane defaults, zero boilerplate, and easy customization.
 
-## Table of Contents
+Perfect for:
+- 🚀 **Rapid prototyping** with production-ready foundations
+- 🏗️ **Microservices** that need HTTP + WebSocket capabilities
+- 📡 **APIs** requiring file uploads, static serving, and real-time features
+- 🛠️ **Any Go project** that wants HTTP functionality without the fucking boilerplate
 
-- [🚀 30-Second Quick Start](#30-second-quick-start)
-- [📦 Root Utilities](#the-root-utilities-use-anywhere)
-- [🖥️ Full Server](#the-full-server-beast-mode)
-- [🔌 WebSocket System](#websocket-system)
-  - [WebSocket Hub (wshub)](#websocket-hub-wshub)
-  - [Unix Socket Bridge (wsunixbridge)](#unix-socket-bridge-wsunixbridge)
-- [📁 Static Files & Uploads](#static-files--uploads)
-- [🛠️ Middleware System](#middleware-system)
-- [⚙️ Configuration](#configuration)
-- [🚨 Troubleshooting](#troubleshooting)
-- [🚀 Production Deployment](#production-deployment)
-
-## dafuq is dis bish?
-
-**aichteeteapee** is a collection of HTTP utilities that don't suck. It's got two main parts:
-
-1. **Root package**: Common HTTP utilities you can use anywhere - JSON responses, request parsing, headers, error codes, etc.
-2. **Server package**: A complete batteries-included web server with WebSocket support, middleware, static files, and all that jazz
-
-Use just the utilities with your existing server, or go full beast mode with the complete server. Your call.
-
-## Installation
-
-```bash
-go get github.com/psyb0t/aichteeteapee
-```
-
-## 30-Second Quick Start
-
-```bash
-go mod init myapp && go get github.com/psyb0t/aichteeteapee
-```
+## Quick Start - Zero to Hero
 
 ```go
 package main
 
 import (
     "context"
-    "net/http"
+    "log"
+
     "github.com/psyb0t/aichteeteapee/server"
+    "github.com/psyb0t/aichteeteapee/server/middleware"
+    "github.com/psyb0t/aichteeteapee/server/dabluvee-es/wshub"
 )
 
 func main() {
-    s, _ := server.New()
-
-    router := &server.Router{
-        Groups: []server.GroupConfig{{
-            Path: "/",
-            Routes: []server.RouteConfig{{
-                Method: http.MethodGet,
-                Path: "/",
-                Handler: func(w http.ResponseWriter, r *http.Request) {
-                    w.Write([]byte("Hello World!"))
-                },
-            }},
-        }},
+    // Create server with sane defaults
+    srv, err := server.New()
+    if err != nil {
+        log.Fatal(err)
     }
 
-    s.Start(context.Background(), router) // Server running on :8080
+    // Create WebSocket hub
+    myWebSocketHub := wshub.NewHub("main")
+
+    // Build your routes with batteries-included middleware
+    router := &server.Router{
+        // Global middleware applied to all routes
+        GlobalMiddlewares: []middleware.Middleware{
+            middleware.CORS(),           // Smart CORS handling
+            middleware.SecurityHeaders(), // Production security headers
+            middleware.Logger(),         // Structured request logging
+            middleware.Recovery(),       // Panic recovery
+        },
+
+        // Static file serving
+        Static: []server.StaticRouteConfig{
+            {
+                Dir:                   "./web/static",
+                Path:                  "/static/",
+                DirectoryIndexingType: server.DirectoryIndexingTypeJSON, // Smart directory listing
+            },
+        },
+
+        // Route groups
+        Groups: []server.GroupConfig{
+            {
+                Path: "/api",
+                Routes: []server.RouteConfig{
+                    {Method: "GET", Path: "/health", Handler: srv.HealthHandler},
+                    {Method: "POST", Path: "/echo", Handler: srv.EchoHandler},
+                    {Method: "POST", Path: "/upload", Handler: srv.FileUploadHandler("./uploads")},
+                },
+            },
+            {
+                Path: "/ws",
+                Routes: []server.RouteConfig{
+                    {Method: "GET", Path: "", Handler: wshub.UpgradeHandler(myWebSocketHub)},
+                },
+            },
+        },
+    }
+
+    // Start server - HTTP on :8080, HTTPS on :8443, graceful shutdown
+    log.Fatal(srv.Start(context.Background(), router))
 }
 ```
 
-**BOOM!** You have a production-ready HTTP server with CORS, logging, security headers, and graceful shutdown.
+That's it! You now have:
+- ✅ HTTP + HTTPS servers running
+- ✅ CORS, security headers, request logging
+- ✅ File uploads with processing hooks & filename options
+- ✅ Static file serving with directory browsing (HTML/JSON)
+- ✅ WebSocket hub for real-time features with event metadata
+- ✅ Request ID generation & extraction utilities
+- ✅ Content-type enforcement middleware
+- ✅ Timeout middleware with presets (short/default/long)
+- ✅ Granular security header control
+- ✅ Health checks and echo endpoints
+- ✅ Unix socket bridge for external tool integration
+- ✅ Graceful shutdown handling
 
-## Core Types Reference
+## Complete Example - Full-Featured App
 
-Quick reference for main types - see [full API docs](https://pkg.go.dev/github.com/psyb0t/aichteeteapee) for complete details.
-
-<details>
-<summary><strong>Server Package Types</strong></summary>
-
-```go
-// Server is the main HTTP server
-type Server struct {
-    // Exported methods:
-    Start(ctx context.Context, router *Router) error
-    Stop(ctx context.Context) error
-    GetRootGroup() *Group
-    GetMux() *http.ServeMux
-    GetHTTPListenerAddr() net.Addr
-    GetHTTPSListenerAddr() net.Addr
-
-    // Built-in handlers:
-    HealthHandler(w http.ResponseWriter, r *http.Request)
-    EchoHandler(w http.ResponseWriter, r *http.Request)
-    FileUploadHandler(uploadsDir string, opts ...FileUploadHandlerOption) http.HandlerFunc
-}
-
-// Router defines your complete server configuration
-type Router struct {
-    // Applied to all routes
-    GlobalMiddlewares []middleware.Middleware
-    // Static file serving configs
-    Static           []StaticRouteConfig
-    // Route groups
-    Groups           []GroupConfig
-}
-
-// StaticRouteConfig for serving static files
-type StaticRouteConfig struct {
-    // "./static" - directory to serve
-    Dir                   string
-    // "/static" - URL path prefix
-    Path                  string
-    // HTML, JSON, or None
-    DirectoryIndexingType DirectoryIndexingType
-}
-
-// GroupConfig for organizing routes
-type GroupConfig struct {
-    // "/api/v1" - group path prefix
-    Path        string
-    // Group-specific middleware
-    Middlewares []middleware.Middleware
-    // Routes in this group
-    Routes      []RouteConfig
-    // Nested groups (recursive)
-    Groups      []GroupConfig
-}
-
-// RouteConfig defines individual routes
-type RouteConfig struct {
-    // http.MethodGet, http.MethodPost, etc.
-    Method  string
-    // "/users/{id}" - route pattern
-    Path    string
-    // Your handler function
-    Handler http.HandlerFunc
-}
-
-// Group provides fluent API for route registration
-type Group struct {
-    // Methods:
-    Use(middlewares ...middleware.Middleware)
-    Group(subPrefix string, middlewares ...middleware.Middleware) *Group
-    Handle(method, pattern string, handler http.Handler, middlewares ...middleware.Middleware)
-    HandleFunc(method, pattern string, handler http.HandlerFunc, middlewares ...middleware.Middleware)
-    GET(pattern string, handler http.HandlerFunc, middlewares ...middleware.Middleware)
-    POST(pattern string, handler http.HandlerFunc, middlewares ...middleware.Middleware)
-    PUT(pattern string, handler http.HandlerFunc, middlewares ...middleware.Middleware)
-    PATCH(pattern string, handler http.HandlerFunc, middlewares ...middleware.Middleware)
-    DELETE(pattern string, handler http.HandlerFunc, middlewares ...middleware.Middleware)
-    OPTIONS(pattern string, handler http.HandlerFunc, middlewares ...middleware.Middleware)
-}
-
-// Server constructors
-func New() (*Server, error)
-func NewWithLogger(logger *logrus.Logger) (*Server, error)
-func NewWithConfig(config Config) (*Server, error)
-func NewWithConfigAndLogger(config Config, logger *logrus.Logger) (*Server, error)
-```
-
-</details>
-
-
-<details>
-<summary><strong>Middleware Package Types</strong></summary>
-
-```go
-// Middleware is just the standard http middleware pattern
-type Middleware func(http.Handler) http.Handler
-
-// Chain composes middlewares around a handler
-func Chain(h http.Handler, middlewares ...Middleware) http.Handler
-
-// Built-in middlewares (all return Middleware)
-func Recovery() Middleware                    // Panic recovery
-func RequestID() Middleware                   // Request ID generation
-func Logger(opts ...LoggerOption) Middleware // Request logging
-func SecurityHeaders() Middleware             // Security headers (XSS, CSRF, etc.)
-func CORS(opts ...CORSOption) Middleware     // CORS handling
-func Timeout(duration time.Duration) Middleware // Request timeout
-func BasicAuth(users map[string]string, opts ...BasicAuthOption) Middleware // Basic auth
-func EnforceRequestContentType(contentType string) Middleware // Content-Type enforcement
-```
-
-</details>
-
-## The Root Utilities (Use Anywhere)
-
-The base `aichteeteapee` package gives you all the HTTP essentials:
-
-```go
-import "github.com/psyb0t/aichteeteapee"
-
-// Pretty JSON responses with proper headers
-aichteeteapee.WriteJSON(w, 200, map[string]string{"status": "winning"})
-
-// Smart client IP extraction (handles proxies, load balancers, etc.)
-clientIP := aichteeteapee.GetClientIP(r)
-
-// Content type checking that actually works
-if aichteeteapee.IsRequestContentTypeJSON(r) {
-    // Handle JSON like a boss
-}
-
-// Request ID for tracing (if you set it in context)
-requestID := aichteeteapee.GetRequestID(r)
-
-// Predefined error responses that don't make you cry
-aichteeteapee.WriteJSON(w, 404, aichteeteapee.ErrorResponseFileNotFound)
-```
-
-**What you get:**
-
-- ✅ `WriteJSON()` - JSON responses with pretty formatting
-- ✅ `GetClientIP()` - Smart IP extraction (X-Forwarded-For → X-Real-IP → RemoteAddr)
-- ✅ `IsRequestContentTypeJSON/XML/FormData()` - Content type checking that works
-- ✅ `GetRequestID()` - Request ID extraction from context
-- ✅ HTTP header constants (`HeaderNameContentType`, etc.)
-- ✅ Content type constants (`ContentTypeJSON`, etc.)
-- ✅ Predefined error responses (`ErrorResponseBadRequest`, etc.)
-- ✅ Context keys for request metadata
-
-## The Full Server (Beast Mode)
-
-Want everything? Here's a complete server setup:
+Here's a more comprehensive example showing advanced features:
 
 ```go
 package main
@@ -230,917 +101,576 @@ package main
 import (
     "context"
     "encoding/json"
+    "fmt"
     "log"
     "net/http"
     "os"
+    "strings"
+    "time"
+
     "github.com/psyb0t/aichteeteapee/server"
     "github.com/psyb0t/aichteeteapee/server/middleware"
     dabluveees "github.com/psyb0t/aichteeteapee/server/dabluvee-es"
     "github.com/psyb0t/aichteeteapee/server/dabluvee-es/wshub"
 )
 
+// WebSocket hubs
+var chatHub = wshub.NewHub("chat")
+var notificationHub = wshub.NewHub("notifications")
+
 func main() {
-    // Create server
-    s, err := server.New()
+    // Initialize WebSocket event handlers
+    chatHub.RegisterEventHandlers(map[dabluveees.EventType]wshub.EventHandler{
+        "chat.message": func(hub wshub.Hub, client *wshub.Client, event *dabluveees.Event) error {
+            hub.BroadcastToAll(event)
+            return nil
+        },
+    })
+
+    // Server with custom config
+    srv, err := server.NewWithConfig(server.Config{
+        ListenAddress:       "127.0.0.1:3000",
+        TLSListenAddress:    "127.0.0.1:3443",
+        ServiceName:         "MyAwesomeAPI",
+        ReadTimeout:         30 * time.Second,
+        WriteTimeout:        30 * time.Second,
+        FileUploadMaxMemory: 50 << 20, // 50MB
+    })
     if err != nil {
         log.Fatal(err)
     }
 
-    // Create WebSocket hub for real-time features
-    hub := wshub.NewHub("my-app")
-
-    // Setup WebSocket event handlers
-    hub.RegisterEventHandler(dabluveees.EventTypeEchoRequest, func(hub wshub.Hub, client *wshub.Client, event *dabluveees.Event) error {
-        // Echo it back to the sender
-        return client.SendEvent(dabluveees.NewEvent(dabluveees.EventTypeEchoReply, event.Data))
-    })
-
-    hub.RegisterEventHandler("file.delete", func(hub wshub.Hub, client *wshub.Client, event *dabluveees.Event) error {
-        type deleteMsg struct {
-            FilePath string `json:"filePath"`
-        }
-
-        var msg deleteMsg
-        json.Unmarshal(event.Data, &msg)
-
-        // Do the file delete
-        if err := os.Remove(msg.FilePath); err != nil {
-            // Broadcast error to all clients
-            hub.BroadcastToAll(dabluveees.NewEvent("file.delete.error", map[string]string{
-                "error": err.Error(),
-                "file":  msg.FilePath,
-            }))
-            return nil
-        }
-
-        // Broadcast success to all clients
-        hub.BroadcastToAll(dabluveees.NewEvent("file.delete.success", map[string]string{
-            "file": msg.FilePath,
-        }))
-        return nil
-    })
-
-    // Define your complete server structure using Router struct
+    // Advanced routing with nested groups and middleware
     router := &server.Router{
         GlobalMiddlewares: []middleware.Middleware{
-            middleware.Recovery(),      // Panic recovery
-            middleware.RequestID(),     // Request tracing
-            middleware.Logger(),        // Request logging
-            middleware.SecurityHeaders(), // Security headers
-            middleware.CORS(),          // CORS handling
+            middleware.RequestID(),                    // Request tracking
+            middleware.Logger(),                       // Structured logging
+            middleware.CORS(     // Custom CORS
+                middleware.WithAllowedOrigins("https://myapp.com"),
+                middleware.WithAllowedMethods("GET", "POST", "PUT", "DELETE"),
+                middleware.WithAllowCredentials(true),
+            ),
+            middleware.SecurityHeaders(
+                middleware.WithContentSecurityPolicy("default-src 'self'"),
+                middleware.WithStrictTransportSecurity("max-age=31536000; includeSubDomains"),
+            ),
+            middleware.Recovery(),                     // Panic recovery
         },
+
+        // Multiple static routes with different configs
         Static: []server.StaticRouteConfig{
             {
-                Dir:  "./static",      // Serve static files
-                Path: "/static",
+                Dir:                   "./web/assets",
+                Path:                  "/assets/",
+                DirectoryIndexingType: server.DirectoryIndexingTypeNone, // No directory listing for assets
             },
             {
-                Dir:                   "./uploads",
-                Path:                  "/files",
-                DirectoryIndexingType: server.DirectoryIndexingTypeJSON, // Browseable uploads
+                Dir:                   "./public",
+                Path:                  "/files/",
+                DirectoryIndexingType: server.DirectoryIndexingTypeHTML, // Directory browsing enabled
             },
         },
+
+        // Route groups with inherited middleware
         Groups: []server.GroupConfig{
             {
-                Path: "/",
+                Path: "", // Root level routes
                 Routes: []server.RouteConfig{
-                    {
-                        Method:  http.MethodGet,
-                        Path:    "/",
-                        Handler: func(w http.ResponseWriter, r *http.Request) {
-                            w.Write([]byte("Welcome to the fucking show!"))
-                        },
-                    },
-                    {
-                        Method:  http.MethodGet,
-                        Path:    "/ws",
-                        Handler: dabluveees.UpgradeHandler(hub), // WebSocket endpoint
-                    },
-                    {
-                        Method:  http.MethodPost,
-                        Path:    "/upload",
-                        Handler: s.FileUploadHandler("./uploads"), // File uploads
-                    },
+                    {Method: "GET", Path: "/", Handler: homeHandler},
+                    {Method: "GET", Path: "/health", Handler: srv.HealthHandler},
+                    {Method: "POST", Path: "/upload", Handler: srv.FileUploadHandler("./uploads",
+                        server.WithFileUploadHandlerPostprocessor(processUploadedFile))},
                 },
             },
-        },
-    }
-
-    // Start the beast
-    log.Println("Starting server...")
-    if err := s.Start(context.Background(), router); err != nil {
-        log.Fatal(err)
-    }
-}
-```
-
-That's it. No, seriously. **THAT'S FUCKING IT.**
-
-You now have:
-
-- ✅ HTTP server on `:8080`
-- ✅ HTTPS server on `:8443` (if you enable and configure TLS certs)
-- ✅ CORS that doesn't hate you
-- ✅ Request logging that makes sense
-- ✅ Security headers that actually secure
-- ✅ Static file serving from `./static`
-- ✅ File uploads at `/upload` with UUID filenames
-- ✅ Directory browsing at `/files` (JSON format)
-- ✅ WebSocket support at `/ws`
-- ✅ Panic recovery (your server won't die)
-- ✅ Request ID tracing
-- ✅ Graceful shutdown
-
-## But I Want Simple Shit
-
-Fine, you minimalist bastard:
-
-```go
-func main() {
-    s, _ := server.New()
-
-    // Just use the Router struct with basic routes
-    router := &server.Router{
-        Groups: []server.GroupConfig{
             {
-                Path: "/",
+                Path: "/api/v1",
+                Middlewares: []middleware.Middleware{
+                    middleware.Timeout(10 * time.Second), // API timeouts
+                },
                 Routes: []server.RouteConfig{
+                    {Method: "GET", Path: "/users", Handler: getUsersHandler},
+                    {Method: "POST", Path: "/users", Handler: createUserHandler},
+                    {Method: "GET", Path: "/users/{id}", Handler: getUserHandler},
+                },
+                Groups: []server.GroupConfig{
                     {
-                        Method: http.MethodGet,
-                        Path:   "/",
-                        Handler: func(w http.ResponseWriter, r *http.Request) {
-                            aichteeteapee.WriteJSON(w, 200, map[string]string{
-                                "message": "Hello World",
-                            })
+                        Path: "/admin",
+                        Middlewares: []middleware.Middleware{
+                            middleware.BasicAuth(
+                                middleware.WithBasicAuthUsers(map[string]string{"admin": "secret"}),
+                                middleware.WithBasicAuthRealm("Admin Area"),
+                            ),
+                        },
+                        Routes: []server.RouteConfig{
+                            {Method: "GET", Path: "/stats", Handler: adminStatsHandler},
+                            {Method: "DELETE", Path: "/users/{id}", Handler: deleteUserHandler},
                         },
                     },
                 },
             },
-        },
-    }
-
-    s.Start(context.Background(), router)
-}
-```
-
-## WebSocket System
-
-The WebSocket system in aichteeteapee is organized into the **dabluvee-es** package (_pronounced "WS" like double-v-S, because why the fuck not_):
-
-- **`server/dabluvee-es`** - Base WebSocket configuration, events, and utilities
-- **`server/dabluvee-es/wshub`** - Event-driven WebSocket hub system
-- **`server/dabluvee-es/wsunixbridge`** - WebSocket to Unix socket bridge
-
-### WebSocket Hub (wshub)
-
-The hub system provides event-driven WebSocket communication with client management and broadcasting.
-
-**Basic Hub Setup:**
-
-```go
-import (
-    dabluveees "github.com/psyb0t/aichteeteapee/server/dabluvee-es"
-    "github.com/psyb0t/aichteeteapee/server/dabluvee-es/wshub"
-)
-
-// Create a hub
-hub := wshub.NewHub("my-app")
-
-// Register event handlers
-hub.RegisterEventHandler(dabluveees.EventTypeEchoRequest, func(hub wshub.Hub, client *wshub.Client, event *dabluveees.Event) error {
-    // Echo back to sender
-    return client.SendEvent(dabluveees.NewEvent(dabluveees.EventTypeEchoReply, event.Data))
-})
-
-// Custom event handlers
-hub.RegisterEventHandler("user.login", func(hub wshub.Hub, client *wshub.Client, event *dabluveees.Event) error {
-    // Broadcast to all clients
-    return hub.BroadcastToAll(dabluveees.NewEvent("user.online", map[string]string{
-        "userId": "123",
-        "status": "online",
-    }))
-})
-
-// Add to your router
-router := &server.Router{
-    Groups: []server.GroupConfig{
-        {
-            Path: "/",
-            Routes: []server.RouteConfig{
-                {
-                    Method:  http.MethodGet,
-                    Path:    "/ws",
-                    Handler: dabluveees.UpgradeHandler(hub),
+            {
+                Path: "/ws",
+                Routes: []server.RouteConfig{
+                    {Method: "GET", Path: "/chat", Handler: wshub.UpgradeHandler(chatHub)},
+                    {Method: "GET", Path: "/notifications", Handler: wshub.UpgradeHandler(notificationHub)},
                 },
             },
         },
-    },
+    }
+
+    log.Printf("🚀 Starting MyAwesome API server...")
+    log.Printf("📍 HTTP:  http://127.0.0.1:3000")
+    log.Printf("📍 HTTPS: https://127.0.0.1:3443")
+    log.Printf("💬 Chat WebSocket: ws://127.0.0.1:3000/ws/chat")
+
+    log.Fatal(srv.Start(context.Background(), router))
 }
-```
 
-**Event Creation:**
+// Custom handlers with proper error handling
+func homeHandler(w http.ResponseWriter, r *http.Request) {
+    response := map[string]string{
+        "message": "Welcome to MyAwesome API!",
+        "version": "1.0.0",
+        "docs":    "/api/docs",
+    }
 
-```go
-// Create events with any data
-event := dabluveees.NewEvent("user.message", map[string]string{
-    "message": "Hello world!",
-    "username": "john",
-})
-
-// Events have metadata support
-event.Metadata.Set("priority", "high")
-event.Metadata.Set("source", "web-client")
-```
-
-**Broadcasting Options:**
-
-- `client.SendEvent(event)` - Send to specific client only
-- `hub.BroadcastToAll(event)` - Send to everyone in the hub
-- `hub.BroadcastToClients(clientIDs, event)` - Send to specific clients
-
-**Multiple Hubs:**
-
-```go
-chatHub := wshub.NewHub("chat")
-notificationHub := wshub.NewHub("notifications")
-
-// Different endpoints for different purposes
-router := &server.Router{
-    Groups: []server.GroupConfig{
-        {
-            Path: "/",
-            Routes: []server.RouteConfig{
-                {Method: http.MethodGet, Path: "/ws/chat", Handler: dabluveees.UpgradeHandler(chatHub)},
-                {Method: http.MethodGet, Path: "/ws/notifications", Handler: dabluveees.UpgradeHandler(notificationHub)},
-            },
-        },
-    },
+    w.Header().Set("Content-Type", "application/json")
+    json.NewEncoder(w).Encode(response)
 }
-```
 
-### Unix Socket Bridge (wsunixbridge)
+func getUsersHandler(w http.ResponseWriter, r *http.Request) {
+    // Your business logic here
+    users := []map[string]interface{}{
+        {"id": 1, "name": "Alice", "email": "alice@example.com"},
+        {"id": 2, "name": "Bob", "email": "bob@example.com"},
+    }
 
-The Unix socket bridge creates Unix domain sockets that external tools can connect to for bidirectional communication with WebSocket clients.
+    w.Header().Set("Content-Type", "application/json")
+    json.NewEncoder(w).Encode(users)
+}
 
-**How it works:**
+func createUserHandler(w http.ResponseWriter, r *http.Request) {
+    w.Header().Set("Content-Type", "application/json")
+    json.NewEncoder(w).Encode(map[string]string{"status": "user created"})
+}
 
-- **WriterUnixSock (`_output`)**: WebSocket data → Unix socket → external tools READ
-- **ReaderUnixSock (`_input`)**: External tools WRITE → Unix socket → WebSocket
+func getUserHandler(w http.ResponseWriter, r *http.Request) {
+    w.Header().Set("Content-Type", "application/json")
+    json.NewEncoder(w).Encode(map[string]string{"user": "details"})
+}
 
-**Basic Setup:**
+func adminStatsHandler(w http.ResponseWriter, r *http.Request) {
+    w.Header().Set("Content-Type", "application/json")
+    json.NewEncoder(w).Encode(map[string]string{"stats": "admin data"})
+}
 
-```go
-import "github.com/psyb0t/aichteeteapee/server/dabluvee-es/wsunixbridge"
+func deleteUserHandler(w http.ResponseWriter, r *http.Request) {
+    w.Header().Set("Content-Type", "application/json")
+    json.NewEncoder(w).Encode(map[string]string{"status": "user deleted"})
+}
 
-socketsDir := "./sockets"
-
-// Connection handler (optional)
-connectionHandler := func(conn *wsunixbridge.Connection) error {
-    log.Printf("Unix socket bridge connection: %s", conn.ID)
-    log.Printf("Output socket: %s", conn.WriterUnixSock.Path)
-    log.Printf("Input socket: %s", conn.ReaderUnixSock.Path)
+func processUploadedFile(filepath string, filename string) error {
+    log.Printf("Processing uploaded file: %s -> %s", filename, filepath)
+    // Your custom file processing logic
     return nil
 }
 
-// Add to your router
-router := &server.Router{
-    Groups: []server.GroupConfig{
-        {
-            Path: "/",
-            Routes: []server.RouteConfig{
-                {
-                    Method:  http.MethodGet,
-                    Path:    "/unixsock",
-                    Handler: wsunixbridge.NewUpgradeHandler(socketsDir, connectionHandler),
-                },
-            },
+// WebSocket hub for real-time chat
+var chatHub = wshub.NewHub("chat")
+var notificationHub = wshub.NewHub("notifications")
+
+func init() {
+    chatHub.RegisterEventHandlers(map[dabluveees.EventType]wshub.EventHandler{
+        "chat.message": func(hub wshub.Hub, client *wshub.Client, event *dabluveees.Event) error {
+            // Broadcast message to all connected clients
+            hub.BroadcastToAll(event)
+            return nil
         },
-    },
+        "chat.join": func(hub wshub.Hub, client *wshub.Client, event *dabluveees.Event) error {
+            log.Printf("User joined chat: %s", client.ID())
+            hub.BroadcastToAll(event)
+            return nil
+        },
+    })
 }
 ```
 
-**Initialization Event:**
+## Key Features
 
-When a WebSocket connection is established, the server automatically sends an initialization event with socket paths:
+### 🎯 **Zero-Config Production Ready**
+- **Secure defaults**: HTTPS, security headers, CORS, timeouts
+- **Graceful shutdown**: Proper resource cleanup and connection draining
+- **Built-in monitoring**: Health checks, request logging, panic recovery
+- **File caching**: DoS protection with intelligent cache management
+
+### 🌐 **Advanced HTTP Server**
+- **Dual listeners**: HTTP and HTTPS running concurrently
+- **Flexible routing**: Nested groups with middleware inheritance
+- **Static files**: Smart directory indexing (HTML/JSON), SPA support
+- **File uploads**: Configurable processing, size limits, secure paths
+
+### ⚡ **WebSocket Systems**
+
+**Hub System** (for real-time apps):
+- **Event-driven**: Type-safe JSON events with metadata
+- **Multi-client**: Hub → Client → Connection architecture
+- **Broadcasting**: All clients, specific clients, or subscribers
+- **Thread-safe**: Proper concurrency with atomic operations
+
+**Unix Socket Bridge** (for external tool integration):
+- **Bidirectional bridge**: WebSocket ↔ Unix domain sockets
+- **External tool integration**: Shell scripts, CLI tools, other processes
+- **File-based communication**: Simple read/write operations
+- **Tool chaining**: Connect WebSocket apps to existing Unix toolchain
+
+### 🔐 **Security First**
+- **Path traversal protection**: Multiple validation layers
+- **Security headers**: HSTS, CSP, X-Frame-Options, and more
+- **CORS**: Smart origin validation with preflight optimization
+- **Basic Auth**: Timing attack protection, configurable realms
+- **Request limits**: Timeouts, body size limits, rate limiting ready
+
+### 🛠️ **Developer Experience**
+- **Sane defaults**: Works out of the box, customize when needed
+- **Structured logging**: Consistent field names, request tracing
+- **Request ID utilities**: Automatic generation and extraction helpers
+- **Content-type enforcement**: API protection with configurable types
+- **Timeout presets**: Short (5s), Default (30s), Long (5m) options
+- **Granular security headers**: Enable/disable individual headers
+- **File upload options**: UUID/DateTime/None filename prepending
+- **Event metadata system**: Thread-safe WebSocket event enrichment
+- **Error handling**: Proper HTTP status codes and JSON responses
+- **Middleware**: Composable, reusable, with proper ordering
+
+## Advanced Usage
+
+### Custom Middleware
 
 ```go
-// Client receives this event first:
-{
-    "type": "wsunixbridge.init",
-    "data": {
-        "writerSocket": "./sockets/f744bda5-1346-43a4-809b-6332e43fb993_output",
-        "readerSocket": "./sockets/f744bda5-1346-43a4-809b-6332e43fb993_input"
+// Create your own middleware
+func AuthMiddleware(secret string) middleware.Middleware {
+    return func(next http.Handler) http.Handler {
+        return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+            token := r.Header.Get("Authorization")
+            if !validateToken(token, secret) {
+                http.Error(w, "Unauthorized", http.StatusUnauthorized)
+                return
+            }
+            next.ServeHTTP(w, r)
+        })
     }
 }
-```
 
-**External Tool Integration:**
-
-Once you receive the initialization event, you can connect external tools to the Unix sockets:
-
-```bash
-# Read WebSocket data from external tools:
-nc -U ./sockets/f744bda5-1346-43a4-809b-6332e43fb993_output
-socat - UNIX-CONNECT:./sockets/f744bda5-1346-43a4-809b-6332e43fb993_output
-
-# Send data to WebSocket from external tools:
-echo "Hello from terminal!" | nc -U ./sockets/f744bda5-1346-43a4-809b-6332e43fb993_input
-cat audio.mp3 | socat - UNIX-CONNECT:./sockets/f744bda5-1346-43a4-809b-6332e43fb993_input
-```
-
-**Use Cases:**
-
-- Stream audio/video from external tools to WebSocket clients
-- Send terminal output to web browsers in real-time
-- Bridge legacy tools with modern web applications
-- Real-time data processing pipelines
-- IoT device integration
-
-## Static Files & Uploads
-
-**Static file serving using StaticRouteConfig:**
-
-```go
-Static: []server.StaticRouteConfig{
-    {
-        Dir:  "./public",
-        Path: "/assets",
-        DirectoryIndexingType: server.DirectoryIndexingTypeHTML, // or JSON, or None
+// Use in route groups
+{
+    Path: "/api/protected",
+    Middlewares: []middleware.Middleware{
+        AuthMiddleware("your-secret-key"),
+    },
+    Routes: []server.RouteConfig{
+        {Method: "GET", Path: "/profile", Handler: profileHandler},
     },
 }
 ```
 
-**File uploads with options:**
+### WebSocket Events
 
 ```go
-Handler: s.FileUploadHandler("./uploads",
-    server.WithFilenamePrependType(server.FilenamePrependTypeDateTime), // datetime_originalname.ext
-    server.WithFileUploadHandlerPostprocessor(func(data map[string]any) (map[string]any, error) {
-        // Process uploaded file data
-        return data, nil
+// Define your event types
+const (
+    EventTypeChatMessage dabluveees.EventType = "chat.message"
+    EventTypeUserJoin    dabluveees.EventType = "user.join"
+    EventTypeUserLeave   dabluveees.EventType = "user.leave"
+)
+
+// Create event handlers
+chatHub := wshub.NewHub("chat")
+chatHub.RegisterEventHandlers(map[dabluveees.EventType]wshub.EventHandler{
+    EventTypeChatMessage: func(hub wshub.Hub, client *wshub.Client, event *dabluveees.Event) error {
+        // Parse message data
+        var messageData struct {
+            Text   string `json:"text"`
+            UserID string `json:"userId"`
+        }
+        if err := json.Unmarshal(event.Data, &messageData); err != nil {
+            return err
+        }
+
+        // Add timestamp and broadcast
+        event.Metadata.Set("timestamp", time.Now().Unix())
+        hub.BroadcastToAll(event)
+        return nil
+    },
+})
+```
+
+### Unix Socket Bridge - External Tool Integration
+
+```go
+// Unix socket bridge for external tool integration
+import "github.com/psyb0t/aichteeteapee/server/dabluvee-es/wsunixbridge"
+
+// Create Unix bridge handler
+bridgeHandler := wsunixbridge.NewUpgradeHandler(
+    "./sockets",  // Directory for Unix socket files
+    func(connection *wsunixbridge.Connection) error {
+        log.Printf("Unix bridge connection established: %s", connection.ID)
+        log.Printf("Writer socket: %s", connection.WriterUnixSock.Path)
+        log.Printf("Reader socket: %s", connection.ReaderUnixSock.Path)
+        return nil
+    },
+)
+
+// Add to routes
+{Method: "GET", Path: "/unixsock", Handler: bridgeHandler}
+
+// External tools can now:
+// 1. Connect to writer socket to receive WebSocket data
+// 2. Write to reader socket to send data to WebSocket
+//
+// Example: echo "Hello from external tool" | socat - UNIX-CONNECT:./sockets/connection-id_input
+```
+
+### File Upload Processing
+
+// Advanced file upload configuration
+uploadHandler := srv.FileUploadHandler("./uploads",
+    // Custom postprocessor for file processing
+    server.WithFileUploadHandlerPostprocessor(func(
+        response map[string]any,
+        request *http.Request,
+    ) (map[string]any, error) {
+        // Add custom metadata to upload response
+        response["processed_at"] = time.Now().Unix()
+        response["user_ip"] = request.RemoteAddr
+        return response, nil
     }),
+
+    // Filename prepending options
+    server.WithFilenamePrependType(server.FilenamePrependTypeDateTime), // Y_M_D_H_I_S_
+    // Alternative: server.FilenamePrependTypeUUID (default)
+    // Alternative: server.FilenamePrependTypeNone
 )
 ```
 
-## Middleware System
-
-**Built-in middleware:**
+### Advanced Middleware Features
 
 ```go
-GlobalMiddlewares: []middleware.Middleware{
-    middleware.Recovery(),                    // Panic recovery
-    middleware.RequestID(),                   // Request ID generation
-    middleware.Logger(),                      // Request logging
-    middleware.SecurityHeaders(),             // Security headers (XSS, CSRF, etc.)
-    middleware.CORS(),                        // CORS with sensible defaults
-    middleware.Timeout(30 * time.Second),     // Request timeout
-    middleware.BasicAuth(map[string]string{"user": "pass"}), // Basic auth
-}
-```
+import (
+    "github.com/psyb0t/aichteeteapee/server/middleware"
+    "github.com/sirupsen/logrus"
+)
 
-**Per-group middleware using GroupConfig:**
-
-```go
-Groups: []server.GroupConfig{
-    {
-        Path: "/admin",
-        Middlewares: []middleware.Middleware{
-            middleware.BasicAuth(adminUsers),
-        },
-        Routes: []server.RouteConfig{...},
+// Request ID middleware with utility functions
+router := server.Router{
+    Middlewares: []middleware.Middleware{
+        middleware.RequestID(), // Automatic request ID generation
     },
-}
-```
-
-## Built-in Handlers
-
-**Health check:**
-
-```go
-{
-    Method:  http.MethodGet,
-    Path:    "/health",
-    Handler: s.HealthHandler, // Returns {"status": "ok"}
-}
-```
-
-**Echo endpoint:**
-
-```go
-{
-    Method:  http.MethodPost,
-    Path:    "/echo",
-    Handler: s.EchoHandler, // Echoes request body back
-}
-```
-
-## Complex Router Example
-
-```go
-router := &server.Router{
-    // Global middleware applies to everything
-    GlobalMiddlewares: []middleware.Middleware{
-        middleware.Recovery(),
-        middleware.RequestID(),
-        middleware.Logger(),
-        middleware.CORS(),
-    },
-
-    // Multiple static file routes
-    Static: []server.StaticRouteConfig{
-        {
-            Dir:  "./public",
-            Path: "/assets",
-            DirectoryIndexingType: server.DirectoryIndexingTypeHTML,
-        },
-        {
-            Dir:  "./uploads",
-            Path: "/files",
-            DirectoryIndexingType: server.DirectoryIndexingTypeJSON,
-        },
-    },
-
     Groups: []server.GroupConfig{
-        // Public routes (no auth)
         {
-            Path: "/",
+            Path: "/api",
             Routes: []server.RouteConfig{
-                {Method: http.MethodGet, Path: "/health", Handler: healthHandler},
-                {Method: http.MethodGet, Path: "/ws", Handler: dabluveees.UpgradeHandler(hub)},
-            },
-        },
-
-        // API with JSON enforcement
-        {
-            Path: "/api/v1",
-            Middlewares: []middleware.Middleware{
-                middleware.EnforceRequestContentType("application/json"),
-            },
-            Routes: []server.RouteConfig{
-                {Method: http.MethodGet, Path: "/users", Handler: getUsersHandler},
-                {Method: http.MethodPost, Path: "/users", Handler: createUserHandler},
-            },
-        },
-
-        // Admin routes with auth
-        {
-            Path: "/admin",
-            Middlewares: []middleware.Middleware{
-                middleware.BasicAuth(map[string]string{"admin": "secret"}),
-            },
-            Routes: []server.RouteConfig{
-                {Method: http.MethodGet, Path: "/stats", Handler: adminStatsHandler},
-                {Method: http.MethodDelete, Path: "/users/{id}", Handler: deleteUserHandler},
-            },
-
-            // Nested group for super admin
-            Groups: []server.GroupConfig{
                 {
-                    Path: "/super",
-                    Middlewares: []middleware.Middleware{
-                        superAdminAuthMiddleware,
-                    },
-                    Routes: []server.RouteConfig{
-                        {Method: http.MethodPost, Path: "/reset", Handler: systemResetHandler},
+                    Method: "GET",
+                    Path: "/status",
+                    Handler: func(w http.ResponseWriter, r *http.Request) {
+                        // Extract request ID from context
+                        reqID := middleware.GetRequestID(r)
+
+                        response := map[string]string{
+                            "status":     "ok",
+                            "request_id": reqID,
+                        }
+                        json.NewEncoder(w).Encode(response)
                     },
                 },
             },
         },
     },
 }
+
+// Content-Type enforcement for APIs
+apiGroup := server.GroupConfig{
+    Path: "/api",
+    Middlewares: []middleware.Middleware{
+        // Only allow JSON requests
+        middleware.EnforceRequestContentType("application/json"),
+        // Alternative: allow multiple types
+        // middleware.EnforceRequestContentType("application/json", "application/xml"),
+        // Shortcut for JSON-only APIs
+        // middleware.EnforceRequestContentTypeJSON(),
+    },
+    Routes: []server.RouteConfig{
+        {Method: "POST", Path: "/users", Handler: createUserHandler},
+    },
+}
+
+// Timeout middleware with presets
+timeoutGroup := server.GroupConfig{
+    Path: "/slow-api",
+    Middlewares: []middleware.Middleware{
+        middleware.Timeout(
+            middleware.WithLongTimeout(), // 5 minutes
+            // Alternative presets:
+            // middleware.WithShortTimeout(),   // 5 seconds
+            // middleware.WithDefaultTimeout(), // 30 seconds
+            // middleware.WithTimeout(2 * time.Minute), // Custom
+        ),
+    },
+    Routes: []server.RouteConfig{
+        {Method: "POST", Path: "/batch-process", Handler: batchProcessHandler},
+    },
+}
+
+// Security headers with granular control
+secureGroup := server.GroupConfig{
+    Path: "/secure",
+    Middlewares: []middleware.Middleware{
+        middleware.SecurityHeaders(
+            // Enable specific headers
+            middleware.WithXContentTypeOptions("nosniff"),
+            middleware.WithXFrameOptions("DENY"),
+            middleware.WithStrictTransportSecurity("max-age=31536000; includeSubDomains"),
+
+            // Disable unwanted headers
+            middleware.DisableXXSSProtection(), // If you handle XSS at app level
+            middleware.DisableCSP(),            // If you have custom CSP
+        ),
+    },
+}
+```
+
+### Enhanced WebSocket Events
+
+```go
+import "github.com/psyb0t/aichteeteapee/server/dabluvee-es"
+
+// Event creation with metadata and utility methods
+hub := wshub.NewHub("notifications")
+
+hub.RegisterEventHandler(EventTypeNewMessage, func(hub wshub.Hub, client *wshub.Client, event *dabluveees.Event) error {
+    // Add metadata to events
+    enrichedEvent := event.
+        WithMetadata("server_id", "api-01").
+        WithMetadata("processing_time", time.Now().Unix()).
+        WithTimestamp(time.Now().Unix()) // Override timestamp
+
+    // Check if event is recent (within last 60 seconds)
+    if enrichedEvent.IsRecent(60) {
+        // Get event time as Go time.Time
+        eventTime := enrichedEvent.GetTime()
+        log.Printf("Processing recent event from %v", eventTime)
+
+        // Broadcast with enriched metadata
+        hub.BroadcastToAll(&enrichedEvent)
+    }
+
+    return nil
+})
+
+// Built-in event types available
+const (
+    // System events
+    dabluveees.EventTypeSystemLog   // "system.log"
+    dabluveees.EventTypeShellExec   // "shell.exec"
+    dabluveees.EventTypeEchoRequest // "echo.request"
+    dabluveees.EventTypeEchoReply   // "echo.reply"
+    dabluveees.EventTypeError       // "error"
+)
 ```
 
 ## Configuration
 
-Environment variables (with sensible defaults):
+### Environment Variables
 
 ```bash
-export HTTP_SERVER_LISTENADDRESS="0.0.0.0:8080"         # HTTP server address
-export HTTP_SERVER_TLSENABLED="true"                    # Enable TLS/HTTPS
-export HTTP_SERVER_TLSLISTENADDRESS="0.0.0.0:8443"     # HTTPS server address
-export HTTP_SERVER_TLSCERTFILE="/path/to/cert.pem"     # TLS certificate file
-export HTTP_SERVER_TLSKEYFILE="/path/to/key.pem"       # TLS private key file
-export HTTP_SERVER_READTIMEOUT="30s"                   # Request read timeout
-export HTTP_SERVER_WRITETIMEOUT="30s"                  # Response write timeout
-export HTTP_SERVER_IDLETIMEOUT="60s"                   # Connection idle timeout
-export HTTP_SERVER_FILEUPLOADMAXMEMORY="33554432"      # Max upload memory in bytes (32MB)
+# Server settings
+HTTP_SERVER_LISTENADDRESS=127.0.0.1:8080
+HTTP_SERVER_TLSLISTENADDRESS=127.0.0.1:8443
+HTTP_SERVER_SERVICENAME=MyAPI
+
+# Security
+HTTP_SERVER_TLSENABLED=true
+HTTP_SERVER_TLSCERTFILE=./certs/server.crt
+HTTP_SERVER_TLSKEYFILE=./certs/server.key
+
+# Timeouts (durations)
+HTTP_SERVER_READTIMEOUT=30s
+HTTP_SERVER_READHEADERTIMEOUT=10s
+HTTP_SERVER_WRITETIMEOUT=30s
+HTTP_SERVER_IDLETIMEOUT=60s
+HTTP_SERVER_MAXHEADERBYTES=1048576
+HTTP_SERVER_SHUTDOWNTIMEOUT=30s
+
+# File uploads
+HTTP_SERVER_FILEUPLOADMAXMEMORY=52428800  # 50MB in bytes
 ```
 
-Or use custom config:
+### Programmatic Config
 
 ```go
-s, err := server.NewWithConfig(server.Config{
-    ListenAddress: "127.0.0.1:9000",
-    ReadTimeout:   10 * time.Second,
-    WriteTimeout:  10 * time.Second,
+srv, err := server.NewWithConfig(server.Config{
+    ListenAddress:       "0.0.0.0:8080",
+    TLSListenAddress:    "0.0.0.0:8443",
+    ServiceName:         "ProductionAPI",
+    ReadTimeout:         30 * time.Second,
+    ReadHeaderTimeout:   10 * time.Second,
+    WriteTimeout:        30 * time.Second,
+    IdleTimeout:         60 * time.Second,
+    MaxHeaderBytes:      1 << 20, // 1MB
+    ShutdownTimeout:     30 * time.Second,
+    FileUploadMaxMemory: 100 << 20, // 100MB
+    TLSEnabled:          true,
+    TLSCertFile:         "/etc/ssl/certs/api.crt",
+    TLSKeyFile:          "/etc/ssl/private/api.key",
 })
 ```
 
-## Troubleshooting
-
-### Common Issues
-
-**🚨 Server won't start / Address already in use**
-
-```bash
-# Error: bind: address already in use
-# Solution: Use different port or kill the process using it
-export HTTP_SERVER_LISTENADDRESS="127.0.0.1:8081"  # Different port
-# or
-sudo lsof -i :8080  # Find process using port 8080
-kill -9 <PID>       # Kill the process
-```
-
-**🚨 WebSocket connections fail / CORS issues**
-
-```go
-// Make sure CORS is configured for WebSocket origins
-GlobalMiddlewares: []middleware.Middleware{
-    middleware.CORS(middleware.WithCORSAllowOrigins([]string{"https://mydomain.com"})),
-}
-```
-
-**🚨 File uploads fail / Request body too large**
-
-```bash
-# Increase file upload memory limit (default is 32MB)
-export HTTP_SERVER_FILEUPLOADMAXMEMORY="104857600"  # 100MB in bytes
-```
-
-**🚨 TLS/HTTPS server won't start**
-
-```bash
-# Make sure cert and key files exist and are readable
-ls -la /path/to/cert.pem /path/to/key.pem
-chmod 644 /path/to/cert.pem /path/to/key.pem
-
-# Test with self-signed cert for development
-openssl req -x509 -newkey rsa:4096 -keyout key.pem -out cert.pem -days 365 -nodes
-```
-
-**🚨 High memory usage / Memory leaks**
-
-```go
-// Make sure to properly close WebSocket hubs
-defer hub.Close()
-
-// Set reasonable timeouts
-s, _ := server.NewWithConfig(server.Config{
-    ReadTimeout:  30 * time.Second,
-    WriteTimeout: 30 * time.Second,
-    IdleTimeout:  60 * time.Second,
-})
-```
-
-**🚨 Static files not serving / 404 errors**
-
-```go
-// Make sure directory exists and is readable
-Static: []server.StaticRouteConfig{{
-    Dir:  "./public",  // Must exist
-    Path: "/assets",   // URL prefix
-}},
-```
-
-### Debug Tips
-
-**Enable Debug Logging:**
-
-```go
-import "github.com/sirupsen/logrus"
-
-logger := logrus.New()
-logger.SetLevel(logrus.DebugLevel)  // Enable debug logs
-s, _ := server.NewWithLogger(logger)
-```
-
-**Check Server Status:**
-
-```bash
-# Health check endpoint (if enabled)
-curl http://localhost:8080/health
-
-# Check what's listening on your ports
-netstat -tuln | grep :8080
-```
-
-**WebSocket Connection Testing:**
-
-```javascript
-// Browser console test for WebSocket connections
-const ws = new WebSocket("ws://localhost:8080/ws");
-ws.onopen = () => console.log("Connected");
-ws.onmessage = (e) => console.log("Message:", e.data);
-ws.send(JSON.stringify({ type: "echo.request", data: "test" }));
-```
-
-## Production Deployment
-
-### Docker Setup
-
-**Dockerfile:**
-
-```dockerfile
-FROM golang:1.21-alpine AS builder
-WORKDIR /app
-COPY go.mod go.sum ./
-RUN go mod download
-COPY . .
-RUN CGO_ENABLED=0 GOOS=linux go build -o main .
-
-FROM alpine:latest
-RUN apk --no-cache add ca-certificates
-WORKDIR /root/
-COPY --from=builder /app/main .
-COPY --from=builder /app/static ./static
-EXPOSE 8080 8443
-CMD ["./main"]
-```
-
-**docker-compose.yml:**
-
-```yaml
-version: "3.8"
-services:
-  app:
-    build: .
-    ports:
-      - "8080:8080"
-      - "8443:8443"
-    environment:
-      - HTTP_SERVER_LISTENADDRESS=0.0.0.0:8080
-      - HTTP_SERVER_TLSENABLED=true
-      - HTTP_SERVER_TLSLISTENADDRESS=0.0.0.0:8443
-      - HTTP_SERVER_TLSCERTFILE=/certs/cert.pem
-      - HTTP_SERVER_TLSKEYFILE=/certs/key.pem
-    volumes:
-      - ./certs:/certs:ro
-      - ./uploads:/app/uploads
-```
-
-### Production Configuration
-
-**Environment Variables:**
-
-```bash
-# Server binding (use 0.0.0.0 in containers)
-export HTTP_SERVER_LISTENADDRESS="0.0.0.0:8080"
-
-# Enable TLS/HTTPS in production
-export HTTP_SERVER_TLSENABLED="true"
-export HTTP_SERVER_TLSLISTENADDRESS="0.0.0.0:8443"
-export HTTP_SERVER_TLSCERTFILE="/etc/ssl/certs/server.pem"
-export HTTP_SERVER_TLSKEYFILE="/etc/ssl/private/server.key"
-
-# Timeouts for production
-export HTTP_SERVER_READTIMEOUT="30s"
-export HTTP_SERVER_WRITETIMEOUT="30s"
-export HTTP_SERVER_IDLETIMEOUT="120s"
-
-# File upload limits
-export HTTP_SERVER_FILEUPLOADMAXMEMORY="104857600"  # 100MB
-
-# Service name for logging
-export HTTP_SERVER_SERVICENAME="my-production-api"
-```
-
-**🚨 Security Warning - Built-in Handlers Are NOT Secured:**
-
-The library includes security middleware but **built-in handlers have NO authentication by default**:
-
-```go
-// ⚠️  THESE ARE UNSECURED BY DEFAULT:
-s.HealthHandler     // Anyone can access /health
-s.EchoHandler       // Anyone can echo requests (exposes headers!)
-s.FileUploadHandler // Anyone can upload files!
-
-// ⚠️  WEBSOCKET ACCEPTS ALL ORIGINS BY DEFAULT:
-websocket.UpgradeHandler(hub) // Allows connections from ANY website! (CSRF risk)
-```
-
-**You MUST add authentication to sensitive endpoints:**
-
-```go
-// ✅ SECURE VERSION - Add auth middleware to sensitive routes
-Groups: []server.GroupConfig{
-    {
-        Path: "/",
-        Routes: []server.RouteConfig{
-            {Method: http.MethodGet, Path: "/health", Handler: s.HealthHandler}, // Public OK
-        },
-    },
-    {
-        Path: "/admin",
-        Middlewares: []middleware.Middleware{
-            middleware.BasicAuth(map[string]string{"admin": "secret123"}), // ADD AUTH!
-        },
-        Routes: []server.RouteConfig{
-            {Method: http.MethodPost, Path: "/echo", Handler: s.EchoHandler},     // Now secured
-            {Method: http.MethodPost, Path: "/upload", Handler: s.FileUploadHandler("./uploads")}, // Now secured
-        },
-    },
-}
-
-// ✅ SECURE WEBSOCKET - Configure CheckOrigin for production:
-hub := wshub.NewHub("secure-hub")
-secureUpgradeHandler := dabluveees.UpgradeHandler(hub, dabluveees.WithCheckOrigin(func(r *http.Request) bool {
-    origin := r.Header.Get("Origin")
-    // Only allow your trusted domains
-    allowedOrigins := []string{
-        "https://yourdomain.com",
-        "https://app.yourdomain.com",
-    }
-    for _, allowed := range allowedOrigins {
-        if origin == allowed {
-            return true
-        }
-    }
-    return false // Reject all other origins
-}))
-```
-
-**Security Best Practices:**
-
-```go
-// Production middleware stack
-GlobalMiddlewares: []middleware.Middleware{
-    middleware.Recovery(),                    // Panic recovery
-    middleware.RequestID(),                   // Request tracing
-    middleware.Logger(),                      // Request logging
-    middleware.SecurityHeaders(),             // Security headers
-    middleware.CORS(middleware.WithCORSAllowOrigins([]string{
-        "https://yourdomain.com",             // Only allow your domain
-    })),
-    middleware.Timeout(30 * time.Second),     // Request timeout
-},
-```
-
-**File Upload Security:**
-
-- File uploads have **no size limits** by default except `HTTP_SERVER_FILEUPLOADMAXMEMORY`
-- **No file type validation** - users can upload executables, scripts, etc.
-- **No authentication** - anyone can upload if endpoint is exposed
-- Files are stored with UUID prefixes to prevent overwrites, but **directory is world-readable**
-
-```go
-// Add your own validation:
-Handler: s.FileUploadHandler("./uploads",
-    server.WithFileUploadHandlerPostprocessor(func(data map[string]any) (map[string]any, error) {
-        // Add your validation here:
-        filename := data["filename"].(string)
-        if !isAllowedFileType(filename) {
-            return nil, fmt.Errorf("file type not allowed")
-        }
-        return data, nil
-    }),
-)
-```
-
-**WebSocket Security:**
-
-- **CheckOrigin returns `true` for ALL origins by default** - allows any website to connect
-- This creates **CSRF vulnerabilities** where malicious sites can connect to your WebSocket
-- **No authentication** on WebSocket upgrade by default
-- **All event handlers run without authentication** unless you add it manually
-
-```go
-// ⚠️  DEFAULT BEHAVIOR - DANGEROUS:
-dabluveees.UpgradeHandler(hub) // Accepts connections from evil-site.com!
-
-// ✅ PRODUCTION CONFIGURATION:
-secureHandler := dabluveees.UpgradeHandler(hub,
-    dabluveees.WithCheckOrigin(func(r *http.Request) bool {
-        origin := r.Header.Get("Origin")
-        return origin == "https://yourtrustedsite.com"
-    }),
-)
-
-// ✅ ADD AUTHENTICATION TO EVENT HANDLERS:
-hub.RegisterEventHandler("sensitive.action", func(hub wshub.Hub, client *wshub.Client, event *dabluveees.Event) error {
-    // Validate user permissions here before processing
-    userID := client.GetUserID() // You need to implement this
-    if !isAuthorized(userID, "sensitive.action") {
-        return fmt.Errorf("unauthorized")
-    }
-    // Process event...
-    return nil
-})
-```
-
-**Graceful Shutdown:**
-
-```go
-func main() {
-    s, err := server.New()
-    if err != nil {
-        log.Fatal(err)
-    }
-
-    // Setup signal handling for graceful shutdown
-    ctx, cancel := context.WithCancel(context.Background())
-    defer cancel()
-
-    go func() {
-        sigChan := make(chan os.Signal, 1)
-        signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
-        <-sigChan
-
-        log.Println("Shutting down server...")
-        shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 10*time.Second)
-        defer shutdownCancel()
-
-        if err := s.Stop(shutdownCtx); err != nil {
-            log.Printf("Error during shutdown: %v", err)
-        }
-        cancel()
-    }()
-
-    if err := s.Start(ctx, router); err != nil {
-        log.Fatal(err)
-    }
-}
-```
-
-### Performance Tips
-
-**Load Balancer Setup (nginx):**
-
-```nginx
-upstream backend {
-    server 127.0.0.1:8080;
-    server 127.0.0.1:8081;  # Multiple instances
-}
-
-server {
-    listen 80;
-    server_name yourdomain.com;
-
-    location / {
-        proxy_pass http://backend;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-    }
-
-    # WebSocket support
-    location /ws {
-        proxy_pass http://backend;
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection "upgrade";
-        proxy_set_header Host $host;
-        proxy_cache_bypass $http_upgrade;
-    }
-}
-```
-
-**Health Checks & Monitoring:**
-
-```go
-// Add health check endpoint
-{
-    Method:  http.MethodGet,
-    Path:    "/health",
-    Handler: s.HealthHandler,  // Returns {"status": "ok"}
-}
-
-// Add metrics endpoint (if using prometheus)
-{
-    Method:  http.MethodGet,
-    Path:    "/metrics",
-    Handler: promhttp.Handler(),
-}
-```
-
-## Real Talk
-
-This isn't another "minimal framework" that makes you implement everything. This is a **batteries-included HTTP utilities library** that handles the 90% of shit you always end up building anyway:
-
-- 🔥 **Production-ready defaults** - TLS support, security headers, CORS, logging, graceful shutdown
-- 🚀 **Zero-configuration startup** - Just create server, define routes, start
-- 🛡️ **Security by default** - XSS protection, CSRF headers, secure defaults
-- 📊 **Structured logging** - Request IDs, client IPs, timing, status codes
-- 🌐 **CORS that works** - Sensible defaults, fully configurable
-- 📁 **Static files + uploads** - Directory indexing, file caching, UUID filenames
-- ⚡ **WebSocket support** - Hub system, event handling, broadcasting
-- 🔧 **Completely customizable** - Override any default, add custom middleware
-- 🧪 **90%+ test coverage** - Battle-tested and production-ready
-
-## Why "aichteeteapee"?
-
-Because saying "HTTP" is boring, but `aichteeteapee` makes you go "what the fuck is this?" and then you realize it's phonetically "HTTP" and you either laugh or hate it. Either way, you remember it.
-
-Also, all the good names were taken.
+## Security Warnings ⚠️
+
+**READ THIS SHIT CAREFULLY** - Security is not a fucking joke:
+
+### 🔥 **CRITICAL - Authentication & Authorization**
+- **NEVER** run without authentication in production
+- **ALWAYS** validate user permissions before accessing resources
+- **USE** HTTPS in production - HTTP is not secure
+- **IMPLEMENT** proper session management and token validation
+
+### 🔒 **File Upload Security**
+- **VALIDATE** file types and sizes - don't trust client data
+- **SCAN** uploads for malware before processing
+- **STORE** uploads outside web root to prevent direct access
+- **LIMIT** file extensions and use whitelist, not blacklist
+
+### 🛡️ **Path Traversal Protection**
+- Library includes protection, but **ALWAYS** validate custom file paths
+- **NEVER** trust user input for file system operations
+- **USE** absolute paths and proper validation for file access
+
+### 🚨 **WebSocket Security**
+- **AUTHENTICATE** WebSocket connections - they bypass normal HTTP auth
+- **VALIDATE** all event data - treat it as untrusted input
+- **IMPLEMENT** rate limiting for WebSocket messages
+- **MONITOR** connection counts to prevent DoS attacks
+
+### 🔐 **Production Checklist**
+- [ ] HTTPS configured with valid certificates
+- [ ] Security headers properly configured
+- [ ] Authentication middleware on protected routes
+- [ ] File upload validation and scanning
+- [ ] Proper error handling (don't leak internal info)
+- [ ] Request logging and monitoring in place
+- [ ] Rate limiting configured
+- [ ] Regular security updates
+
+**Remember**: This library provides the tools, but YOU are responsible for using them securely. Don't be the person who gets pwned because they skipped the security setup.
 
 ## License
 
-MIT - Because sharing is caring, and lawyers are expensive.
+MIT License - See [LICENSE](LICENSE) file for details.
 
 ---
 
-_"Finally, an HTTP library that doesn't make me want to switch careers."_ - Some Developer, Probably
+**aichteeteapee** - because building HTTP servers shouldn't be a pain in the ass.
 
-_"I went from 200 lines of boilerplate to 20 lines of actual code."_ - Another Developer, Definitely
-
-_"It just fucking works."_ - Everyone Who Uses This
+*Pronunciation guide: "ay-ch-tee-tee-pee" = HTTP. Yes, it's a terrible pun. No apologies.*
