@@ -24,6 +24,7 @@ func TestNewEvent(t *testing.T) {
 	assert.NotEqual(t, int64(0), event.Timestamp)
 	assert.NotNil(t, event.Metadata)
 	assert.Len(t, event.Metadata.GetAll(), 0)
+	assert.Nil(t, event.TriggeredBy)
 
 	// Test timestamp is recent (within last 5 seconds)
 	now := time.Now().Unix()
@@ -47,6 +48,7 @@ func TestNewEvent_NilData(t *testing.T) {
 	assert.Nil(t, event.Data)
 	assert.NotEqual(t, int64(0), event.Timestamp)
 	assert.NotNil(t, event.Metadata)
+	assert.Nil(t, event.TriggeredBy)
 }
 
 func TestNewEvent_InvalidData(t *testing.T) {
@@ -60,14 +62,15 @@ func TestNewEvent_InvalidData(t *testing.T) {
 	assert.Nil(t, event.Data) // Should be nil because marshaling failed
 	assert.NotEqual(t, int64(0), event.Timestamp)
 	assert.NotNil(t, event.Metadata)
+	assert.Nil(t, event.TriggeredBy)
 }
 
-func TestEvent_WithMetadata(t *testing.T) {
+func TestEvent_SetMetadata(t *testing.T) {
 	event := NewEvent(EventTypeSystemLog, "test")
 
 	// Test chaining - this modifies the event in place
-	result := event.WithMetadata("userID", "user123").
-		WithMetadata("room", "general")
+	result := event.SetMetadata("userID", "user123").
+		SetMetadata("room", "general")
 
 	userID, exists := result.Metadata.Get("userID")
 	assert.True(t, exists)
@@ -83,7 +86,7 @@ func TestEvent_WithMetadata(t *testing.T) {
 	assert.Len(t, event.Metadata.GetAll(), 2)
 }
 
-func TestEvent_WithMetadata_NilMetadata(t *testing.T) {
+func TestEvent_SetMetadata_NilMetadata(t *testing.T) {
 	event := Event{
 		ID:        uuid.New(),
 		Type:      EventTypeSystemLog,
@@ -91,7 +94,7 @@ func TestEvent_WithMetadata_NilMetadata(t *testing.T) {
 		Timestamp: time.Now().Unix(),
 	}
 
-	result := event.WithMetadata("test", "value")
+	result := event.SetMetadata("test", "value")
 
 	value, exists := result.Metadata.Get("test")
 	assert.True(t, exists)
@@ -99,20 +102,45 @@ func TestEvent_WithMetadata_NilMetadata(t *testing.T) {
 	assert.Len(t, result.Metadata.GetAll(), 1)
 }
 
-func TestEvent_WithTimestamp(t *testing.T) {
+func TestEvent_SetTimestamp(t *testing.T) {
 	event := NewEvent(EventTypeSystemLog, "test")
 	originalTimestamp := event.Timestamp
 
 	customTimestamp := int64(1640995200) // 2022-01-01 00:00:00 UTC
-	result := event.WithTimestamp(customTimestamp)
+	result := event.SetTimestamp(customTimestamp)
 
 	assert.Equal(t, customTimestamp, result.Timestamp)
 	assert.Equal(t, originalTimestamp, event.Timestamp) // Original unchanged
 }
 
+func TestEvent_SetTriggeredBy(t *testing.T) {
+	event := NewEvent(EventTypeEchoReply, "pong")
+	assert.Nil(t, event.TriggeredBy)
+
+	triggerEventID := uuid.New()
+	result := event.SetTriggeredBy(triggerEventID)
+
+	assert.NotNil(t, result.TriggeredBy)
+	assert.Equal(t, triggerEventID, *result.TriggeredBy)
+	assert.Nil(t, event.TriggeredBy) // Original unchanged (copy returned)
+}
+
+func TestEvent_SetTriggeredBy_Chaining(t *testing.T) {
+	requestEvent := NewEvent(EventTypeEchoRequest, "ping")
+
+	replyEvent := NewEvent(EventTypeEchoReply, "pong").
+		SetTriggeredBy(requestEvent.ID).
+		SetMetadata("userID", "user123")
+
+	assert.Equal(t, requestEvent.ID, *replyEvent.TriggeredBy)
+	userID, exists := replyEvent.Metadata.Get("userID")
+	assert.True(t, exists)
+	assert.Equal(t, "user123", userID)
+}
+
 func TestEvent_GetTime(t *testing.T) {
 	timestamp := int64(1640995200) // 2022-01-01 00:00:00 UTC
-	event := NewEvent(EventTypeSystemLog, "test").WithTimestamp(timestamp)
+	event := NewEvent(EventTypeSystemLog, "test").SetTimestamp(timestamp)
 
 	result := event.GetTime()
 
@@ -166,7 +194,7 @@ func TestEvent_IsRecent(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			event := NewEvent(EventTypeSystemLog, "test").WithTimestamp(tt.timestamp)
+			event := NewEvent(EventTypeSystemLog, "test").SetTimestamp(tt.timestamp)
 			result := event.IsRecent(tt.seconds)
 			assert.Equal(t, tt.expected, result)
 		})
@@ -179,9 +207,11 @@ func TestEvent_JSONMarshaling(t *testing.T) {
 		"count":   42,
 	}
 
+	triggerEventID := uuid.New()
 	event := NewEvent(EventTypeSystemLog, testData).
-		WithMetadata("userID", "user123").
-		WithTimestamp(1640995200)
+		SetMetadata("userID", "user123").
+		SetTimestamp(1640995200).
+		SetTriggeredBy(triggerEventID)
 
 	// Marshal to JSON
 	jsonData, err := json.Marshal(event)
@@ -199,6 +229,8 @@ func TestEvent_JSONMarshaling(t *testing.T) {
 	assert.Equal(t, event.Timestamp, unmarshaled.Timestamp)
 	assert.Equal(t, event.Metadata.GetAll(), unmarshaled.Metadata.GetAll())
 	assert.Equal(t, event.Data, unmarshaled.Data)
+	assert.NotNil(t, unmarshaled.TriggeredBy)
+	assert.Equal(t, *event.TriggeredBy, *unmarshaled.TriggeredBy)
 
 	// Verify data content
 	var originalData, unmarshaledData map[string]any
@@ -228,4 +260,22 @@ func TestNewEvent_UniqueIDs(t *testing.T) {
 
 	// Verify we have 100 unique IDs
 	assert.Len(t, ids, 100)
+}
+
+func TestEvent_JSONMarshaling_NilTriggeredBy(t *testing.T) {
+	event := NewEvent(EventTypeSystemLog, "test")
+	assert.Nil(t, event.TriggeredBy)
+
+	// Marshal to JSON
+	jsonData, err := json.Marshal(event)
+	require.NoError(t, err)
+
+	// Unmarshal back
+	var unmarshaled Event
+
+	err = json.Unmarshal(jsonData, &unmarshaled)
+	require.NoError(t, err)
+
+	// Verify TriggeredBy is still nil
+	assert.Nil(t, unmarshaled.TriggeredBy)
 }

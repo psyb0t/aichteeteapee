@@ -5,6 +5,8 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -242,27 +244,34 @@ func TestWebSocketUnixBridgeIntegration(t *testing.T) {
 
 func TestUnixSocketPathCreationIntegration(t *testing.T) {
 	tests := []struct {
-		name       string
-		socketsDir string
+		name      string
+		useSubDir bool
 	}{
 		{
-			name:       "basic directory",
-			socketsDir: "sockets",
+			name:      "basic directory",
+			useSubDir: true,
 		},
 		{
-			name:       "temp directory",
-			socketsDir: "",
+			name:      "temp directory",
+			useSubDir: false,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_ = t.TempDir() // Not used for sockets due to path length limits
+			// Use short path for Unix sockets due to path length limits (~108 chars)
+			// Create unique test directory that will be cleaned up
+			testDir := filepath.Join("/tmp", "ws_"+uuid.New().String()[:8])
 
-			// Use shorter path for Unix sockets due to path length limits (~108 chars)
-			socketsDir := testSocketsPath
-			if tt.socketsDir != "" {
-				socketsDir = tt.socketsDir
+			// Ensure cleanup
+			t.Cleanup(func() {
+				_ = os.RemoveAll(testDir)
+			})
+
+			// Create socket directory
+			socketsDir := testDir
+			if tt.useSubDir {
+				socketsDir = filepath.Join(testDir, "sockets")
 			}
 
 			// Track connection details
