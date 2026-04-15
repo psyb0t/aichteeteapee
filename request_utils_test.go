@@ -247,7 +247,9 @@ func TestGetRequestID(t *testing.T) {
 			name: "request ID present in context",
 			setupCtx: func() context.Context {
 				return context.WithValue(
-					context.Background(), ContextKeyRequestID, "test-request-id-123",
+					context.Background(),
+					ContextKeyRequestID,
+					"test-request-id-123",
 				)
 			},
 			expected: "test-request-id-123",
@@ -260,7 +262,10 @@ func TestGetRequestID(t *testing.T) {
 		{
 			name: "request ID wrong type in context",
 			setupCtx: func() context.Context {
-				return context.WithValue(context.Background(), ContextKeyRequestID, 12345)
+				return context.WithValue(
+					context.Background(),
+					ContextKeyRequestID, 12345,
+				)
 			},
 			expected: "",
 		},
@@ -288,7 +293,8 @@ func TestGetClientIP(t *testing.T) {
 			setupReq: func() *http.Request {
 				req := httptest.NewRequest(http.MethodGet, "/test", nil)
 				req.Header.Set(
-					"X-Forwarded-For", "203.0.113.195, 70.41.3.18, 150.172.238.178",
+					"X-Forwarded-For",
+					"203.0.113.195, 70.41.3.18, 150.172.238.178",
 				)
 
 				return req

@@ -172,13 +172,17 @@ func (c *Connection) writePump() { //nolint:cyclop,funlen
 		case event, ok := <-c.sendCh:
 			if !ok {
 				// Channel closed, send close message
-				_ = c.conn.SetWriteDeadline(time.Now().Add(c.client.config.WriteTimeout))
+				_ = c.conn.SetWriteDeadline(
+					time.Now().Add(c.client.config.WriteTimeout),
+				)
 				_ = c.conn.WriteMessage(websocket.CloseMessage, []byte{})
 
 				return
 			}
 
-			_ = c.conn.SetWriteDeadline(time.Now().Add(c.client.config.WriteTimeout))
+			_ = c.conn.SetWriteDeadline(
+				time.Now().Add(c.client.config.WriteTimeout),
+			)
 
 			if err := c.conn.WriteJSON(event); err != nil {
 				if websocket.IsCloseError(
@@ -201,9 +205,12 @@ func (c *Connection) writePump() { //nolint:cyclop,funlen
 
 		case <-ticker.C:
 			// Send ping
-			_ = c.conn.SetWriteDeadline(time.Now().Add(c.client.config.WriteTimeout))
+			_ = c.conn.SetWriteDeadline(
+				time.Now().Add(c.client.config.WriteTimeout),
+			)
 
-			if err := c.conn.WriteMessage(websocket.PingMessage, nil); err != nil {
+			err := c.conn.WriteMessage(websocket.PingMessage, nil)
+			if err != nil {
 				if websocket.IsCloseError(
 					err, websocket.CloseNormalClosure, websocket.CloseGoingAway,
 				) {

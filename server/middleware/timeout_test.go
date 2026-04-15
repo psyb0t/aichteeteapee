@@ -13,7 +13,8 @@ func TestTimeout(t *testing.T) {
 	t.Run("request completes within timeout", func(t *testing.T) {
 		middleware := Timeout(WithTimeout(100 * time.Millisecond))
 
-		handler := createDelayedHandler(50 * time.Millisecond) // Less than timeout
+		// Less than timeout
+		handler := createDelayedHandler(50 * time.Millisecond)
 
 		req := createTestRequest(http.MethodGet, "/test")
 		w := httptest.NewRecorder()
@@ -26,7 +27,8 @@ func TestTimeout(t *testing.T) {
 	t.Run("request times out", func(t *testing.T) {
 		middleware := Timeout(WithTimeout(50 * time.Millisecond))
 
-		handler := createDelayedHandler(100 * time.Millisecond) // More than timeout
+		// More than timeout
+		handler := createDelayedHandler(100 * time.Millisecond)
 
 		req := createTestRequest(http.MethodGet, "/test")
 		w := httptest.NewRecorder()
@@ -39,7 +41,8 @@ func TestTimeout(t *testing.T) {
 	t.Run("request with context cancellation", func(t *testing.T) {
 		middleware := Timeout(WithTimeout(50 * time.Millisecond))
 
-		handler := createDelayedHandler(100 * time.Millisecond) // More than timeout
+		// More than timeout
+		handler := createDelayedHandler(100 * time.Millisecond)
 
 		req := createTestRequest(http.MethodGet, "/test")
 		w := httptest.NewRecorder()
@@ -62,7 +65,8 @@ func TestTimeoutMiddleware_RealHandlerTimeout(t *testing.T) {
 			normalHandler := http.HandlerFunc(
 				func(w http.ResponseWriter, _ *http.Request) {
 					defer func() { handlerDone <- true }()
-					// This is what most real handlers look like - they don't check context
+					// This is what most real handlers look like
+					// - they don't check context
 					time.Sleep(100 * time.Millisecond) // Just do some work
 					w.WriteHeader(http.StatusOK)
 					_, _ = w.Write([]byte("completed"))
@@ -108,7 +112,8 @@ func TestTimeoutMiddleware_PresetOptions(t *testing.T) {
 
 		middleware(handler).ServeHTTP(w, req)
 
-		assert.Equal(t, http.StatusOK, w.Code) // Should complete within 5s timeout
+		// Should complete within 5s timeout
+		assert.Equal(t, http.StatusOK, w.Code)
 	})
 
 	t.Run("with default timeout", func(t *testing.T) {
@@ -121,7 +126,8 @@ func TestTimeoutMiddleware_PresetOptions(t *testing.T) {
 
 		middleware(handler).ServeHTTP(w, req)
 
-		assert.Equal(t, http.StatusOK, w.Code) // Should complete within 10s default
+		// Should complete within 10s default
+		assert.Equal(t, http.StatusOK, w.Code)
 	})
 
 	t.Run("with long timeout", func(t *testing.T) {

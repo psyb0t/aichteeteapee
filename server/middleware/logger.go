@@ -127,12 +127,14 @@ func Logger(opts ...LoggerOption) Middleware {
 				clientIP := aichteeteapee.GetClientIP(r)
 
 				fields := logrus.Fields{
-					"method":    r.Method,
-					"path":      r.URL.Path,
-					"status":    wrapped.getStatusCode(),
-					"duration":  duration.String(),
-					"ip":        clientIP,
-					"userAgent": r.Header.Get(aichteeteapee.HeaderNameUserAgent),
+					"method":   r.Method,
+					"path":     r.URL.Path,
+					"status":   wrapped.getStatusCode(),
+					"duration": duration.String(),
+					"ip":       clientIP,
+					"userAgent": r.Header.Get(
+						aichteeteapee.HeaderNameUserAgent,
+					),
 					"requestId": reqID,
 				}
 
@@ -150,7 +152,9 @@ func Logger(opts ...LoggerOption) Middleware {
 					}
 				}
 
-				config.Logger.WithFields(fields).Log(config.LogLevel, config.Message)
+				config.Logger.WithFields(fields).Log(
+					config.LogLevel, config.Message,
+				)
 			}()
 
 			next.ServeHTTP(wrapped, r)

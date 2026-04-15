@@ -496,7 +496,9 @@ func (s *Server) createListeners(
 				s.logger.Errorf("Failed to close HTTP listener: %v", closeErr)
 			}
 
-			return nil, nil, ctxerrors.Wrap(err, "failed to create HTTPS listener")
+			return nil, nil, ctxerrors.Wrap(
+				err, "failed to create HTTPS listener",
+			)
 		}
 
 		s.listenerMu.Lock()
@@ -588,7 +590,9 @@ func (s *Server) Stop(ctx context.Context) error {
 		close(s.doneCh)
 
 		// Create shutdown context with timeout from config
-		shutdownCtx, cancel := context.WithTimeout(ctx, s.config.ShutdownTimeout)
+		shutdownCtx, cancel := context.WithTimeout(
+			ctx, s.config.ShutdownTimeout,
+		)
 		defer cancel()
 
 		// Collect all shutdown errors
@@ -606,38 +610,48 @@ func (s *Server) Stop(ctx context.Context) error {
 
 		// Shutdown HTTP server
 		if s.httpServer != nil {
-			wg.Add(1)
-
-			go func() {
-				defer wg.Done()
-
+			wg.Go(func() {
 				s.logger.Info("Shutting down HTTP server")
 
-				if shutdownErr := s.httpServer.Shutdown(shutdownCtx); shutdownErr != nil {
-					s.logger.Errorf("HTTP server shutdown error: %v", shutdownErr)
-					addError(ctxerrors.Wrap(shutdownErr, "failed to shutdown HTTP server"))
+				shutdownErr := s.httpServer.Shutdown(
+					shutdownCtx,
+				)
+				if shutdownErr != nil {
+					s.logger.Errorf(
+						"HTTP server shutdown error: %v",
+						shutdownErr,
+					)
+					addError(ctxerrors.Wrap(
+						shutdownErr,
+						"failed to shutdown HTTP server",
+					))
 				} else {
 					s.logger.Info("HTTP server shutdown completed")
 				}
-			}()
+			})
 		}
 
 		// Shutdown HTTPS server if TLS is enabled
 		if s.config.TLSEnabled && s.httpsServer != nil {
-			wg.Add(1)
-
-			go func() {
-				defer wg.Done()
-
+			wg.Go(func() {
 				s.logger.Info("Shutting down HTTPS server")
 
-				if shutdownErr := s.httpsServer.Shutdown(shutdownCtx); shutdownErr != nil {
-					s.logger.Errorf("HTTPS server shutdown error: %v", shutdownErr)
-					addError(ctxerrors.Wrap(shutdownErr, "failed to shutdown HTTPS server"))
+				shutdownErr := s.httpsServer.Shutdown(
+					shutdownCtx,
+				)
+				if shutdownErr != nil {
+					s.logger.Errorf(
+						"HTTPS server shutdown error: %v",
+						shutdownErr,
+					)
+					addError(ctxerrors.Wrap(
+						shutdownErr,
+						"failed to shutdown HTTPS server",
+					))
 				} else {
 					s.logger.Info("HTTPS server shutdown completed")
 				}
-			}()
+			})
 		}
 
 		// Wait for all servers to shutdown
@@ -678,12 +692,27 @@ func (s *Server) closeListeners(
 
 		if closeErr := listener.Close(); closeErr != nil {
 			// Check if it's just an "already closed" error
-			if !strings.Contains(closeErr.Error(), "use of closed network connection") {
-				s.logger.Errorf("Failed to close %s listener: %v", name, closeErr)
-				*shutdownErrors = append(*shutdownErrors,
-					ctxerrors.Wrapf(closeErr, "failed to close %s listener", name))
+			if !strings.Contains(
+				closeErr.Error(),
+				"use of closed network connection",
+			) {
+				s.logger.Errorf(
+					"Failed to close %s listener: %v",
+					name, closeErr,
+				)
+				*shutdownErrors = append(
+					*shutdownErrors,
+					ctxerrors.Wrapf(
+						closeErr,
+						"failed to close %s listener",
+						name,
+					),
+				)
 			} else {
-				s.logger.Debugf("%s listener was already closed by server shutdown", name)
+				s.logger.Debugf(
+					"%s listener was already closed by server shutdown",
+					name,
+				)
 			}
 		} else {
 			s.logger.Infof("%s listener closed", name)

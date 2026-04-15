@@ -208,16 +208,12 @@ func TestConnectionsMap_ThreadSafety(t *testing.T) {
 
 	// Concurrent reads
 	for range 50 {
-		wg.Add(1)
-
-		go func() {
-			defer wg.Done()
-
+		wg.Go(func() {
 			cm.Count()
 			cm.GetAll()
 			cm.Get(uuid.New()) // Just test with random UUID
 			cm.IsEmpty()
-		}()
+		})
 	}
 
 	wg.Wait()

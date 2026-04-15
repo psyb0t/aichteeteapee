@@ -38,26 +38,40 @@ func TestUpgradeHandlerConfigOptions(t *testing.T) {
 	tests := []struct {
 		name         string
 		option       UpgradeHandlerOption
-		validateFunc func(*testing.T, UpgradeHandlerConfig, UpgradeHandlerConfig)
+		validateFunc func(
+			*testing.T, UpgradeHandlerConfig, UpgradeHandlerConfig,
+		)
 	}{
 		{
 			name:   "WithUpgradeHandlerBufferSizes",
 			option: WithUpgradeHandlerBufferSizes(2048, 4096),
-			validateFunc: func(t *testing.T, original, modified UpgradeHandlerConfig) {
+			validateFunc: func(
+				t *testing.T,
+				original, modified UpgradeHandlerConfig,
+			) {
 				t.Helper()
 				assert.Equal(t, 2048, modified.ReadBufferSize)
 				assert.Equal(t, 4096, modified.WriteBufferSize)
-				assert.NotEqual(t, original.ReadBufferSize, modified.ReadBufferSize)
-				assert.NotEqual(t, original.WriteBufferSize, modified.WriteBufferSize)
+				assert.NotEqual(
+					t, original.ReadBufferSize, modified.ReadBufferSize,
+				)
+				assert.NotEqual(
+					t, original.WriteBufferSize, modified.WriteBufferSize,
+				)
 			},
 		},
 		{
 			name:   "WithUpgradeHandlerHandshakeTimeout",
 			option: WithUpgradeHandlerHandshakeTimeout(60 * time.Second),
-			validateFunc: func(t *testing.T, original, modified UpgradeHandlerConfig) {
+			validateFunc: func(
+				t *testing.T,
+				original, modified UpgradeHandlerConfig,
+			) {
 				t.Helper()
 				assert.Equal(t, 60*time.Second, modified.HandshakeTimeout)
-				assert.NotEqual(t, original.HandshakeTimeout, modified.HandshakeTimeout)
+				assert.NotEqual(
+					t, original.HandshakeTimeout, modified.HandshakeTimeout,
+				)
 			},
 		},
 	}
@@ -101,7 +115,9 @@ func TestWithUpgradeHandlerCompression(t *testing.T) {
 			assert.Equal(t, tt.expected, config.EnableCompression)
 
 			if tt.value != originalCompression {
-				assert.NotEqual(t, originalCompression, config.EnableCompression)
+				assert.NotEqual(
+					t, originalCompression, config.EnableCompression,
+				)
 			}
 		})
 	}
@@ -251,7 +267,8 @@ func TestUpgradeHandlerOptions_Chaining(t *testing.T) {
 func TestHandlerConfig_DefaultsMatchConstants(t *testing.T) {
 	config := NewUpgradeHandlerConfig()
 
-	// Verify that our config defaults exactly match the constants in defaults.go
+	// Verify that our config defaults exactly match
+	// the constants in defaults.go
 	assert.Equal(
 		t, aichteeteapee.DefaultWebSocketHandlerReadBufferSize,
 		config.ReadBufferSize,

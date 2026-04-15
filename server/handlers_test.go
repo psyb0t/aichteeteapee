@@ -108,7 +108,9 @@ func TestHealthHandler(t *testing.T) {
 
 			if tt.requestID != "" {
 				ctx := context.WithValue(
-					req.Context(), aichteeteapee.ContextKeyRequestID, tt.requestID,
+					req.Context(),
+					aichteeteapee.ContextKeyRequestID,
+					tt.requestID,
 				)
 				req = req.WithContext(ctx)
 			}
@@ -131,7 +133,8 @@ func TestHealthHandler(t *testing.T) {
 			assert.Equal(t, "ok", response["status"])
 			assert.NotNil(t, response["timestamp"])
 
-			// Request ID is no longer in JSON response - it's only in HTTP header
+			// Request ID is no longer in JSON response
+			// - it's only in HTTP header
 			assert.NotContains(t, response, "requestId")
 
 			// Verify timestamp format
@@ -263,7 +266,11 @@ func createEchoTestRequest(t *testing.T, tt struct {
 
 	ctx := req.Context()
 	if tt.requestID != "" {
-		ctx = context.WithValue(ctx, aichteeteapee.ContextKeyRequestID, tt.requestID)
+		ctx = context.WithValue(
+			ctx,
+			aichteeteapee.ContextKeyRequestID,
+			tt.requestID,
+		)
 	}
 
 	if tt.user != "" {
@@ -452,8 +459,11 @@ func TestFileUploadHandler(t *testing.T) {
 				req = httptest.NewRequest(tt.method, "/upload", body)
 				req.Header.Set("Content-Type", contentType)
 			case tt.method == http.MethodPost:
-				// Create multipart form request without file or wrong field name
-				body, contentType := createMultipartFormEmpty(t, tt.formFieldName)
+				// Create multipart form request without file
+				// or wrong field name
+				body, contentType := createMultipartFormEmpty(
+					t, tt.formFieldName,
+				)
 				req = httptest.NewRequest(tt.method, "/upload", body)
 				req.Header.Set("Content-Type", contentType)
 			default:
@@ -476,12 +486,19 @@ func TestFileUploadHandler(t *testing.T) {
 				} else if code, ok := response["code"].(string); ok {
 					assert.Equal(t, tt.expectError, code)
 				} else {
-					t.Errorf("Expected error message but got response: %+v", response)
+					t.Errorf(
+						"Expected error message but got response: %+v",
+						response,
+					)
 				}
 			} else {
 				// Successful upload - check response structure
 				assert.Equal(t, "success", response["status"])
-				assert.Equal(t, tt.uploadedFilename, response["original_filename"])
+				assert.Equal(
+					t,
+					tt.uploadedFilename,
+					response["original_filename"],
+				)
 				assert.NotNil(t, response["saved_filename"])
 				assert.NotNil(t, response["size"])
 				assert.NotNil(t, response["path"])
@@ -493,8 +510,11 @@ func TestFileUploadHandler(t *testing.T) {
 					t, savedFilename, tt.uploadedFilename,
 					"saved filename should contain original filename",
 				)
-				assert.NotEqual(t, tt.uploadedFilename, savedFilename,
-					"saved filename should be different from original due to UUID prefix")
+				assert.NotEqual(
+					t, tt.uploadedFilename, savedFilename,
+					"saved filename should be different "+
+						"from original due to UUID prefix",
+				)
 
 				// Verify file was actually saved
 				filePath, ok := response["path"].(string)
@@ -550,7 +570,10 @@ func TestFileUploadHandler_EdgeCases(t *testing.T) {
 					http.MethodPost, "/upload",
 					strings.NewReader("invalid-form-data"),
 				)
-				req.Header.Set("Content-Type", "multipart/form-data; boundary=invalid")
+				req.Header.Set(
+					"Content-Type",
+					"multipart/form-data; boundary=invalid",
+				)
 
 				return httptest.NewRecorder(), req, tempDir
 			},
@@ -563,7 +586,8 @@ func TestFileUploadHandler_EdgeCases(t *testing.T) {
 			setupFunc: func(_ *testing.T) (
 				*httptest.ResponseRecorder, *http.Request, string,
 			) {
-				// Use a non-existent directory that should be created automatically
+				// Use a non-existent directory that should be
+				// created automatically
 				tempDir := filepath.Join(
 					os.TempDir(), "nested", "upload",
 					"dir-"+time.Now().Format("20060102-150405"),
@@ -613,7 +637,10 @@ func TestFileUploadHandler_EdgeCases(t *testing.T) {
 				} else if code, ok := response["code"].(string); ok {
 					assert.Equal(t, tt.expectError, code)
 				} else {
-					t.Errorf("Expected error message but got response: %+v", response)
+					t.Errorf(
+						"Expected error message but got response: %+v",
+						response,
+					)
 				}
 			} else {
 				assert.Equal(t, "success", response["status"])
@@ -704,7 +731,10 @@ func TestHandleFileUpload(t *testing.T) {
 					http.MethodPost, "/upload",
 					strings.NewReader("invalid-form"),
 				)
-				req.Header.Set("Content-Type", "multipart/form-data; boundary=invalid")
+				req.Header.Set(
+					"Content-Type",
+					"multipart/form-data; boundary=invalid",
+				)
 
 				return req
 			},
@@ -927,7 +957,11 @@ func TestFileUploadIntegration(t *testing.T) {
 				require.NoError(t, err)
 
 				assert.Equal(t, "success", response["status"])
-				assert.Equal(t, tt.uploadFilename, response["original_filename"])
+				assert.Equal(
+					t,
+					tt.uploadFilename,
+					response["original_filename"],
+				)
 
 				// Verify saved filename contains UUID prefix
 				savedFilename, ok := response["saved_filename"].(string)
@@ -936,8 +970,11 @@ func TestFileUploadIntegration(t *testing.T) {
 					t, savedFilename, tt.uploadFilename,
 					"saved filename should contain original filename",
 				)
-				assert.NotEqual(t, tt.uploadFilename, savedFilename,
-					"saved filename should be different from original due to UUID prefix")
+				assert.NotEqual(
+					t, tt.uploadFilename, savedFilename,
+					"saved filename should be different "+
+						"from original due to UUID prefix",
+				)
 
 				// Verify file exists and content matches
 				filePath, ok := response["path"].(string)
@@ -956,7 +993,8 @@ func TestFileUploadIntegration(t *testing.T) {
 
 				// Note: X-Request-ID header would be present if we were
 				// using the full middleware stack
-				// For this basic test, we're focusing on the file upload functionality
+				// For this basic test, we're focusing on
+				// the file upload functionality
 			}
 		})
 	}
@@ -989,7 +1027,9 @@ func TestFileUploadHandlerWithPostprocessor(t *testing.T) {
 			},
 			expectedStatus: http.StatusOK,
 			validateResponse: func(_ *testing.T, response map[string]any) {
-				assert.Equal(t, "added by postprocessor", response["custom_field"])
+				assert.Equal(
+					t, "added by postprocessor", response["custom_field"],
+				)
 				assert.Equal(t, true, response["processed"])
 				assert.Equal(t, "2023-01-01T00:00:00Z", response["timestamp"])
 				assert.Equal(t, "success", response["status"])
@@ -1011,7 +1051,8 @@ func TestFileUploadHandlerWithPostprocessor(t *testing.T) {
 				}
 				if filename, ok := response["original_filename"]; ok {
 					if filenameStr, ok := filename.(string); ok {
-						response["original_filename"] = "processed_" + filenameStr
+						v := "processed_" + filenameStr
+						response["original_filename"] = v
 					}
 				}
 
@@ -1020,7 +1061,11 @@ func TestFileUploadHandlerWithPostprocessor(t *testing.T) {
 			expectedStatus: http.StatusOK,
 			validateResponse: func(_ *testing.T, response map[string]any) {
 				assert.Equal(t, "success_modified", response["status"])
-				assert.Equal(t, "processed_test.txt", response["original_filename"])
+				assert.Equal(
+					t,
+					"processed_test.txt",
+					response["original_filename"],
+				)
 			},
 		},
 		{
@@ -1073,7 +1118,8 @@ func TestFileUploadHandlerWithPostprocessor(t *testing.T) {
 			expectedStatus: http.StatusOK,
 			validateResponse: func(_ *testing.T, response map[string]any) {
 				assert.Equal(t, "completely new response", response["message"])
-				assert.Equal(t, float64(42), response["code"]) // JSON numbers are float64
+				// JSON numbers are float64
+				assert.Equal(t, float64(42), response["code"])
 				assert.Equal(t, true, response["success"])
 				assert.NotContains(t, response, "status")
 				assert.NotContains(t, response, "original_filename")
@@ -1129,7 +1175,8 @@ func TestFileUploadHandlerMultiplePostprocessors(t *testing.T) {
 
 	srv := createTestServer()
 
-	// Test that only the last postprocessor is used (functional options pattern)
+	// Test that only the last postprocessor is used
+	// (functional options pattern)
 	handler := srv.FileUploadHandler(tempDir,
 		WithFileUploadHandlerPostprocessor(func(
 			response map[string]any, _ *http.Request,
@@ -1185,13 +1232,20 @@ func TestFileUploadHandlerWithFilenamePrependType(t *testing.T) {
 			name:         "UUID prepend (default)",
 			prependType:  FilenamePrependTypeUUID,
 			uploadedFile: "test.txt",
-			validateFunc: func(t *testing.T, savedFilename, originalFilename string) {
+			validateFunc: func(
+				t *testing.T,
+				savedFilename, originalFilename string,
+			) {
 				t.Helper()
 				assert.Contains(t, savedFilename, originalFilename)
 				assert.NotEqual(t, savedFilename, originalFilename)
-				// Check that it starts with UUID pattern (36 chars + underscore)
+				// Check that it starts with UUID pattern
+				// (36 chars + underscore)
 				assert.Regexp(
-					t, `^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}_`,
+					t,
+					`^[0-9a-f]{8}-[0-9a-f]{4}-`+
+						`[0-9a-f]{4}-[0-9a-f]{4}-`+
+						`[0-9a-f]{12}_`,
 					savedFilename,
 				)
 			},
@@ -1200,19 +1254,29 @@ func TestFileUploadHandlerWithFilenamePrependType(t *testing.T) {
 			name:         "DateTime prepend",
 			prependType:  FilenamePrependTypeDateTime,
 			uploadedFile: "document.pdf",
-			validateFunc: func(t *testing.T, savedFilename, originalFilename string) {
+			validateFunc: func(
+				t *testing.T,
+				savedFilename, originalFilename string,
+			) {
 				t.Helper()
 				assert.Contains(t, savedFilename, originalFilename)
 				assert.NotEqual(t, savedFilename, originalFilename)
-				// Check that it starts with datetime pattern Y_M_D_H_I_S_
-				assert.Regexp(t, `^\d{4}_\d{2}_\d{2}_\d{2}_\d{2}_\d{2}_`, savedFilename)
+				// Check that it starts with datetime pattern
+				assert.Regexp(
+					t,
+					`^\d{4}_\d{2}_\d{2}_\d{2}_\d{2}_\d{2}_`,
+					savedFilename,
+				)
 			},
 		},
 		{
 			name:         "No prepend",
 			prependType:  FilenamePrependTypeNone,
 			uploadedFile: "original.txt",
-			validateFunc: func(t *testing.T, savedFilename, originalFilename string) {
+			validateFunc: func(
+				t *testing.T,
+				savedFilename, originalFilename string,
+			) {
 				t.Helper()
 				assert.Equal(t, savedFilename, originalFilename)
 			},
@@ -1289,7 +1353,9 @@ func TestGenerateUniqueFilename(t *testing.T) {
 				assert.NotEqual(t, result, original)
 				assert.Regexp(
 					t,
-					`^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}_test\.txt$`,
+					`^[0-9a-f]{8}-[0-9a-f]{4}-`+
+						`[0-9a-f]{4}-[0-9a-f]{4}-`+
+						`[0-9a-f]{12}_test\.txt$`,
 					result,
 				)
 			},
@@ -1338,7 +1404,9 @@ func TestGenerateUniqueFilename(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := srv.generateUniqueFilename(tt.originalName, tt.prependType)
+			result := srv.generateUniqueFilename(
+				tt.originalName, tt.prependType,
+			)
 			tt.validateResult(t, result, tt.originalName)
 		})
 	}

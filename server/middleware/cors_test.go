@@ -55,7 +55,10 @@ func TestCORS(t *testing.T) {
 			}
 
 			if tt.requestHeaders != "" {
-				req.Header.Set("Access-Control-Request-Headers", tt.requestHeaders)
+				req.Header.Set(
+					"Access-Control-Request-Headers",
+					tt.requestHeaders,
+				)
 			}
 
 			w := httptest.NewRecorder()
@@ -91,7 +94,8 @@ func TestCORSMiddleware_MissingCoverage(t *testing.T) {
 
 		middleware(handler).ServeHTTP(w, req)
 		assert.Equal(
-			t, "https://example.com", w.Header().Get("Access-Control-Allow-Origin"),
+			t, "https://example.com",
+			w.Header().Get("Access-Control-Allow-Origin"),
 		)
 	})
 
@@ -175,7 +179,10 @@ func TestCORSMiddleware_AllOptions(t *testing.T) {
 			t, "https://api.example.com",
 			w.Header().Get("Access-Control-Allow-Origin"),
 		)
-		assert.Equal(t, "true", w.Header().Get("Access-Control-Allow-Credentials"))
+		assert.Equal(
+			t, "true",
+			w.Header().Get("Access-Control-Allow-Credentials"),
+		)
 		assert.Equal(t, "3600", w.Header().Get("Access-Control-Max-Age"))
 	})
 

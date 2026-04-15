@@ -37,7 +37,8 @@ const (
 	DefaultSecurityXXSSProtectionBlock        = "1; mode=block"
 	DefaultSecurityStrictTransportSecurity    = "max-age=31536000; " +
 		"includeSubDomains"
-	DefaultSecurityReferrerPolicyStrictOrigin = "strict-origin-when-cross-origin"
+	DefaultSecurityReferrerPolicyStrictOrigin = "strict-origin" +
+		"-when-cross-origin"
 
 	// Authentication default values.
 	DefaultBasicRealmName      = "restricted"

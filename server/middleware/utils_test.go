@@ -84,27 +84,30 @@ func TestGetClientIP_AllCases(t *testing.T) {
 
 func TestGetRequestID_EdgeCases(t *testing.T) {
 	t.Run("empty context value", func(t *testing.T) {
-		req := createTestRequestWithContext(http.MethodGet, "/test", map[any]any{
-			aichteeteapee.ContextKeyRequestID: "",
-		})
+		req := createTestRequestWithContext(
+			http.MethodGet, "/test", map[any]any{
+				aichteeteapee.ContextKeyRequestID: "",
+			})
 
 		result := GetRequestID(req)
 		assert.Equal(t, "", result)
 	})
 
 	t.Run("non-string context value", func(t *testing.T) {
-		req := createTestRequestWithContext(http.MethodGet, "/test", map[any]any{
-			aichteeteapee.ContextKeyRequestID: 123,
-		})
+		req := createTestRequestWithContext(
+			http.MethodGet, "/test", map[any]any{
+				aichteeteapee.ContextKeyRequestID: 123,
+			})
 
 		result := GetRequestID(req)
 		assert.Equal(t, "", result)
 	})
 
 	t.Run("valid request ID", func(t *testing.T) {
-		req := createTestRequestWithContext(http.MethodGet, "/test", map[any]any{
-			aichteeteapee.ContextKeyRequestID: "valid-id-123",
-		})
+		req := createTestRequestWithContext(
+			http.MethodGet, "/test", map[any]any{
+				aichteeteapee.ContextKeyRequestID: "valid-id-123",
+			})
 
 		result := GetRequestID(req)
 		assert.Equal(t, "valid-id-123", result)

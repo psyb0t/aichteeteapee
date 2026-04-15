@@ -24,9 +24,11 @@ type Event struct {
 	Type EventType       `json:"type"`
 	Data json.RawMessage `json:"data"`
 	// Unix timestamp (seconds) - SET BY SENDER
-	Timestamp   int64             `json:"timestamp"`
-	Metadata    *EventMetadataMap `json:"metadata"`    // For rooms, userID, etc.
-	TriggeredBy *uuid.UUID        `json:"triggeredBy"` // ID of triggering event
+	Timestamp int64 `json:"timestamp"`
+	// For rooms, userID, etc.
+	Metadata *EventMetadataMap `json:"metadata"`
+	// ID of triggering event
+	TriggeredBy *uuid.UUID `json:"triggeredBy"`
 }
 
 // NewEvent creates a new event with current unix timestamp
@@ -44,17 +46,19 @@ func NewEvent(eventType EventType, data any) *Event {
 	var rawData json.RawMessage
 	if data != nil {
 		if jsonData, err := json.Marshal(data); err != nil {
-			logger.WithError(err).Error("failed to marshal event data, using nil")
+			logger.WithError(err).
+				Error("failed to marshal event data, using nil")
 		} else {
 			rawData = jsonData
 		}
 	}
 
 	return &Event{
-		ID:          eventID,
-		Type:        eventType,
-		Data:        rawData,
-		Timestamp:   time.Now().Unix(), // Server sets timestamp when server sends
+		ID:   eventID,
+		Type: eventType,
+		Data: rawData,
+		// Server sets timestamp when server sends
+		Timestamp:   time.Now().Unix(),
 		Metadata:    newEventMetadataMap(),
 		TriggeredBy: nil, // Not triggered by another event by default
 	}

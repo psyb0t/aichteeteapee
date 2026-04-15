@@ -130,12 +130,16 @@ func SecurityHeaders(opts ...SecurityHeadersOption) Middleware {
 			}
 
 			if !config.DisableXFrameOptions {
-				w.Header().Set(aichteeteapee.HeaderNameXFrameOptions, config.XFrameOptions)
+				w.Header().Set(
+					aichteeteapee.HeaderNameXFrameOptions,
+					config.XFrameOptions,
+				)
 			}
 
 			if !config.DisableXXSSProtection {
 				w.Header().Set(
-					aichteeteapee.HeaderNameXXSSProtection, config.XXSSProtection,
+					aichteeteapee.HeaderNameXXSSProtection,
+					config.XXSSProtection,
 				)
 			}
 
@@ -148,7 +152,8 @@ func SecurityHeaders(opts ...SecurityHeadersOption) Middleware {
 
 			if !config.DisableReferrerPolicy {
 				w.Header().Set(
-					aichteeteapee.HeaderNameReferrerPolicy, config.ReferrerPolicy,
+					aichteeteapee.HeaderNameReferrerPolicy,
+					config.ReferrerPolicy,
 				)
 			}
 

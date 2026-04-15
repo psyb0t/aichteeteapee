@@ -96,25 +96,17 @@ func (c *Client) AddConnection(conn *Connection) {
 
 	c.connections.Add(conn)
 
-	c.wg.Add(1)
-
-	go func() {
-		defer c.wg.Done()
-
+	c.wg.Go(func() {
 		if conn.conn != nil {
 			conn.readPump()
 		}
-	}()
+	})
 
-	c.wg.Add(1)
-
-	go func() {
-		defer c.wg.Done()
-
+	c.wg.Go(func() {
 		if conn.conn != nil {
 			conn.writePump()
 		}
-	}()
+	})
 
 	logger.Debug("connection pumps started")
 }
@@ -288,13 +280,9 @@ func (c *Client) Run() {
 
 	logger.Debug("starting client distribution pump")
 
-	c.wg.Add(1)
-
-	go func() {
-		defer c.wg.Done()
-
+	c.wg.Go(func() {
 		c.distributionPump()
-	}()
+	})
 
 	// Signal that we're ready to be stopped
 	close(c.readyToStopCh)

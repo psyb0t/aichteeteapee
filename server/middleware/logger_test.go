@@ -88,18 +88,17 @@ func TestLoggerMiddleware_ResponseWriterRaceCondition(t *testing.T) {
 	t.Run("concurrent writeheader calls can race", func(t *testing.T) {
 		logger := Logger()
 
-		handler := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		handler := http.HandlerFunc(func(
+			w http.ResponseWriter, _ *http.Request,
+		) {
 			// Simulate concurrent access to response writer
 			var wg sync.WaitGroup
 
 			for range 10 {
-				wg.Add(1)
-
-				go func() {
-					defer wg.Done()
+				wg.Go(func() {
 					// Try to write status concurrently (this should race)
 					w.WriteHeader(http.StatusOK)
-				}()
+				})
 			}
 
 			wg.Wait()
@@ -113,7 +112,10 @@ func TestLoggerMiddleware_ResponseWriterRaceCondition(t *testing.T) {
 
 		// The race condition exists in the responseWriter.statusCode field
 		// Run this test with -race flag to detect it
-		assert.True(t, true, "Race condition exists - run with -race flag to detect")
+		assert.True(
+			t, true,
+			"Race condition exists - run with -race flag to detect",
+		)
 	})
 }
 

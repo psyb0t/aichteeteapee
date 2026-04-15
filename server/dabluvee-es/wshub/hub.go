@@ -26,7 +26,9 @@ type Hub interface {
 	ProcessEvent(client *Client, event *dabluveees.Event)
 	BroadcastToAll(event *dabluveees.Event)
 	BroadcastToClients(clientIDs []uuid.UUID, event *dabluveees.Event)
-	BroadcastToSubscribers(eventType dabluveees.EventType, event *dabluveees.Event)
+	BroadcastToSubscribers(
+		eventType dabluveees.EventType, event *dabluveees.Event,
+	)
 	Done() <-chan struct{}
 }
 
@@ -40,7 +42,8 @@ type hub struct {
 	mu       sync.Mutex
 }
 
-func NewHub(name string) Hub { //nolint:ireturn
+//nolint:ireturn // factory returns interface by design
+func NewHub(name string) Hub {
 	logger := logrus.WithField(aichteeteapee.FieldHubName, name)
 	logger.Info("creating new hub")
 
@@ -105,10 +108,7 @@ func (h *hub) AddClient(client *Client) {
 
 	h.clients.Add(client)
 
-	h.wg.Add(1)
-
-	go func() {
-		defer h.wg.Done()
+	h.wg.Go(func() {
 		defer func() {
 			// Remove client from hub when Run() exits
 			logger.Debug("client run finished, removing from hub")
@@ -116,7 +116,7 @@ func (h *hub) AddClient(client *Client) {
 		}()
 
 		client.Run()
-	}()
+	})
 }
 
 func (h *hub) RemoveClient(clientID uuid.UUID) {
@@ -164,10 +164,7 @@ func (h *hub) GetOrCreateClient(
 	newClient.SetHub(h)
 	h.clients.Add(newClient)
 
-	h.wg.Add(1)
-
-	go func() {
-		defer h.wg.Done()
+	h.wg.Go(func() {
 		defer func() {
 			// Remove client from hub when Run() exits
 			logger.Debug("client run finished, removing from hub")
@@ -175,7 +172,7 @@ func (h *hub) GetOrCreateClient(
 		}()
 
 		newClient.Run()
-	}()
+	})
 
 	return newClient, true // true means we created it
 }

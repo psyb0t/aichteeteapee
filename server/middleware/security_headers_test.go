@@ -50,7 +50,8 @@ func TestSecurityHeadersMiddleware_CustomOptions(t *testing.T) {
 		middleware(handler).ServeHTTP(w, req)
 
 		assert.Equal(
-			t, "SAMEORIGIN", w.Header().Get(aichteeteapee.HeaderNameXFrameOptions),
+			t, "SAMEORIGIN",
+			w.Header().Get(aichteeteapee.HeaderNameXFrameOptions),
 		)
 		assert.Equal(
 
@@ -59,7 +60,8 @@ func TestSecurityHeadersMiddleware_CustomOptions(t *testing.T) {
 		)
 
 		assert.Equal(
-			t, "", w.Header().Get(aichteeteapee.HeaderNameStrictTransportSecurity),
+			t, "",
+			w.Header().Get(aichteeteapee.HeaderNameStrictTransportSecurity),
 		) // Disabled
 		// Still enabled
 
@@ -93,12 +95,22 @@ func TestSecurityHeadersMiddleware_CustomOptions(t *testing.T) {
 		assert.Equal(
 			t, "", w.Header().Get(aichteeteapee.HeaderNameXContentTypeOptions),
 		)
-		assert.Equal(t, "", w.Header().Get(aichteeteapee.HeaderNameXFrameOptions))
-		assert.Equal(t, "", w.Header().Get(aichteeteapee.HeaderNameXXSSProtection))
-		assert.Equal(t, "", w.Header().Get(aichteeteapee.HeaderNameReferrerPolicy))
+		assert.Equal(
+			t, "",
+			w.Header().Get(aichteeteapee.HeaderNameXFrameOptions),
+		)
+		assert.Equal(
+			t, "",
+			w.Header().Get(aichteeteapee.HeaderNameXXSSProtection),
+		)
+		assert.Equal(
+			t, "",
+			w.Header().Get(aichteeteapee.HeaderNameReferrerPolicy),
+		)
 
 		assert.Equal(
-			t, "", w.Header().Get(aichteeteapee.HeaderNameContentSecurityPolicy),
+			t, "",
+			w.Header().Get(aichteeteapee.HeaderNameContentSecurityPolicy),
 		)
 
 		// HSTS should still be set (not disabled)

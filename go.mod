@@ -1,6 +1,6 @@
 module github.com/psyb0t/aichteeteapee
 
-go 1.24.6
+go 1.26
 
 require (
 	github.com/google/uuid v1.6.0

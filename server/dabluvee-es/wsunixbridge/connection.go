@@ -81,9 +81,9 @@ func setupConnection( //nolint:funlen
 	// when HTTP request ends
 	serverCtx, cancel := context.WithCancel(context.Background())
 
-	//nolint:contextcheck // Intentional background context for accept goroutines
+	//nolint:contextcheck // Intentional background context for accept
 	go acceptWriterUnixSockClients(serverCtx, conn, logger)
-	//nolint:contextcheck // Intentional background context for accept goroutines
+	//nolint:contextcheck // Intentional background context for accept
 	go acceptReaderUnixSockClients(serverCtx, conn, logger)
 
 	// Call user handler
@@ -133,8 +133,9 @@ func closeAllClients(conn *Connection, logger *logrus.Entry) {
 
 	for _, client := range conn.WriterUnixSock.Clients {
 		if err := client.Close(); err != nil {
-			logger.WithError(err).
-				Debug("error closing WriterUnixSock client connection during cleanup")
+			logger.WithError(err).Debug(
+				"error closing WriterUnixSock client during cleanup",
+			)
 		}
 	}
 
@@ -145,8 +146,9 @@ func closeAllClients(conn *Connection, logger *logrus.Entry) {
 
 	for _, client := range conn.ReaderUnixSock.Clients {
 		if err := client.Close(); err != nil {
-			logger.WithError(err).
-				Debug("error closing ReaderUnixSock client connection during cleanup")
+			logger.WithError(err).Debug(
+				"error closing ReaderUnixSock client during cleanup",
+			)
 		}
 	}
 

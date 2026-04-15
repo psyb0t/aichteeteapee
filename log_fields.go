@@ -29,14 +29,15 @@ const (
 	FieldCloseText = "closeText" // WebSocket close text
 
 	// Configuration fields.
-	FieldReadBufferSize    = "readBufferSize"    // WebSocket read buffer size
-	FieldWriteBufferSize   = "writeBufferSize"   // WebSocket write buffer size
-	FieldHandshakeTimeout  = "handshakeTimeout"  // WebSocket handshake timeout
-	FieldEnableCompression = "enableCompression" // WebSocket compression setting
-	FieldOldReadSize       = "oldReadSize"       // Previous read buffer size
-	FieldOldWriteSize      = "oldWriteSize"      // Previous write buffer size
-	FieldNewReadSize       = "newReadSize"       // New read buffer size
-	FieldNewWriteSize      = "newWriteSize"      // New write buffer size
+	FieldReadBufferSize   = "readBufferSize"   // WebSocket read buffer size
+	FieldWriteBufferSize  = "writeBufferSize"  // WebSocket write buffer size
+	FieldHandshakeTimeout = "handshakeTimeout" // WebSocket handshake timeout
+	// WebSocket compression setting.
+	FieldEnableCompression = "enableCompression"
+	FieldOldReadSize       = "oldReadSize"  // Previous read buffer size
+	FieldOldWriteSize      = "oldWriteSize" // Previous write buffer size
+	FieldNewReadSize       = "newReadSize"  // New read buffer size
+	FieldNewWriteSize      = "newWriteSize" // New write buffer size
 
 	// Server and endpoint fields.
 	FieldEndpoint = "endpoint" // HTTP endpoint path

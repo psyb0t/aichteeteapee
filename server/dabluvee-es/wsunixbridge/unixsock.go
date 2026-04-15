@@ -112,13 +112,16 @@ func acceptWriterUnixSockClients(
 					return
 				}
 
-				logger.WithError(err).Debug("WriterUnixSock socket accept error")
+				logger.WithError(err).
+					Debug("WriterUnixSock socket accept error")
 
 				continue
 			}
 
 			conn.WriterUnixSock.ClientsMux.Lock()
-			conn.WriterUnixSock.Clients = append(conn.WriterUnixSock.Clients, client)
+			conn.WriterUnixSock.Clients = append(
+				conn.WriterUnixSock.Clients, client,
+			)
 			conn.WriterUnixSock.ClientsMux.Unlock()
 
 			logger.Debug("new WriterUnixSock client connected")
@@ -137,7 +140,8 @@ func handleWriterUnixSockClient(
 ) {
 	defer func() {
 		if err := client.Close(); err != nil {
-			logger.WithError(err).Debug("error closing WriterUnixSock client connection")
+			logger.WithError(err).
+				Debug("error closing WriterUnixSock client connection")
 		}
 
 		removeWriterUnixSockClient(conn, client)
@@ -181,13 +185,16 @@ func acceptReaderUnixSockClients(
 					return
 				}
 
-				logger.WithError(err).Debug("ReaderUnixSock socket accept error")
+				logger.WithError(err).
+					Debug("ReaderUnixSock socket accept error")
 
 				continue
 			}
 
 			conn.ReaderUnixSock.ClientsMux.Lock()
-			conn.ReaderUnixSock.Clients = append(conn.ReaderUnixSock.Clients, client)
+			conn.ReaderUnixSock.Clients = append(
+				conn.ReaderUnixSock.Clients, client,
+			)
 			conn.ReaderUnixSock.ClientsMux.Unlock()
 
 			logger.Debug("new ReaderUnixSock client connected")
@@ -205,7 +212,8 @@ func handleReaderUnixSockClient(
 ) {
 	defer func() {
 		if err := client.Close(); err != nil {
-			logger.WithError(err).Debug("error closing ReaderUnixSock client connection")
+			logger.WithError(err).
+				Debug("error closing ReaderUnixSock client connection")
 		}
 
 		removeReaderUnixSockClient(conn, client)
@@ -225,7 +233,8 @@ func handleReaderUnixSockClient(
 					return
 				}
 
-				logger.WithError(err).Debug("error reading from ReaderUnixSock socket")
+				logger.WithError(err).
+					Debug("error reading from ReaderUnixSock socket")
 
 				return
 			}
@@ -279,10 +288,12 @@ func removeWriterUnixSockClient(conn *Connection, client net.Conn) {
 func removeSocketFiles(conn *Connection, logger *logrus.Entry) {
 	// Remove output socket file
 	if conn.WriterUnixSock.Listener != nil {
-		if ul, ok := conn.WriterUnixSock.Listener.(*net.UnixListener); ok {
-			if err := os.Remove(ul.Addr().String()); err != nil && !os.IsNotExist(err) {
+		ul, ok := conn.WriterUnixSock.Listener.(*net.UnixListener)
+		if ok {
+			addr := ul.Addr().String()
+			if err := os.Remove(addr); err != nil && !os.IsNotExist(err) {
 				logger.WithError(err).
-					WithField(aichteeteapee.FieldPath, ul.Addr().String()).
+					WithField(aichteeteapee.FieldPath, addr).
 					Debug("error removing WriterUnixSock socket file")
 			}
 		}
@@ -290,10 +301,12 @@ func removeSocketFiles(conn *Connection, logger *logrus.Entry) {
 
 	// Remove input socket file
 	if conn.ReaderUnixSock.Listener != nil {
-		if ul, ok := conn.ReaderUnixSock.Listener.(*net.UnixListener); ok {
-			if err := os.Remove(ul.Addr().String()); err != nil && !os.IsNotExist(err) {
+		ul, ok := conn.ReaderUnixSock.Listener.(*net.UnixListener)
+		if ok {
+			addr := ul.Addr().String()
+			if err := os.Remove(addr); err != nil && !os.IsNotExist(err) {
 				logger.WithError(err).
-					WithField(aichteeteapee.FieldPath, ul.Addr().String()).
+					WithField(aichteeteapee.FieldPath, addr).
 					Debug("error removing ReaderUnixSock socket file")
 			}
 		}

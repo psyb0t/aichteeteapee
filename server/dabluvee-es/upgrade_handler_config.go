@@ -21,12 +21,14 @@ type UpgradeHandlerConfig struct {
 // NewUpgradeHandlerConfig creates config with defaults from http/defaults.go.
 func NewUpgradeHandlerConfig() UpgradeHandlerConfig {
 	config := UpgradeHandlerConfig{
-		ReadBufferSize:    aichteeteapee.DefaultWebSocketHandlerReadBufferSize,
-		WriteBufferSize:   aichteeteapee.DefaultWebSocketHandlerWriteBufferSize,
-		HandshakeTimeout:  aichteeteapee.DefaultWebSocketHandlerHandshakeTimeout,
-		EnableCompression: aichteeteapee.DefaultWebSocketHandlerEnableCompression,
-		Subprotocols:      []string{},
-		CheckOrigin:       aichteeteapee.GetDefaultWebSocketCheckOrigin,
+		ReadBufferSize:  aichteeteapee.DefaultWebSocketHandlerReadBufferSize,
+		WriteBufferSize: aichteeteapee.DefaultWebSocketHandlerWriteBufferSize,
+		HandshakeTimeout: aichteeteapee.
+			DefaultWebSocketHandlerHandshakeTimeout,
+		EnableCompression: aichteeteapee.
+			DefaultWebSocketHandlerEnableCompression,
+		Subprotocols: []string{},
+		CheckOrigin:  aichteeteapee.GetDefaultWebSocketCheckOrigin,
 	}
 
 	logrus.WithFields(logrus.Fields{

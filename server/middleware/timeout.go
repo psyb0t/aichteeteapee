@@ -143,7 +143,9 @@ func Timeout(opts ...TimeoutOption) Middleware {
 						"method":  r.Method,
 						"path":    r.URL.Path,
 						"timeout": config.Timeout.String(),
-					}).Info("request timeout exceeded, returning gateway timeout")
+					}).Info(
+						"request timeout exceeded, returning gateway timeout",
+					)
 
 					w.Header().Set(
 						aichteeteapee.HeaderNameContentType,
@@ -153,15 +155,20 @@ func Timeout(opts ...TimeoutOption) Middleware {
 
 					// Create a gateway timeout error response
 					timeoutError := aichteeteapee.ErrorResponse{
-						Code:    "GATEWAY_TIMEOUT",
-						Message: "Gateway timeout - request processing took too long",
+						Code: "GATEWAY_TIMEOUT",
+						Message: "Gateway timeout - " +
+							"request processing took too long",
 					}
 
-					if responseBytes, err := json.Marshal(timeoutError); err == nil {
+					responseBytes, err := json.Marshal(timeoutError)
+					if err == nil {
 						_, _ = w.Write(responseBytes)
 					} else {
 						_, _ = w.Write(
-							[]byte(`{"code":"GATEWAY_TIMEOUT","message":"Gateway timeout"}`),
+							[]byte(
+								`{"code":"GATEWAY_TIMEOUT",` +
+									`"message":"Gateway timeout"}`,
+							),
 						)
 					}
 				}

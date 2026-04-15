@@ -181,7 +181,8 @@ func (s *Server) serveDirectoryListing(
 ) {
 	switch staticConfig.DirectoryIndexingType {
 	case DirectoryIndexingTypeNone:
-		// This should never happen since we check for DirectoryIndexingNone earlier,
+		// This should never happen since we check for
+		// DirectoryIndexingNone earlier,
 		// but adding for exhaustive lint compliance
 		aichteeteapee.WriteJSON(
 			w,
@@ -230,7 +231,9 @@ func (s *Server) serveDirectoryListingHTML(
 
 	tmpl, err := template.New("directory").Parse(directoryListingHTMLTemplate)
 	if err != nil {
-		s.logger.WithError(err).Error("failed to parse directory listing template")
+		s.logger.WithError(err).Error(
+			"failed to parse directory listing template",
+		)
 		aichteeteapee.WriteJSON(
 			w,
 			http.StatusInternalServerError,
@@ -241,7 +244,9 @@ func (s *Server) serveDirectoryListingHTML(
 	}
 
 	if err := tmpl.Execute(w, listing); err != nil {
-		s.logger.WithError(err).Error("failed to execute directory listing template")
+		s.logger.WithError(err).Error(
+			"failed to execute directory listing template",
+		)
 	}
 }
 

@@ -82,7 +82,8 @@ func TestEvent_SetMetadata(t *testing.T) {
 
 	assert.Len(t, result.Metadata.GetAll(), 2)
 
-	// Since we're modifying in place, the original event now has the metadata too
+	// Since we're modifying in place, the original event
+	// now has the metadata too
 	assert.Len(t, event.Metadata.GetAll(), 2)
 }
 
@@ -194,7 +195,8 @@ func TestEvent_IsRecent(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			event := NewEvent(EventTypeSystemLog, "test").SetTimestamp(tt.timestamp)
+			event := NewEvent(EventTypeSystemLog, "test").
+				SetTimestamp(tt.timestamp)
 			result := event.IsRecent(tt.seconds)
 			assert.Equal(t, tt.expected, result)
 		})
@@ -254,7 +256,10 @@ func TestNewEvent_UniqueIDs(t *testing.T) {
 		assert.NotEqual(t, uuid.Nil, events[i].ID)
 
 		// Verify ID is unique
-		assert.False(t, ids[events[i].ID], "Duplicate ID found: %s", events[i].ID)
+		assert.False(
+			t, ids[events[i].ID],
+			"Duplicate ID found: %s", events[i].ID,
+		)
 		ids[events[i].ID] = true
 	}
 

@@ -161,8 +161,12 @@ func TestRemoveConnection(t *testing.T) {
 
 				// Add mock clients
 				for i := 0; i < tt.clientCount; i++ {
-					mockConn.WriterUnixSock.Clients[i] = &mockNetConn{buffer: &bytes.Buffer{}}
-					mockConn.ReaderUnixSock.Clients[i] = &mockNetConn{buffer: &bytes.Buffer{}}
+					mockConn.WriterUnixSock.Clients[i] = &mockNetConn{
+						buffer: &bytes.Buffer{},
+					}
+					mockConn.ReaderUnixSock.Clients[i] = &mockNetConn{
+						buffer: &bytes.Buffer{},
+					}
 				}
 
 				connectionSockets.Set(connID, mockConn)
@@ -293,11 +297,15 @@ func TestCloseListeners(t *testing.T) {
 			conn := &Connection{}
 
 			if tt.hasWriterListener {
-				conn.WriterUnixSock.Listener = &mockListener{closeErr: tt.writerCloseErr}
+				conn.WriterUnixSock.Listener = &mockListener{
+					closeErr: tt.writerCloseErr,
+				}
 			}
 
 			if tt.hasReaderListener {
-				conn.ReaderUnixSock.Listener = &mockListener{closeErr: tt.readerCloseErr}
+				conn.ReaderUnixSock.Listener = &mockListener{
+					closeErr: tt.readerCloseErr,
+				}
 			}
 
 			logger := logrus.WithField("test", tt.name)
@@ -306,14 +314,22 @@ func TestCloseListeners(t *testing.T) {
 			closeListeners(conn, logger)
 
 			if tt.hasWriterListener {
-				writerListener, ok := conn.WriterUnixSock.Listener.(*mockListener)
-				require.True(t, ok, "expected WriterUnixSock.Listener to be *mockListener")
+				writerListener, ok := conn.WriterUnixSock.
+					Listener.(*mockListener)
+				require.True(
+					t, ok,
+					"expected WriterUnixSock.Listener to be *mockListener",
+				)
 				assert.True(t, writerListener.closed)
 			}
 
 			if tt.hasReaderListener {
-				readerListener, ok := conn.ReaderUnixSock.Listener.(*mockListener)
-				require.True(t, ok, "expected ReaderUnixSock.Listener to be *mockListener")
+				readerListener, ok := conn.ReaderUnixSock.
+					Listener.(*mockListener)
+				require.True(
+					t, ok,
+					"expected ReaderUnixSock.Listener to be *mockListener",
+				)
 				assert.True(t, readerListener.closed)
 			}
 		})

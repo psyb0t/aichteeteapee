@@ -164,7 +164,9 @@ func TestHub_RegisterEventHandlers(t *testing.T) {
 		dabluveees.EventTypeSystemLog, "system test",
 	)
 	errorEvent := dabluveees.NewEvent(dabluveees.EventTypeError, "error test")
-	shellEvent := dabluveees.NewEvent(dabluveees.EventTypeShellExec, "shell test")
+	shellEvent := dabluveees.NewEvent(
+		dabluveees.EventTypeShellExec, "shell test",
+	)
 
 	hub.ProcessEvent(testClient, systemEvent)
 	hub.ProcessEvent(testClient, errorEvent)
@@ -199,7 +201,9 @@ func TestHub_BroadcastOperations(_ *testing.T) {
 	hub.AddClient(client2)
 	hub.AddClient(client3)
 
-	event := dabluveees.NewEvent(dabluveees.EventTypeSystemLog, "broadcast test")
+	event := dabluveees.NewEvent(
+		dabluveees.EventTypeSystemLog, "broadcast test",
+	)
 
 	// Test BroadcastToAll - should not panic with forward declarations
 	hub.BroadcastToAll(event)
@@ -248,14 +252,10 @@ func TestHub_ConcurrentOperations(t *testing.T) {
 
 	// Concurrent reads
 	for range 25 {
-		wg.Add(1)
-
-		go func() {
-			defer wg.Done()
-
+		wg.Go(func() {
 			hub.GetAllClients()
 			hub.GetClient(uuid.New()) // Just test with random UUID
-		}()
+		})
 	}
 
 	wg.Wait()
@@ -291,7 +291,8 @@ func TestHub_FullLifecycleIntegration(t *testing.T) {
 
 		processedEvents = append(processedEvents, *e)
 
-		// Handler broadcasts to all clients (will use forward declaration methods)
+		// Handler broadcasts to all clients
+		// (will use forward declaration methods)
 		h.BroadcastToAll(e)
 
 		return nil
@@ -366,14 +367,10 @@ func TestHub_NameThreadSafety(t *testing.T) {
 
 	// Concurrent name reads
 	for range 100 {
-		wg.Add(1)
-
-		go func() {
-			defer wg.Done()
-
+		wg.Go(func() {
 			name := hub.Name()
 			assert.Equal(t, "concurrent-hub", name)
-		}()
+		})
 	}
 
 	wg.Wait()

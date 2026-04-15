@@ -89,7 +89,9 @@ func TestUnixSockBroadcast(t *testing.T) {
 				}
 
 				assert.Equal(
-					t, tt.data, received, "client %d should receive correct data", i,
+					t, tt.data, received,
+					"client %d should receive correct data",
+					i,
 				)
 			}
 		})
@@ -223,13 +225,20 @@ func TestRemoveReaderUnixSockClient(t *testing.T) {
 				removeReaderUnixSockClient(conn, targetClient)
 			} else {
 				// Try to remove non-existent client
-				removeReaderUnixSockClient(conn, &mockNetConn{buffer: &bytes.Buffer{}})
+				removeReaderUnixSockClient(
+					conn, &mockNetConn{buffer: &bytes.Buffer{}},
+				)
 			}
 
 			if tt.expectRemove {
-				assert.Equal(t, initialCount-1, len(conn.ReaderUnixSock.Clients))
-				// Verify target client was removed (pointer comparison)
-				found := slices.Contains(conn.ReaderUnixSock.Clients, targetClient)
+				assert.Equal(
+					t, initialCount-1,
+					len(conn.ReaderUnixSock.Clients),
+				)
+				// Verify target client was removed
+				found := slices.Contains(
+					conn.ReaderUnixSock.Clients, targetClient,
+				)
 				assert.False(t, found, "target client should be removed")
 			} else {
 				assert.Equal(t, initialCount, len(conn.ReaderUnixSock.Clients))

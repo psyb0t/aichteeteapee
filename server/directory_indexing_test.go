@@ -138,13 +138,21 @@ func TestServer_generateDirectoryListing(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			req := httptest.NewRequest(http.MethodGet, tt.staticConfig.Path+"/", nil)
+			req := httptest.NewRequest(
+				http.MethodGet, tt.staticConfig.Path+"/", nil,
+			)
 			w := httptest.NewRecorder()
 
-			server.generateDirectoryListing(w, req, tt.fullPath, tt.staticConfig)
+			server.generateDirectoryListing(
+				w, req, tt.fullPath, tt.staticConfig,
+			)
 
 			assert.Equal(t, tt.expectStatus, w.Code)
-			assert.Contains(t, w.Header().Get("Content-Type"), tt.expectContentType)
+			assert.Contains(
+				t,
+				w.Header().Get("Content-Type"),
+				tt.expectContentType,
+			)
 		})
 	}
 }

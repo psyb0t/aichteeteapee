@@ -37,7 +37,9 @@ func WithUpgradeHandlerClientOptions(
 // Wrapper functions for shared websocket options.
 func WithUpgradeHandlerBufferSizes(read, write int) UpgradeHandlerOption {
 	return func(c *UpgradeHandlerConfig) {
-		dabluveees.WithUpgradeHandlerBufferSizes(read, write)(&c.UpgradeHandlerConfig)
+		dabluveees.WithUpgradeHandlerBufferSizes(read, write)(
+			&c.UpgradeHandlerConfig,
+		)
 	}
 }
 
@@ -53,7 +55,9 @@ func WithUpgradeHandlerHandshakeTimeout(
 
 func WithUpgradeHandlerCompression(enable bool) UpgradeHandlerOption {
 	return func(c *UpgradeHandlerConfig) {
-		dabluveees.WithUpgradeHandlerCompression(enable)(&c.UpgradeHandlerConfig)
+		dabluveees.WithUpgradeHandlerCompression(enable)(
+			&c.UpgradeHandlerConfig,
+		)
 	}
 }
 
@@ -69,6 +73,8 @@ func WithUpgradeHandlerCheckOrigin(
 	checkOrigin func(*http.Request) bool,
 ) UpgradeHandlerOption {
 	return func(c *UpgradeHandlerConfig) {
-		dabluveees.WithUpgradeHandlerCheckOrigin(checkOrigin)(&c.UpgradeHandlerConfig)
+		dabluveees.WithUpgradeHandlerCheckOrigin(checkOrigin)(
+			&c.UpgradeHandlerConfig,
+		)
 	}
 }

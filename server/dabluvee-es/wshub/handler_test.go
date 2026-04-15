@@ -433,7 +433,9 @@ func TestExtractClientIDFromRequest(t *testing.T) {
 		{
 			name: "query parameter takes precedence over header",
 			setupReq: func() *http.Request {
-				req := httptest.NewRequest(http.MethodGet, "/ws?clientID=query-client", nil)
+				req := httptest.NewRequest(
+					http.MethodGet, "/ws?clientID=query-client", nil,
+				)
 				req.Header.Set("X-Client-ID", "header-client")
 
 				return req
@@ -477,7 +479,8 @@ func TestParseClientID(t *testing.T) {
 			name:        "invalid UUID format",
 			input:       "not-a-uuid",
 			expectValid: false,
-			expected:    uuid.Nil, // parseClientID generates new UUID on invalid input
+			// parseClientID generates new UUID on invalid input
+			expected: uuid.Nil,
 		},
 		{
 			name:        "empty string",

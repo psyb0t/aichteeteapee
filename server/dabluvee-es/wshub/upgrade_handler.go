@@ -77,7 +77,9 @@ func UpgradeHandler( //nolint:funlen
 		clientID := extractClientIDFromRequest(r)
 		if clientID != "" {
 			parsedClientID := parseClientID(clientID)
-			clientLogger := logger.WithField(aichteeteapee.FieldClientID, parsedClientID)
+			clientLogger := logger.WithField(
+				aichteeteapee.FieldClientID, parsedClientID,
+			)
 
 			// Use atomic get-or-create to avoid race conditions
 			var wasCreated bool
@@ -106,7 +108,9 @@ func UpgradeHandler( //nolint:funlen
 			client.AddConnection(connection)
 		}
 
-		finalLogger := logger.WithField(aichteeteapee.FieldClientID, client.ID())
+		finalLogger := logger.WithField(
+			aichteeteapee.FieldClientID, client.ID(),
+		)
 		finalLogger.Debug("client ready")
 		finalLogger.Debug("client connection handled successfully")
 	}

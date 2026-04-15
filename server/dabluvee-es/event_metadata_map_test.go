@@ -104,14 +104,10 @@ func TestEventMetadataMap_Concurrency(_ *testing.T) {
 
 	// Concurrent reads
 	for range 100 {
-		wg.Add(1)
-
-		go func() {
-			defer wg.Done()
-
+		wg.Go(func() {
 			emm.Get("key")
 			emm.GetAll()
-		}()
+		})
 	}
 
 	wg.Wait()

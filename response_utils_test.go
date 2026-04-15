@@ -54,7 +54,10 @@ func TestWriteJSON(t *testing.T) {
 			WriteJSON(w, tt.statusCode, tt.data)
 
 			assert.Equal(t, tt.statusCode, w.Code)
-			assert.Equal(t, ContentTypeJSON, w.Header().Get(HeaderNameContentType))
+			assert.Equal(
+				t, ContentTypeJSON,
+				w.Header().Get(HeaderNameContentType),
+			)
 			assert.Equal(t, tt.expectJSON, w.Body.String())
 		})
 	}

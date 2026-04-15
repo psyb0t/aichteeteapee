@@ -145,48 +145,74 @@ func Recovery(opts ...RecoveryOption) Middleware {
 						fields["stack"] = string(debug.Stack())
 					}
 
-					config.Logger.WithFields(fields).Log(config.LogLevel, config.LogMessage)
+					config.Logger.WithFields(fields).Log(
+						config.LogLevel,
+						config.LogMessage,
+					)
 
 					// Set content type if not already set
-					if w.Header().Get(aichteeteapee.HeaderNameContentType) == "" {
-						w.Header().Set(aichteeteapee.HeaderNameContentType, config.ContentType)
+					ctHeader := aichteeteapee.HeaderNameContentType
+					if w.Header().Get(ctHeader) == "" {
+						w.Header().Set(
+							ctHeader,
+							config.ContentType,
+						)
 					}
 
 					w.WriteHeader(config.StatusCode)
 
 					// Handle JSON response encoding safely
-					if config.ContentType == aichteeteapee.ContentTypeJSON {
-						// Try to encode the response
-						jsonData, err := json.Marshal(config.Response)
+					isJSON := config.ContentType ==
+						aichteeteapee.ContentTypeJSON
+					if isJSON {
+						jsonData, err := json.Marshal(
+							config.Response,
+						)
 						if err != nil {
-							// If encoding fails, use a hardcoded fallback
 							config.Logger.Errorf(
-								"Failed to encode error response during panic recovery: %v", err,
+								"Failed to encode error "+
+									"response during "+
+									"panic recovery: %v",
+								err,
 							)
 
-							fallbackResponse := []byte(
-								`{"code":"INTERNAL_SERVER_ERROR","message":"Internal server error"}`,
+							fallback := []byte(
+								`{"code":"INTERNAL_SERVER` +
+									`_ERROR","message":` +
+									`"Internal server ` +
+									`error"}`,
 							)
-							if _, writeErr := w.Write(fallbackResponse); writeErr != nil {
+							if _, wErr := w.Write(
+								fallback,
+							); wErr != nil {
 								config.Logger.Errorf(
-									"Failed to write fallback response during panic recovery: %v",
-									writeErr,
+									"Failed to write "+
+										"fallback response"+
+										": %v",
+									wErr,
 								)
 							}
 						} else {
-							// Encoding succeeded, write the response
-							if _, writeErr := w.Write(jsonData); writeErr != nil {
+							if _, wErr := w.Write(
+								jsonData,
+							); wErr != nil {
 								config.Logger.Errorf(
-									"Failed to write JSON response during panic recovery: %v", writeErr,
+									"Failed to write "+
+										"JSON response: %v",
+									wErr,
 								)
 							}
 						}
 					} else {
-						// For non-JSON responses, try to write as string
-						if str, ok := config.Response.(string); ok {
-							if _, err := w.Write([]byte(str)); err != nil {
+						str, ok := config.Response.(string)
+						if ok {
+							if _, err := w.Write(
+								[]byte(str),
+							); err != nil {
 								config.Logger.Errorf(
-									"Failed to write error response during panic recovery: %v", err,
+									"Failed to write "+
+										"error response: %v",
+									err,
 								)
 							}
 						}

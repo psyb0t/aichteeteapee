@@ -16,7 +16,8 @@ type BasicAuthConfig struct {
 	UnauthorizedMsg string
 	Validator       func(username, password string) bool
 	SkipPaths       map[string]bool
-	UseConstantTime bool // Use constant-time comparison to prevent timing attacks
+	// Use constant-time comparison to prevent timing attacks
+	UseConstantTime bool
 	SendChallenge   bool
 	// Whether to send WWW-Authenticate header (triggers browser popup)
 }
@@ -130,7 +131,9 @@ func BasicAuth(opts ...BasicAuthOption) Middleware {
 			}
 
 			// Authentication successful - add user to context
-			ctx := context.WithValue(r.Context(), aichteeteapee.ContextKeyUser, user)
+			ctx := context.WithValue(
+				r.Context(), aichteeteapee.ContextKeyUser, user,
+			)
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})
 	}

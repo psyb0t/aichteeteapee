@@ -99,7 +99,10 @@ func TestSingleClient(t *testing.T) {
 
 	// Verify client is removed from hub after disconnect
 	clients = hub.GetAllClients()
-	assert.Len(t, clients, 0, "Client should be removed from hub after disconnect")
+	assert.Len(
+		t, clients, 0,
+		"Client should be removed from hub after disconnect",
+	)
 }
 
 func TestMultiClientBroadcast(t *testing.T) {
@@ -182,7 +185,10 @@ func TestMultiClientBroadcast(t *testing.T) {
 			var receivedMessage map[string]any
 
 			err := c.ReadJSON(&receivedMessage)
-			assert.NoError(t, err, "Client %d should receive message", clientIndex)
+			assert.NoError(
+				t, err,
+				"Client %d should receive message", clientIndex,
+			)
 
 			if err == nil {
 				assert.Equal(t, "broadcast", receivedMessage["type"])
@@ -292,7 +298,8 @@ func TestMultiDeviceUser(t *testing.T) {
 				break
 			}
 
-			if targetClient != nil && len(targetClient.GetConnections()) == numDevices {
+			if targetClient != nil &&
+				len(targetClient.GetConnections()) == numDevices {
 				break
 			}
 		}
@@ -326,7 +333,10 @@ func TestMultiDeviceUser(t *testing.T) {
 			var receivedMessage map[string]any
 
 			err := c.ReadJSON(&receivedMessage)
-			assert.NoError(t, err, "Device %d should receive message", deviceIndex)
+			assert.NoError(
+				t, err,
+				"Device %d should receive message", deviceIndex,
+			)
 
 			if err == nil {
 				assert.Equal(t, "user-message", receivedMessage["type"])
@@ -444,7 +454,10 @@ func TestHubLifecycle(t *testing.T) {
 
 	// Verify all clients cleaned up (hub close stops all clients)
 	clients = hub.GetAllClients()
-	assert.Len(t, clients, 0, "All clients should be cleaned up after hub close")
+	assert.Len(
+		t, clients, 0,
+		"All clients should be cleaned up after hub close",
+	)
 
 	// Clean up connections
 	for _, conn := range conns {
@@ -531,7 +544,9 @@ func TestEventHandlers(t *testing.T) {
 	require.NotNil(t, targetClient)
 
 	// Send events of various types
-	customEvent := dabluveees.NewEvent("custom", map[string]any{"action": "test"})
+	customEvent := dabluveees.NewEvent(
+		"custom", map[string]any{"action": "test"},
+	)
 	errorEvent := dabluveees.NewEvent(
 		"error", map[string]any{"message": "test error"},
 	)
@@ -613,7 +628,10 @@ func TestErrorHandling(t *testing.T) {
 		}
 
 		// Verify client handles buffer overflow gracefully
-		assert.NotNil(t, client, "Client should remain valid after buffer overflow")
+		assert.NotNil(
+			t, client,
+			"Client should remain valid after buffer overflow",
+		)
 
 		// Clean up
 		hub.RemoveClient(client.ID())

@@ -59,13 +59,9 @@ func TestConnection_StopIdempotent(t *testing.T) {
 
 	// Multiple concurrent stops should be safe
 	for range numGoroutines {
-		wg.Add(1)
-
-		go func() {
-			defer wg.Done()
-
+		wg.Go(func() {
 			conn.Stop()
-		}()
+		})
 	}
 
 	wg.Wait()

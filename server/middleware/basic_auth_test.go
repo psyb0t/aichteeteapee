@@ -118,16 +118,24 @@ func TestBasicAuthMiddleware_UsernameTimingAttack(t *testing.T) {
 			// The timing attack exists because:
 			// 1. Valid usernames: map lookup finds key, then does
 			//    constant-time password compare
-			// 2. Invalid usernames: map lookup fails immediately, no password compare
+			// 2. Invalid usernames: map lookup fails immediately,
+			//    no password compare
 			//
-			// This creates different execution paths with different timing
-			// characteristics.
-			// An attacker can measure response times to determine if usernames exist.
+			// This creates different execution paths with
+			// different timing characteristics.
+			// An attacker can measure response times to
+			// determine if usernames exist.
 
 			t.Log("Timing attack vector confirmed:")
-			t.Log("- Valid usernames: map lookup + constant-time password compare")
+			t.Log(
+				"- Valid usernames: map lookup + " +
+					"constant-time password compare",
+			)
 			t.Log("- Invalid usernames: map lookup only (faster)")
-			t.Log("- Attacker can enumerate valid usernames by measuring response times")
+			t.Log(
+				"- Attacker can enumerate valid usernames" +
+					" by measuring response times",
+			)
 
 			assert.True(
 				t, true,
@@ -174,16 +182,23 @@ func TestBasicAuthMiddleware_UsernameTimingAttack(t *testing.T) {
 			// 2. Invalid usernames: map lookup + constant-time compare with
 			//    dummy password
 			//
-			// Both code paths now do the same amount of work (constant-time comparison)
-			// making timing-based username enumeration much more difficult.
+			// Both code paths now do the same amount of work
+			// (constant-time comparison) making timing-based
+			// username enumeration much more difficult.
 
 			t.Log("Timing attack mitigation confirmed:")
-			t.Log("- Valid usernames: map lookup + constant-time password compare")
 			t.Log(
-				"- Invalid usernames: map lookup + constant-time compare with " +
-					"dummy password",
+				"- Valid usernames: map lookup + " +
+					"constant-time password compare",
 			)
-			t.Log("- Both paths do similar work, making timing attacks much harder")
+			t.Log(
+				"- Invalid usernames: map lookup + " +
+					"constant-time compare with dummy password",
+			)
+			t.Log(
+				"- Both paths do similar work, " +
+					"making timing attacks much harder",
+			)
 
 			assert.True(
 				t, true,

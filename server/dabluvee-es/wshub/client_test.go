@@ -281,29 +281,21 @@ func TestClient_ThreadSafety(t *testing.T) {
 
 	// Concurrent reads
 	for range 25 {
-		wg.Add(1)
-
-		go func() {
-			defer wg.Done()
-
+		wg.Go(func() {
 			client.ConnectionCount()
 			client.GetConnections()
 			client.ID()
-		}()
+		})
 	}
 
 	// Concurrent sends
 	for range 25 {
-		wg.Add(1)
-
-		go func() {
-			defer wg.Done()
-
+		wg.Go(func() {
 			event := dabluveees.NewEvent(
 				dabluveees.EventTypeSystemLog, "concurrent-test",
 			)
 			client.Send(event)
-		}()
+		})
 	}
 
 	wg.Wait()
@@ -389,7 +381,8 @@ func TestClient_DistributionPump(_ *testing.T) {
 
 	// Note: In a real test, we would verify that the event was sent
 	// to both connections
-	// This would require more sophisticated mocking of the Connection.Send method
+	// This would require more sophisticated mocking
+	// of the Connection.Send method
 }
 
 func TestClient_SendEvent(_ *testing.T) {

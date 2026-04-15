@@ -104,7 +104,8 @@ func TestEventHandlersMap_Add(t *testing.T) {
 	retrieved3, exists3 := ehm.Get(dabluveees.EventTypeSystemLog)
 	assert.True(t, exists3)
 	assert.NotNil(t, retrieved3)
-	// Note: We can't directly compare function pointers, but we can test behavior
+	// Note: We can't directly compare function pointers,
+	// but we can test behavior
 }
 
 func TestEventHandlersMap_Get(t *testing.T) {
@@ -184,7 +185,8 @@ func TestEventHandlersMap_HandlerInvocation(t *testing.T) {
 	errorHandler := func(h Hub, c *Client, e *dabluveees.Event) error {
 		assert.Equal(t, hub, h)
 		assert.NotNil(t, c)
-		assert.Equal(t, dabluveees.EventTypeError, e.Type) // Expect error event type
+		// Expect error event type
+		assert.Equal(t, dabluveees.EventTypeError, e.Type)
 
 		return errTest
 	}
@@ -270,7 +272,9 @@ func TestEventHandlersMap_ConcurrentAddRemove(t *testing.T) {
 			defer wg.Done()
 
 			// Reuse event types
-			eventType := dabluveees.EventType(fmt.Sprintf("test.event.%d", id%10))
+			eventType := dabluveees.EventType(
+				fmt.Sprintf("test.event.%d", id%10),
+			)
 			handler := func(_ Hub, _ *Client, _ *dabluveees.Event) error {
 				return nil
 			}
@@ -281,7 +285,9 @@ func TestEventHandlersMap_ConcurrentAddRemove(t *testing.T) {
 			defer wg.Done()
 
 			// Same event types
-			eventType := dabluveees.EventType(fmt.Sprintf("test.event.%d", id%10))
+			eventType := dabluveees.EventType(
+				fmt.Sprintf("test.event.%d", id%10),
+			)
 			ehm.Remove(eventType)
 		}(i)
 	}
@@ -358,7 +364,8 @@ func TestEventHandlersMap_HandlerTypes(t *testing.T) {
 			// Test handler execution
 			hub := &mockHubForHandlers{name: "test"}
 			testClient := NewClient()
-			event := dabluveees.NewEvent(tt.eventType, nil) // No data for testing
+			// No data for testing
+			event := dabluveees.NewEvent(tt.eventType, nil)
 
 			err := handler(hub, testClient, event)
 			if tt.expectError {

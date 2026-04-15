@@ -76,7 +76,9 @@ func TestClientConfigOptions(t *testing.T) {
 			validateFunc: func(t *testing.T, original, modified ClientConfig) {
 				t.Helper()
 				assert.Equal(t, 512, modified.SendBufferSize)
-				assert.NotEqual(t, original.SendBufferSize, modified.SendBufferSize)
+				assert.NotEqual(
+					t, original.SendBufferSize, modified.SendBufferSize,
+				)
 			},
 		},
 		{
@@ -85,7 +87,9 @@ func TestClientConfigOptions(t *testing.T) {
 			validateFunc: func(t *testing.T, original, modified ClientConfig) {
 				t.Helper()
 				assert.Equal(t, 2048, modified.ReadBufferSize)
-				assert.NotEqual(t, original.ReadBufferSize, modified.ReadBufferSize)
+				assert.NotEqual(
+					t, original.ReadBufferSize, modified.ReadBufferSize,
+				)
 			},
 		},
 		{
@@ -94,7 +98,9 @@ func TestClientConfigOptions(t *testing.T) {
 			validateFunc: func(t *testing.T, original, modified ClientConfig) {
 				t.Helper()
 				assert.Equal(t, 4096, modified.WriteBufferSize)
-				assert.NotEqual(t, original.WriteBufferSize, modified.WriteBufferSize)
+				assert.NotEqual(
+					t, original.WriteBufferSize, modified.WriteBufferSize,
+				)
 			},
 		},
 		{

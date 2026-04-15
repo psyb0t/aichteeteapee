@@ -31,7 +31,9 @@ func TestRequestID(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			middleware := RequestID()
 
-			handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			handler := http.HandlerFunc(func(
+				w http.ResponseWriter, r *http.Request,
+			) {
 				reqID := GetRequestID(r)
 				assert.NotEmpty(t, reqID)
 
@@ -42,13 +44,19 @@ func TestRequestID(t *testing.T) {
 				}
 
 				// Check response header
-				assert.Equal(t, reqID, w.Header().Get(aichteeteapee.HeaderNameXRequestID))
+				assert.Equal(
+					t, reqID,
+					w.Header().Get(aichteeteapee.HeaderNameXRequestID),
+				)
 				w.WriteHeader(http.StatusOK)
 			})
 
 			req := createTestRequest(http.MethodGet, "/test")
 			if tt.existingRequestID != "" {
-				req.Header.Set(aichteeteapee.HeaderNameXRequestID, tt.existingRequestID)
+				req.Header.Set(
+					aichteeteapee.HeaderNameXRequestID,
+					tt.existingRequestID,
+				)
 			}
 
 			w := httptest.NewRecorder()

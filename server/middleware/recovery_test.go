@@ -86,9 +86,10 @@ func TestRecoveryMiddleware_EdgeCases(t *testing.T) {
 
 		handler := createPanicHandler(CustomError{Message: "custom error"})
 
-		req := createTestRequestWithContext(http.MethodPost, "/panic", map[any]any{
-			aichteeteapee.ContextKeyRequestID: "panic-test-789",
-		})
+		req := createTestRequestWithContext(
+			http.MethodPost, "/panic", map[any]any{
+				aichteeteapee.ContextKeyRequestID: "panic-test-789",
+			})
 		req.Header.Set("X-Forwarded-For", "192.168.1.100")
 
 		w := httptest.NewRecorder()
@@ -122,7 +123,9 @@ func TestRecoveryMiddleware_EdgeCases(t *testing.T) {
 func TestRecoveryMiddleware_CustomHandler(t *testing.T) {
 	var recoveredValue any
 
-	customHandler := func(recovered any, w http.ResponseWriter, _ *http.Request) {
+	customHandler := func(
+		recovered any, w http.ResponseWriter, _ *http.Request,
+	) {
 		recoveredValue = recovered
 
 		w.WriteHeader(http.StatusTeapot) // Custom status
@@ -168,10 +171,16 @@ func TestRecoveryMiddleware_CanFailDuringRecovery(t *testing.T) {
 
 		// The response should use fallback when JSON encoding fails
 		// This proves recovery handles encoding failures gracefully
-		assert.Equal(t, http.StatusInternalServerError, w.Code,
-			"Recovery middleware should write status even when JSON encoding fails")
-		assert.Contains(t, w.Body.String(), "Internal server error",
-			"Recovery should provide fallback response when JSON encoding fails")
+		assert.Equal(
+			t, http.StatusInternalServerError, w.Code,
+			"Recovery middleware should write status "+
+				"even when JSON encoding fails",
+		)
+		assert.Contains(
+			t, w.Body.String(), "Internal server error",
+			"Recovery should provide fallback response "+
+				"when JSON encoding fails",
+		)
 	})
 }
 
@@ -200,7 +209,10 @@ func TestRecoveryMiddleware_AllOptions(t *testing.T) {
 	middleware(handler).ServeHTTP(w, req)
 
 	assert.Equal(t, http.StatusBadGateway, w.Code)
-	assert.Equal(t, aichteeteapee.ContentTypeJSON, w.Header().Get("Content-Type"))
+	assert.Equal(
+		t, aichteeteapee.ContentTypeJSON,
+		w.Header().Get("Content-Type"),
+	)
 	assert.Contains(t, w.Body.String(), "server_panic")
 
 	entries := hook.AllEntries()

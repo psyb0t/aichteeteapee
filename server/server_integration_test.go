@@ -253,8 +253,9 @@ func TestStaticPathTraversalSecurity_Integration(t *testing.T) {
 		expectedError  string
 	}{
 		{
-			path:           "/static/../../../etc/passwd",
-			expectedStatus: http.StatusMovedPermanently, // HTTP router redirects first
+			path: "/static/../../../etc/passwd",
+			// HTTP router redirects first
+			expectedStatus: http.StatusTemporaryRedirect,
 		},
 		{
 			path: "/static/..%2F..%2F..%2Fetc%2Fpasswd",
@@ -263,12 +264,14 @@ func TestStaticPathTraversalSecurity_Integration(t *testing.T) {
 			expectedError:  aichteeteapee.ErrorCodeFileNotFound,
 		},
 		{
-			path:           "/static/../server_test.go",
-			expectedStatus: http.StatusMovedPermanently, // HTTP router redirects first
+			path: "/static/../server_test.go",
+			// HTTP router redirects first
+			expectedStatus: http.StatusTemporaryRedirect,
 		},
 		{
-			path:           "/static/index/../../../http/defaults.go",
-			expectedStatus: http.StatusMovedPermanently, // HTTP router redirects first
+			path: "/static/index/../../../http/defaults.go",
+			// HTTP router redirects first
+			expectedStatus: http.StatusTemporaryRedirect,
 		},
 	}
 
@@ -331,12 +334,17 @@ func TestStaticPathTraversalSecurity_Integration(t *testing.T) {
 					errorResponse.Code,
 				)
 			} else {
-				// HTTP router may redirect before our handler sees it, which is also secure
+				// HTTP router may redirect before our handler
+				// sees it, which is also secure
 				assert.True(t,
 					w.Code == http.StatusNotFound ||
 						w.Code == http.StatusForbidden ||
-						w.Code == http.StatusMovedPermanently,
-					"Expected 403, 404, or 301, got %d for path %s", w.Code, dangerousPath)
+						w.Code == http.StatusMovedPermanently ||
+						w.Code == http.StatusTemporaryRedirect,
+					"Expected 403, 404, 301, or 307, "+
+						"got %d for path %s",
+					w.Code, dangerousPath,
+				)
 			}
 		})
 	}

@@ -52,8 +52,10 @@ func handleConnection(
 ) {
 	connID := uuid.New()
 	logger := logrus.WithFields(logrus.Fields{
-		aichteeteapee.FieldRemoteAddr:   r.RemoteAddr,
-		aichteeteapee.FieldOrigin:       r.Header.Get(aichteeteapee.HeaderNameOrigin),
+		aichteeteapee.FieldRemoteAddr: r.RemoteAddr,
+		aichteeteapee.FieldOrigin: r.Header.Get(
+			aichteeteapee.HeaderNameOrigin,
+		),
 		aichteeteapee.FieldConnectionID: connID,
 	})
 

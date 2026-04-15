@@ -82,7 +82,9 @@ func createTestLogger() (*logrus.Logger, *test.Hook) {
 
 // assertSecurityHeaders checks that security headers are set correctly.
 func assertSecurityHeaders(
-	t *testing.T, w *httptest.ResponseRecorder, expectedHeaders map[string]string,
+	t *testing.T,
+	w *httptest.ResponseRecorder,
+	expectedHeaders map[string]string,
 ) {
 	t.Helper()
 
@@ -102,7 +104,10 @@ func assertCORSHeaders(
 	t.Helper()
 
 	if expectedOrigin != "" {
-		assert.Equal(t, expectedOrigin, w.Header().Get("Access-Control-Allow-Origin"))
+		assert.Equal(
+			t, expectedOrigin,
+			w.Header().Get("Access-Control-Allow-Origin"),
+		)
 	}
 
 	if hasMethods {
@@ -122,7 +127,8 @@ func assertLogEntry(
 
 	for field, expectedValue := range expectedFields {
 		assert.Equal(
-			t, expectedValue, entry.Data[field], "Log field %s should match", field,
+			t, expectedValue, entry.Data[field],
+			"Log field %s should match", field,
 		)
 	}
 }

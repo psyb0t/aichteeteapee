@@ -11,6 +11,17 @@ import (
 )
 
 func TestParseConfig(t *testing.T) {
+	const (
+		envListenAddr   = aichteeteapee.EnvVarNameHTTPServerListenAddress
+		envReadTimeout  = aichteeteapee.EnvVarNameHTTPServerReadTimeout
+		envReadHeaderTO = aichteeteapee.EnvVarNameHTTPServerReadHeaderTimeout
+		envWriteTimeout = aichteeteapee.EnvVarNameHTTPServerWriteTimeout
+		envIdleTimeout  = aichteeteapee.EnvVarNameHTTPServerIdleTimeout
+		envMaxHeaderB   = aichteeteapee.EnvVarNameHTTPServerMaxHeaderBytes
+		envShutdownTO   = aichteeteapee.EnvVarNameHTTPServerShutdownTimeout
+		envServiceName  = aichteeteapee.EnvVarNameHTTPServerServiceName
+	)
+
 	tests := []struct {
 		name      string
 		envVars   map[string]string
@@ -21,78 +32,107 @@ func TestParseConfig(t *testing.T) {
 			name:    "default values only",
 			envVars: map[string]string{},
 			expected: Config{
-				ListenAddress:       aichteeteapee.DefaultHTTPServerListenAddress,
-				ReadTimeout:         aichteeteapee.DefaultHTTPServerReadTimeout,
-				ReadHeaderTimeout:   aichteeteapee.DefaultHTTPServerReadHeaderTimeout,
-				WriteTimeout:        aichteeteapee.DefaultHTTPServerWriteTimeout,
-				IdleTimeout:         aichteeteapee.DefaultHTTPServerIdleTimeout,
-				MaxHeaderBytes:      aichteeteapee.DefaultHTTPServerMaxHeaderBytes,
-				ShutdownTimeout:     aichteeteapee.DefaultHTTPServerShutdownTimeout,
-				ServiceName:         aichteeteapee.DefaultHTTPServerServiceName,
-				FileUploadMaxMemory: aichteeteapee.DefaultFileUploadMaxMemory,
-				TLSEnabled:          aichteeteapee.DefaultHTTPServerTLSEnabled,
-				TLSListenAddress:    aichteeteapee.DefaultHTTPServerTLSListenAddress,
-				TLSCertFile:         aichteeteapee.DefaultHTTPServerTLSCertFile,
-				TLSKeyFile:          aichteeteapee.DefaultHTTPServerTLSKeyFile,
+				ListenAddress: aichteeteapee.
+					DefaultHTTPServerListenAddress,
+				ReadTimeout: aichteeteapee.
+					DefaultHTTPServerReadTimeout,
+				ReadHeaderTimeout: aichteeteapee.
+					DefaultHTTPServerReadHeaderTimeout,
+				WriteTimeout: aichteeteapee.
+					DefaultHTTPServerWriteTimeout,
+				IdleTimeout: aichteeteapee.
+					DefaultHTTPServerIdleTimeout,
+				MaxHeaderBytes: aichteeteapee.
+					DefaultHTTPServerMaxHeaderBytes,
+				ShutdownTimeout: aichteeteapee.
+					DefaultHTTPServerShutdownTimeout,
+				ServiceName: aichteeteapee.
+					DefaultHTTPServerServiceName,
+				FileUploadMaxMemory: aichteeteapee.
+					DefaultFileUploadMaxMemory,
+				TLSEnabled: aichteeteapee.
+					DefaultHTTPServerTLSEnabled,
+				TLSListenAddress: aichteeteapee.
+					DefaultHTTPServerTLSListenAddress,
+				TLSCertFile: aichteeteapee.
+					DefaultHTTPServerTLSCertFile,
+				TLSKeyFile: aichteeteapee.
+					DefaultHTTPServerTLSKeyFile,
 			},
 			expectErr: false,
 		},
 		{
 			name: "custom values from environment",
 			envVars: map[string]string{
-				aichteeteapee.EnvVarNameHTTPServerListenAddress:     ":9090",
-				aichteeteapee.EnvVarNameHTTPServerReadTimeout:       "45s",
-				aichteeteapee.EnvVarNameHTTPServerReadHeaderTimeout: "15s",
-				aichteeteapee.EnvVarNameHTTPServerWriteTimeout:      "45s",
-				aichteeteapee.EnvVarNameHTTPServerIdleTimeout:       "180s",
-				aichteeteapee.EnvVarNameHTTPServerMaxHeaderBytes:    "2048000",
-				aichteeteapee.EnvVarNameHTTPServerShutdownTimeout:   "45s",
-				aichteeteapee.EnvVarNameHTTPServerServiceName:       "my-custom-service",
+				envListenAddr:   ":9090",
+				envReadTimeout:  "45s",
+				envReadHeaderTO: "15s",
+				envWriteTimeout: "45s",
+				envIdleTimeout:  "180s",
+				envMaxHeaderB:   "2048000",
+				envShutdownTO:   "45s",
+				envServiceName:  "my-custom-service",
 			},
 			expected: Config{
-				ListenAddress:       ":9090",
-				ReadTimeout:         45 * time.Second,
-				ReadHeaderTimeout:   15 * time.Second,
-				WriteTimeout:        45 * time.Second,
-				IdleTimeout:         180 * time.Second,
-				MaxHeaderBytes:      2048000,
-				ShutdownTimeout:     45 * time.Second,
-				ServiceName:         "my-custom-service",
-				FileUploadMaxMemory: aichteeteapee.DefaultFileUploadMaxMemory,
-				TLSEnabled:          aichteeteapee.DefaultHTTPServerTLSEnabled,
-				TLSListenAddress:    aichteeteapee.DefaultHTTPServerTLSListenAddress,
-				TLSCertFile:         aichteeteapee.DefaultHTTPServerTLSCertFile,
-				TLSKeyFile:          aichteeteapee.DefaultHTTPServerTLSKeyFile,
+				ListenAddress:     ":9090",
+				ReadTimeout:       45 * time.Second,
+				ReadHeaderTimeout: 15 * time.Second,
+				WriteTimeout:      45 * time.Second,
+				IdleTimeout:       180 * time.Second,
+				MaxHeaderBytes:    2048000,
+				ShutdownTimeout:   45 * time.Second,
+				ServiceName:       "my-custom-service",
+				FileUploadMaxMemory: aichteeteapee.
+					DefaultFileUploadMaxMemory,
+				TLSEnabled: aichteeteapee.
+					DefaultHTTPServerTLSEnabled,
+				TLSListenAddress: aichteeteapee.
+					DefaultHTTPServerTLSListenAddress,
+				TLSCertFile: aichteeteapee.
+					DefaultHTTPServerTLSCertFile,
+				TLSKeyFile: aichteeteapee.
+					DefaultHTTPServerTLSKeyFile,
 			},
 			expectErr: false,
 		},
 		{
 			name: "partial override with defaults",
 			envVars: map[string]string{
-				aichteeteapee.EnvVarNameHTTPServerListenAddress: ":3000",
-				aichteeteapee.EnvVarNameHTTPServerServiceName:   "test-service",
+				envListenAddr:  ":3000",
+				envServiceName: "test-service",
 			},
 			expected: Config{
-				ListenAddress:       ":3000",
-				ReadTimeout:         aichteeteapee.DefaultHTTPServerReadTimeout,
-				ReadHeaderTimeout:   aichteeteapee.DefaultHTTPServerReadHeaderTimeout,
-				WriteTimeout:        aichteeteapee.DefaultHTTPServerWriteTimeout,
-				IdleTimeout:         aichteeteapee.DefaultHTTPServerIdleTimeout,
-				MaxHeaderBytes:      aichteeteapee.DefaultHTTPServerMaxHeaderBytes,
-				ShutdownTimeout:     aichteeteapee.DefaultHTTPServerShutdownTimeout,
-				ServiceName:         "test-service",
-				FileUploadMaxMemory: aichteeteapee.DefaultFileUploadMaxMemory,
-				TLSEnabled:          aichteeteapee.DefaultHTTPServerTLSEnabled,
-				TLSListenAddress:    aichteeteapee.DefaultHTTPServerTLSListenAddress,
-				TLSCertFile:         aichteeteapee.DefaultHTTPServerTLSCertFile,
-				TLSKeyFile:          aichteeteapee.DefaultHTTPServerTLSKeyFile,
+				ListenAddress: ":3000",
+				ReadTimeout: aichteeteapee.
+					DefaultHTTPServerReadTimeout,
+				ReadHeaderTimeout: aichteeteapee.
+					DefaultHTTPServerReadHeaderTimeout,
+				WriteTimeout: aichteeteapee.
+					DefaultHTTPServerWriteTimeout,
+				IdleTimeout: aichteeteapee.
+					DefaultHTTPServerIdleTimeout,
+				MaxHeaderBytes: aichteeteapee.
+					DefaultHTTPServerMaxHeaderBytes,
+				ShutdownTimeout: aichteeteapee.
+					DefaultHTTPServerShutdownTimeout,
+				ServiceName: "test-service",
+				FileUploadMaxMemory: aichteeteapee.
+					DefaultFileUploadMaxMemory,
+				TLSEnabled: aichteeteapee.
+					DefaultHTTPServerTLSEnabled,
+				TLSListenAddress: aichteeteapee.
+					DefaultHTTPServerTLSListenAddress,
+				TLSCertFile: aichteeteapee.
+					DefaultHTTPServerTLSCertFile,
+				TLSKeyFile: aichteeteapee.
+					DefaultHTTPServerTLSKeyFile,
 			},
 			expectErr: false,
 		},
 		{
 			name: "invalid timeout format",
 			envVars: map[string]string{
-				aichteeteapee.EnvVarNameHTTPServerReadTimeout: "invalid-duration",
+				envReadTimeout: "invalid-duration",
 			},
 			expected:  Config{},
 			expectErr: true,
@@ -100,7 +140,7 @@ func TestParseConfig(t *testing.T) {
 		{
 			name: "invalid max header bytes",
 			envVars: map[string]string{
-				aichteeteapee.EnvVarNameHTTPServerMaxHeaderBytes: "not-a-number",
+				envMaxHeaderB: "not-a-number",
 			},
 			expected:  Config{},
 			expectErr: true,
@@ -108,46 +148,68 @@ func TestParseConfig(t *testing.T) {
 		{
 			name: "zero timeout values",
 			envVars: map[string]string{
-				aichteeteapee.EnvVarNameHTTPServerReadTimeout:  "0s",
-				aichteeteapee.EnvVarNameHTTPServerWriteTimeout: "0s",
+				envReadTimeout:  "0s",
+				envWriteTimeout: "0s",
 			},
 			expected: Config{
-				ListenAddress:       aichteeteapee.DefaultHTTPServerListenAddress,
-				ReadTimeout:         0,
-				ReadHeaderTimeout:   aichteeteapee.DefaultHTTPServerReadHeaderTimeout,
-				WriteTimeout:        0,
-				IdleTimeout:         aichteeteapee.DefaultHTTPServerIdleTimeout,
-				MaxHeaderBytes:      aichteeteapee.DefaultHTTPServerMaxHeaderBytes,
-				ShutdownTimeout:     aichteeteapee.DefaultHTTPServerShutdownTimeout,
-				ServiceName:         aichteeteapee.DefaultHTTPServerServiceName,
-				FileUploadMaxMemory: aichteeteapee.DefaultFileUploadMaxMemory,
-				TLSEnabled:          aichteeteapee.DefaultHTTPServerTLSEnabled,
-				TLSListenAddress:    aichteeteapee.DefaultHTTPServerTLSListenAddress,
-				TLSCertFile:         aichteeteapee.DefaultHTTPServerTLSCertFile,
-				TLSKeyFile:          aichteeteapee.DefaultHTTPServerTLSKeyFile,
+				ListenAddress: aichteeteapee.
+					DefaultHTTPServerListenAddress,
+				ReadTimeout: 0,
+				ReadHeaderTimeout: aichteeteapee.
+					DefaultHTTPServerReadHeaderTimeout,
+				WriteTimeout: 0,
+				IdleTimeout: aichteeteapee.
+					DefaultHTTPServerIdleTimeout,
+				MaxHeaderBytes: aichteeteapee.
+					DefaultHTTPServerMaxHeaderBytes,
+				ShutdownTimeout: aichteeteapee.
+					DefaultHTTPServerShutdownTimeout,
+				ServiceName: aichteeteapee.
+					DefaultHTTPServerServiceName,
+				FileUploadMaxMemory: aichteeteapee.
+					DefaultFileUploadMaxMemory,
+				TLSEnabled: aichteeteapee.
+					DefaultHTTPServerTLSEnabled,
+				TLSListenAddress: aichteeteapee.
+					DefaultHTTPServerTLSListenAddress,
+				TLSCertFile: aichteeteapee.
+					DefaultHTTPServerTLSCertFile,
+				TLSKeyFile: aichteeteapee.
+					DefaultHTTPServerTLSKeyFile,
 			},
 			expectErr: false,
 		},
 		{
 			name: "extreme values",
 			envVars: map[string]string{
-				aichteeteapee.EnvVarNameHTTPServerReadTimeout:    "1h",
-				aichteeteapee.EnvVarNameHTTPServerMaxHeaderBytes: "10485760", // 10MB
+				envReadTimeout: "1h",
+				envMaxHeaderB:  "10485760", // 10MB
 			},
 			expected: Config{
-				ListenAddress:       aichteeteapee.DefaultHTTPServerListenAddress,
-				ReadTimeout:         1 * time.Hour,
-				ReadHeaderTimeout:   aichteeteapee.DefaultHTTPServerReadHeaderTimeout,
-				WriteTimeout:        aichteeteapee.DefaultHTTPServerWriteTimeout,
-				IdleTimeout:         aichteeteapee.DefaultHTTPServerIdleTimeout,
-				MaxHeaderBytes:      10485760,
-				ShutdownTimeout:     aichteeteapee.DefaultHTTPServerShutdownTimeout,
-				ServiceName:         aichteeteapee.DefaultHTTPServerServiceName,
-				FileUploadMaxMemory: aichteeteapee.DefaultFileUploadMaxMemory,
-				TLSEnabled:          aichteeteapee.DefaultHTTPServerTLSEnabled,
-				TLSListenAddress:    aichteeteapee.DefaultHTTPServerTLSListenAddress,
-				TLSCertFile:         aichteeteapee.DefaultHTTPServerTLSCertFile,
-				TLSKeyFile:          aichteeteapee.DefaultHTTPServerTLSKeyFile,
+				ListenAddress: aichteeteapee.
+					DefaultHTTPServerListenAddress,
+				ReadTimeout: 1 * time.Hour,
+				ReadHeaderTimeout: aichteeteapee.
+					DefaultHTTPServerReadHeaderTimeout,
+				WriteTimeout: aichteeteapee.
+					DefaultHTTPServerWriteTimeout,
+				IdleTimeout: aichteeteapee.
+					DefaultHTTPServerIdleTimeout,
+				MaxHeaderBytes: 10485760,
+				ShutdownTimeout: aichteeteapee.
+					DefaultHTTPServerShutdownTimeout,
+				ServiceName: aichteeteapee.
+					DefaultHTTPServerServiceName,
+				FileUploadMaxMemory: aichteeteapee.
+					DefaultFileUploadMaxMemory,
+				TLSEnabled: aichteeteapee.
+					DefaultHTTPServerTLSEnabled,
+				TLSListenAddress: aichteeteapee.
+					DefaultHTTPServerTLSListenAddress,
+				TLSCertFile: aichteeteapee.
+					DefaultHTTPServerTLSCertFile,
+				TLSKeyFile: aichteeteapee.
+					DefaultHTTPServerTLSKeyFile,
 			},
 			expectErr: false,
 		},
@@ -194,7 +256,10 @@ func TestConfig_EdgeCases(t *testing.T) {
 	t.Run("whitespace in service name", func(t *testing.T) {
 		defer viper.Reset()
 
-		t.Setenv(aichteeteapee.EnvVarNameHTTPServerServiceName, "  my service  ")
+		t.Setenv(
+			aichteeteapee.EnvVarNameHTTPServerServiceName,
+			"  my service  ",
+		)
 
 		config, err := parseConfig()
 		require.NoError(t, err)

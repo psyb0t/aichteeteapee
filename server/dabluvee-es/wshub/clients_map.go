@@ -31,7 +31,8 @@ func (cm *clientsMap) GetOrAdd(client *Client) (*Client, bool) {
 
 	clientID := client.ID()
 	if existingClient, exists := cm.clients[clientID]; exists {
-		return existingClient, false // false means not added, just retrieved existing
+		// false means not added, just retrieved existing
+		return existingClient, false
 	}
 
 	cm.clients[clientID] = client

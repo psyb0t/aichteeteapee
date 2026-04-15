@@ -46,7 +46,8 @@ func TestSetupConnectionIntegration(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			_ = t.TempDir() // Not used for sockets due to path length limits
 
-			// Use shorter path for Unix sockets due to path length limits (~108 chars)
+			// Use shorter path for Unix sockets due to
+			// path length limits (~108 chars)
 			socketsDir := testSocketsPath
 			if tt.socketsDir != "" {
 				socketsDir = tt.socketsDir
@@ -82,10 +83,14 @@ func TestSetupConnectionIntegration(t *testing.T) {
 				HandshakeTimeout: 5 * time.Second,
 			}
 
-			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+			ctx, cancel := context.WithTimeout(
+				context.Background(), 10*time.Second,
+			)
 			defer cancel()
 
-			conn, _, err := dialer.DialContext(ctx, wsURL, nil) //nolint:bodyclose
+			conn, _, err := dialer.DialContext( //nolint:bodyclose
+				ctx, wsURL, nil,
+			)
 			if tt.expectSuccess {
 				require.NoError(t, err)
 
@@ -115,7 +120,9 @@ func TestSetupConnectionIntegration(t *testing.T) {
 
 				err = conn.WriteMessage(
 					websocket.CloseMessage,
-					websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""),
+					websocket.FormatCloseMessage(
+						websocket.CloseNormalClosure, "",
+					),
 				)
 				assert.NoError(t, err)
 			} else {
@@ -156,7 +163,8 @@ func TestWebSocketUnixBridgeIntegration(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			_ = t.TempDir() // Not used for sockets due to path length limits
 
-			// Use shorter path for Unix sockets due to path length limits (~108 chars)
+			// Use shorter path for Unix sockets due to
+			// path length limits (~108 chars)
 			socketsDir := testSocketsPath
 
 			// Track connection for cleanup
@@ -188,10 +196,14 @@ func TestWebSocketUnixBridgeIntegration(t *testing.T) {
 				HandshakeTimeout: 5 * time.Second,
 			}
 
-			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+			ctx, cancel := context.WithTimeout(
+				context.Background(), 10*time.Second,
+			)
 			defer cancel()
 
-			conn, _, err := dialer.DialContext(ctx, wsURL, nil) //nolint:bodyclose
+			conn, _, err := dialer.DialContext( //nolint:bodyclose
+				ctx, wsURL, nil,
+			)
 			require.NoError(t, err)
 
 			require.NotNil(t, conn)
@@ -237,7 +249,10 @@ func TestWebSocketUnixBridgeIntegration(t *testing.T) {
 			testConnectionMutex.Unlock()
 
 			_, exists := connectionSockets.Get(connID)
-			assert.False(t, exists, "connection should be cleaned up after close")
+			assert.False(
+				t, exists,
+				"connection should be cleaned up after close",
+			)
 		})
 	}
 }
@@ -259,7 +274,8 @@ func TestUnixSocketPathCreationIntegration(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Use short path for Unix sockets due to path length limits (~108 chars)
+			// Use short path for Unix sockets due to
+			// path length limits (~108 chars)
 			// Create unique test directory that will be cleaned up
 			testDir := filepath.Join("/tmp", "ws_"+uuid.New().String()[:8])
 
@@ -308,10 +324,14 @@ func TestUnixSocketPathCreationIntegration(t *testing.T) {
 				HandshakeTimeout: 5 * time.Second,
 			}
 
-			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+			ctx, cancel := context.WithTimeout(
+				context.Background(), 10*time.Second,
+			)
 			defer cancel()
 
-			conn, _, err := dialer.DialContext(ctx, wsURL, nil) //nolint:bodyclose
+			conn, _, err := dialer.DialContext( //nolint:bodyclose
+				ctx, wsURL, nil,
+			)
 			require.NoError(t, err)
 
 			require.NotNil(t, conn)
@@ -366,7 +386,8 @@ func TestConnectionCleanupIntegration(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			_ = t.TempDir() // Not used for sockets due to path length limits
 
-			// Use shorter path for Unix sockets due to path length limits (~108 chars)
+			// Use shorter path for Unix sockets due to
+			// path length limits (~108 chars)
 			socketsDir := testSocketsPath
 
 			var (
@@ -397,10 +418,14 @@ func TestConnectionCleanupIntegration(t *testing.T) {
 				HandshakeTimeout: 5 * time.Second,
 			}
 
-			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+			ctx, cancel := context.WithTimeout(
+				context.Background(), 10*time.Second,
+			)
 			defer cancel()
 
-			conn, _, err := dialer.DialContext(ctx, wsURL, nil) //nolint:bodyclose
+			conn, _, err := dialer.DialContext( //nolint:bodyclose
+				ctx, wsURL, nil,
+			)
 			require.NoError(t, err)
 			require.NotNil(t, conn)
 
@@ -418,7 +443,9 @@ func TestConnectionCleanupIntegration(t *testing.T) {
 			assert.True(t, exists, "connection should be tracked before close")
 
 			// Close connection with specific type
-			closeMsg := websocket.FormatCloseMessage(tt.closeType, tt.closeMessage)
+			closeMsg := websocket.FormatCloseMessage(
+				tt.closeType, tt.closeMessage,
+			)
 			err = conn.WriteMessage(websocket.CloseMessage, closeMsg)
 			assert.NoError(t, err)
 
@@ -430,7 +457,10 @@ func TestConnectionCleanupIntegration(t *testing.T) {
 			// Verify connection was cleaned up
 			_, exists = connectionSockets.Get(connID)
 			if tt.expectedClosed {
-				assert.False(t, exists, "connection should be cleaned up after close")
+				assert.False(
+					t, exists,
+					"connection should be cleaned up after close",
+				)
 			}
 		})
 	}
@@ -461,7 +491,8 @@ func TestInvalidWebSocketUpgradeIntegration(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			_ = t.TempDir() // Not used for sockets due to path length limits
 
-			// Use shorter path for Unix sockets due to path length limits (~108 chars)
+			// Use shorter path for Unix sockets due to
+			// path length limits (~108 chars)
 			socketsDir := testSocketsPath
 			handler := NewUpgradeHandler(socketsDir, nil)
 
