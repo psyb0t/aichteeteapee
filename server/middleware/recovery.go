@@ -2,18 +2,19 @@ package middleware
 
 import (
 	"encoding/json"
+	"fmt"
+	"log/slog"
 	"maps"
 	"net/http"
 	"runtime/debug"
 
 	"github.com/psyb0t/aichteeteapee"
-	"github.com/sirupsen/logrus"
 )
 
 // RecoveryConfig holds configuration for recovery middleware.
 type RecoveryConfig struct {
-	Logger        *logrus.Logger
-	LogLevel      logrus.Level
+	Logger        *slog.Logger
+	LogLevel      slog.Level
 	LogMessage    string
 	StatusCode    int
 	Response      any
@@ -26,14 +27,14 @@ type RecoveryConfig struct {
 type RecoveryOption func(*RecoveryConfig)
 
 // WithRecoveryLogger sets the logger instance.
-func WithRecoveryLogger(logger *logrus.Logger) RecoveryOption {
+func WithRecoveryLogger(logger *slog.Logger) RecoveryOption {
 	return func(c *RecoveryConfig) {
 		c.Logger = logger
 	}
 }
 
 // WithRecoveryLogLevel sets the log level for panic recovery.
-func WithRecoveryLogLevel(level logrus.Level) RecoveryOption {
+func WithRecoveryLogLevel(level slog.Level) RecoveryOption {
 	return func(c *RecoveryConfig) {
 		c.LogLevel = level
 	}
@@ -101,8 +102,8 @@ func WithCustomRecoveryHandler(
 //nolint:gocognit,nestif,cyclop,funlen
 func Recovery(opts ...RecoveryOption) Middleware {
 	config := &RecoveryConfig{
-		Logger:        logrus.StandardLogger(),
-		LogLevel:      logrus.ErrorLevel,
+		Logger:        slog.Default(),
+		LogLevel:      slog.LevelError,
 		LogMessage:    "Panic recovered in HTTP handler",
 		StatusCode:    http.StatusInternalServerError,
 		Response:      aichteeteapee.ErrorResponseInternalServerError,
@@ -118,6 +119,8 @@ func Recovery(opts ...RecoveryOption) Middleware {
 
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			ctx := r.Context()
+
 			defer func() {
 				if recovered := recover(); recovered != nil {
 					// Use custom handler if provided
@@ -129,25 +132,29 @@ func Recovery(opts ...RecoveryOption) Middleware {
 
 					reqID := aichteeteapee.GetRequestID(r)
 
-					// Build log fields
-					fields := logrus.Fields{
-						"error":     recovered,
-						"method":    r.Method,
-						"path":      r.URL.Path,
-						"ip":        aichteeteapee.GetClientIP(r),
-						"requestId": reqID,
+					// Build log args
+					args := []any{
+						"error", recovered,
+						"method", r.Method,
+						"path", r.URL.Path,
+						"ip", aichteeteapee.GetClientIP(r),
+						"requestId", reqID,
 					}
 
 					// Add extra fields
-					maps.Copy(fields, config.ExtraFields)
-
-					if config.IncludeStack {
-						fields["stack"] = string(debug.Stack())
+					for k, v := range config.ExtraFields {
+						args = append(args, k, v)
 					}
 
-					config.Logger.WithFields(fields).Log(
+					if config.IncludeStack {
+						args = append(args, "stack", string(debug.Stack()))
+					}
+
+					config.Logger.Log(
+						ctx,
 						config.LogLevel,
 						config.LogMessage,
+						args...,
 					)
 
 					// Set content type if not already set
@@ -169,11 +176,15 @@ func Recovery(opts ...RecoveryOption) Middleware {
 							config.Response,
 						)
 						if err != nil {
-							config.Logger.Errorf(
-								"Failed to encode error "+
-									"response during "+
-									"panic recovery: %v",
-								err,
+							config.Logger.Log(
+								ctx,
+								config.LogLevel,
+								fmt.Sprintf(
+									"Failed to encode error "+
+										"response during "+
+										"panic recovery: %v",
+									err,
+								),
 							)
 
 							fallback := []byte(
@@ -185,21 +196,29 @@ func Recovery(opts ...RecoveryOption) Middleware {
 							if _, wErr := w.Write(
 								fallback,
 							); wErr != nil {
-								config.Logger.Errorf(
-									"Failed to write "+
-										"fallback response"+
-										": %v",
-									wErr,
+								config.Logger.Log(
+									ctx,
+									config.LogLevel,
+									fmt.Sprintf(
+										"Failed to write "+
+											"fallback response"+
+											": %v",
+										wErr,
+									),
 								)
 							}
 						} else {
 							if _, wErr := w.Write(
 								jsonData,
 							); wErr != nil {
-								config.Logger.Errorf(
-									"Failed to write "+
-										"JSON response: %v",
-									wErr,
+								config.Logger.Log(
+									ctx,
+									config.LogLevel,
+									fmt.Sprintf(
+										"Failed to write "+
+											"JSON response: %v",
+										wErr,
+									),
 								)
 							}
 						}
@@ -209,10 +228,14 @@ func Recovery(opts ...RecoveryOption) Middleware {
 							if _, err := w.Write(
 								[]byte(str),
 							); err != nil {
-								config.Logger.Errorf(
-									"Failed to write "+
-										"error response: %v",
-									err,
+								config.Logger.Log(
+									ctx,
+									config.LogLevel,
+									fmt.Sprintf(
+										"Failed to write "+
+											"error response: %v",
+										err,
+									),
 								)
 							}
 						}

@@ -1,14 +1,14 @@
 package middleware
 
 import (
+	"bytes"
 	"context"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 	"time"
 
-	"github.com/sirupsen/logrus"
-	"github.com/sirupsen/logrus/hooks/test"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -75,9 +75,15 @@ func createTestRequestWithHeaders(
 	return req
 }
 
-// createTestLogger creates a test logger with hook for capturing logs.
-func createTestLogger() (*logrus.Logger, *test.Hook) {
-	return test.NewNullLogger()
+// createTestLogger creates a test slog.Logger that discards output
+// and a buffer to capture log output when needed.
+func createTestLogger() (*slog.Logger, *bytes.Buffer) {
+	buf := &bytes.Buffer{}
+	logger := slog.New(slog.NewTextHandler(buf, &slog.HandlerOptions{
+		Level: slog.LevelDebug,
+	}))
+
+	return logger, buf
 }
 
 // assertSecurityHeaders checks that security headers are set correctly.
@@ -116,20 +122,6 @@ func assertCORSHeaders(
 
 	if hasHeaders {
 		assert.NotEmpty(t, w.Header().Get("Access-Control-Allow-Headers"))
-	}
-}
-
-// assertLogEntry checks that a log entry contains expected fields.
-func assertLogEntry(
-	t *testing.T, entry *logrus.Entry, expectedFields map[string]any,
-) {
-	t.Helper()
-
-	for field, expectedValue := range expectedFields {
-		assert.Equal(
-			t, expectedValue, entry.Data[field],
-			"Log field %s should match", field,
-		)
 	}
 }
 

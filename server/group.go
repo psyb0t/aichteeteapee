@@ -1,25 +1,26 @@
 package server
 
 import (
+	"fmt"
+	"log/slog"
 	"net/http"
 	"path"
 	"strings"
 
 	"github.com/psyb0t/aichteeteapee/server/middleware"
-	"github.com/sirupsen/logrus"
 )
 
 type Group struct {
 	mux         *http.ServeMux
 	prefix      string
 	middlewares []middleware.Middleware
-	logger      *logrus.Logger
+	logger      *slog.Logger
 }
 
 func NewGroup(
 	mux *http.ServeMux,
 	prefix string,
-	logger *logrus.Logger,
+	logger *slog.Logger,
 	middlewares ...middleware.Middleware,
 ) *Group {
 	return &Group{
@@ -72,7 +73,7 @@ func (g *Group) Handle(
 	// Chain all middlewares
 	finalHandler := middleware.Chain(handler, allMiddlewares...)
 
-	g.logger.Debugf("Registering route: %s", route)
+	g.logger.Debug(fmt.Sprintf("Registering route: %s", route))
 	g.mux.Handle(route, finalHandler)
 }
 

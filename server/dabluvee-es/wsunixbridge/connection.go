@@ -2,6 +2,7 @@ package wsunixbridge
 
 import (
 	"context"
+	"log/slog"
 	"os"
 
 	"github.com/google/uuid"
@@ -9,7 +10,6 @@ import (
 	dabluveees "github.com/psyb0t/aichteeteapee/server/dabluvee-es"
 	commontypes "github.com/psyb0t/common-go/types"
 	"github.com/psyb0t/ctxerrors"
-	"github.com/sirupsen/logrus"
 )
 
 // Connection represents a WebSocket connection with Unix socket streams.
@@ -40,7 +40,7 @@ func setupConnection( //nolint:funlen
 	socketsDir string,
 	connID uuid.UUID,
 	connHandler ConnectionHandler,
-	logger *logrus.Entry,
+	logger *slog.Logger,
 ) error {
 	if err := os.MkdirAll(socketsDir, dirPermissions); err != nil {
 		return ctxerrors.Wrap(err, "failed to create sockets directory")
@@ -57,7 +57,8 @@ func setupConnection( //nolint:funlen
 		return err
 	}
 
-	logger.Info("created connection Unix sockets",
+	logger.Info(
+		"created connection Unix sockets",
 		"outputPath", conn.WriterUnixSock.Path,
 		"inputPath", conn.ReaderUnixSock.Path,
 	)
@@ -70,7 +71,10 @@ func setupConnection( //nolint:funlen
 	initEvent := dabluveees.NewEvent(EventTypeWSUnixBridgeInitialized, initData)
 
 	if err := wsConn.WriteJSON(initEvent); err != nil {
-		logger.WithError(err).Error("failed to send initialization event")
+		logger.Error(
+			"failed to send initialization event",
+			"error", err,
+		)
 
 		return ctxerrors.Wrap(err, "failed to send initialization event")
 	}
@@ -90,7 +94,10 @@ func setupConnection( //nolint:funlen
 	if connHandler != nil {
 		go func() {
 			if err := connHandler(conn); err != nil {
-				logger.WithError(err).Error("connection handler error")
+				logger.Error(
+					"connection handler error",
+					"error", err,
+				)
 			}
 		}()
 	}
@@ -113,7 +120,7 @@ func setupConnection( //nolint:funlen
 	return nil
 }
 
-func removeConnection(connID uuid.UUID, logger *logrus.Entry) {
+func removeConnection(connID uuid.UUID, logger *slog.Logger) {
 	conn, exists := connectionSockets.Get(connID)
 	if !exists {
 		return
@@ -127,14 +134,15 @@ func removeConnection(connID uuid.UUID, logger *logrus.Entry) {
 	logger.Info("removed connection Unix sockets")
 }
 
-func closeAllClients(conn *Connection, logger *logrus.Entry) {
+func closeAllClients(conn *Connection, logger *slog.Logger) {
 	// Close output readers
 	conn.WriterUnixSock.ClientsMux.Lock()
 
 	for _, client := range conn.WriterUnixSock.Clients {
 		if err := client.Close(); err != nil {
-			logger.WithError(err).Debug(
+			logger.Debug(
 				"error closing WriterUnixSock client during cleanup",
+				"error", err,
 			)
 		}
 	}
@@ -146,8 +154,9 @@ func closeAllClients(conn *Connection, logger *logrus.Entry) {
 
 	for _, client := range conn.ReaderUnixSock.Clients {
 		if err := client.Close(); err != nil {
-			logger.WithError(err).Debug(
+			logger.Debug(
 				"error closing ReaderUnixSock client during cleanup",
+				"error", err,
 			)
 		}
 	}
@@ -155,18 +164,24 @@ func closeAllClients(conn *Connection, logger *logrus.Entry) {
 	conn.ReaderUnixSock.ClientsMux.Unlock()
 }
 
-func closeListeners(conn *Connection, logger *logrus.Entry) {
+func closeListeners(conn *Connection, logger *slog.Logger) {
 	// Close output listener
 	if conn.WriterUnixSock.Listener != nil {
 		if err := conn.WriterUnixSock.Listener.Close(); err != nil {
-			logger.WithError(err).Debug("error closing WriterUnixSock listener")
+			logger.Debug(
+				"error closing WriterUnixSock listener",
+				"error", err,
+			)
 		}
 	}
 
 	// Close input listener
 	if conn.ReaderUnixSock.Listener != nil {
 		if err := conn.ReaderUnixSock.Listener.Close(); err != nil {
-			logger.WithError(err).Debug("error closing ReaderUnixSock listener")
+			logger.Debug(
+				"error closing ReaderUnixSock listener",
+				"error", err,
+			)
 		}
 	}
 }

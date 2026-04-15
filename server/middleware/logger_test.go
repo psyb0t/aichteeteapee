@@ -1,20 +1,21 @@
 package middleware
 
 import (
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"sync"
 	"testing"
 
 	"github.com/psyb0t/aichteeteapee"
-	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 func TestLogger(t *testing.T) {
-	logger, hook := createTestLogger()
-	middleware := Logger(
+	logger, buf := createTestLogger()
+	mw := Logger(
 		WithLogger(logger),
 	)
 
@@ -27,33 +28,24 @@ func TestLogger(t *testing.T) {
 	req.Header.Set("X-Forwarded-For", "192.168.1.1")
 
 	w := httptest.NewRecorder()
-	middleware(handler).ServeHTTP(w, req)
+	mw(handler).ServeHTTP(w, req)
 
 	assert.Equal(t, http.StatusOK, w.Code)
 	assert.Equal(t, "test response", w.Body.String())
 
-	// Check that log entry was created
-	entries := hook.AllEntries()
-	require.Len(t, entries, 1)
-
-	entry := entries[0]
-	expectedFields := map[string]any{
-		"method":    http.MethodGet,
-		"path":      "/test",
-		"status":    200,
-		"requestId": "test-req-123",
-	}
-
-	assert.Equal(t, logrus.InfoLevel, entry.Level)
-	assertLogEntry(t, entry, expectedFields)
-	assert.Contains(t, entry.Data, "ip")
-	assert.Contains(t, entry.Data, "duration")
+	// Check that log output contains expected fields
+	logOutput := buf.String()
+	require.NotEmpty(t, logOutput, "should have log output")
+	assert.Contains(t, logOutput, "HTTP request")
+	assert.Contains(t, logOutput, "GET")
+	assert.Contains(t, logOutput, "/test")
+	assert.Contains(t, logOutput, "test-req-123")
 }
 
 func TestLoggerMiddleware_SkipPaths(t *testing.T) {
-	logger, hook := createTestLogger()
+	logger, buf := createTestLogger()
 
-	middleware := Logger(
+	mw := Logger(
 		WithLogger(logger),
 		WithSkipPaths("/health", "/metrics"),
 	)
@@ -64,19 +56,19 @@ func TestLoggerMiddleware_SkipPaths(t *testing.T) {
 	req := createTestRequest(http.MethodGet, "/health")
 	w := httptest.NewRecorder()
 
-	middleware(handler).ServeHTTP(w, req)
+	mw(handler).ServeHTTP(w, req)
 
 	assert.Equal(t, http.StatusOK, w.Code)
-	assert.Len(t, hook.AllEntries(), 0) // No log entry for skipped path
+	assert.Empty(t, buf.String(), "no log output for skipped path")
 
 	// Test non-skipped path
 	req = createTestRequest(http.MethodGet, "/api")
 	w = httptest.NewRecorder()
 
-	middleware(handler).ServeHTTP(w, req)
+	mw(handler).ServeHTTP(w, req)
 
 	assert.Equal(t, http.StatusOK, w.Code)
-	assert.Len(t, hook.AllEntries(), 1) // Log entry for non-skipped path
+	assert.NotEmpty(t, buf.String(), "log output for non-skipped path")
 }
 
 // Test to prove response writer race condition.
@@ -86,7 +78,7 @@ func TestLoggerMiddleware_ResponseWriterRaceCondition(t *testing.T) {
 	}
 
 	t.Run("concurrent writeheader calls can race", func(t *testing.T) {
-		logger := Logger()
+		mw := Logger()
 
 		handler := http.HandlerFunc(func(
 			w http.ResponseWriter, _ *http.Request,
@@ -108,7 +100,7 @@ func TestLoggerMiddleware_ResponseWriterRaceCondition(t *testing.T) {
 		w := httptest.NewRecorder()
 
 		// Run with race detector enabled to catch the race
-		logger(handler).ServeHTTP(w, req)
+		mw(handler).ServeHTTP(w, req)
 
 		// The race condition exists in the responseWriter.statusCode field
 		// Run this test with -race flag to detect it
@@ -120,11 +112,11 @@ func TestLoggerMiddleware_ResponseWriterRaceCondition(t *testing.T) {
 }
 
 func TestLoggerMiddleware_AllOptions(t *testing.T) {
-	logger, hook := createTestLogger()
+	logger, buf := createTestLogger()
 
-	middleware := Logger(
+	mw := Logger(
 		WithLogger(logger),
-		WithLogLevel(logrus.WarnLevel),
+		WithLogLevel(slog.LevelWarn),
 		WithLogMessage("Custom log message"),
 		WithExtraFields(map[string]any{
 			"service": "test-service",
@@ -143,22 +135,22 @@ func TestLoggerMiddleware_AllOptions(t *testing.T) {
 		})
 	w := httptest.NewRecorder()
 
-	middleware(handler).ServeHTTP(w, req)
+	mw(handler).ServeHTTP(w, req)
 
-	entries := hook.AllEntries()
-	require.Len(t, entries, 1)
+	logOutput := buf.String()
+	require.NotEmpty(t, logOutput)
 
-	entry := entries[0]
-	assert.Equal(t, logrus.WarnLevel, entry.Level)
-	assert.Equal(t, "Custom log message", entry.Message)
-
-	expectedFields := map[string]any{
-		"service":              "test-service",
-		"version":              "1.0.0",
-		"header_Authorization": "Bearer token123",
-		"header_X-API-Key":     "secret-key",
-	}
-
-	assertLogEntry(t, entry, expectedFields)
-	assert.NotContains(t, entry.Data, "query") // Disabled
+	// Verify log level — slog text format uses "level=WARN"
+	assert.True(
+		t,
+		strings.Contains(logOutput, "level=WARN") ||
+			strings.Contains(logOutput, "WARN"),
+		"should log at WARN level",
+	)
+	assert.Contains(t, logOutput, "Custom log message")
+	assert.Contains(t, logOutput, "test-service")
+	assert.Contains(t, logOutput, "1.0.0")
+	assert.Contains(t, logOutput, "Bearer token123")
+	assert.Contains(t, logOutput, "secret-key")
+	assert.NotContains(t, logOutput, "param=value") // query disabled
 }

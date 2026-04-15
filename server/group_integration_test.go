@@ -1,17 +1,18 @@
 package server
 
 import (
+	"io"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 
-	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestGroup_Handle(t *testing.T) {
 	mux := http.NewServeMux()
-	logger := logrus.StandardLogger()
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	group := NewGroup(mux, "/api", logger)
 
 	handler := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
@@ -33,7 +34,7 @@ func TestGroup_Handle(t *testing.T) {
 
 func TestGroup_HandleFunc(t *testing.T) {
 	mux := http.NewServeMux()
-	logger := logrus.StandardLogger()
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	group := NewGroup(mux, "/api", logger)
 
 	handlerFunc := func(w http.ResponseWriter, _ *http.Request) {
@@ -55,7 +56,7 @@ func TestGroup_HandleFunc(t *testing.T) {
 
 func TestGroup_NestedGroups(t *testing.T) {
 	mux := http.NewServeMux()
-	logger := logrus.StandardLogger()
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 
 	// Create nested groups: /api/v1/users
 	apiGroup := NewGroup(mux, "/api", logger)

@@ -1,12 +1,12 @@
 package wshub
 
 import (
+	"log/slog"
 	"sync"
 
 	"github.com/google/uuid"
 	"github.com/psyb0t/aichteeteapee"
 	dabluveees "github.com/psyb0t/aichteeteapee/server/dabluvee-es"
-	"github.com/sirupsen/logrus"
 )
 
 // Hub interface needs all methods for complete functionality
@@ -44,8 +44,10 @@ type hub struct {
 
 //nolint:ireturn // factory returns interface by design
 func NewHub(name string) Hub {
-	logger := logrus.WithField(aichteeteapee.FieldHubName, name)
-	logger.Info("creating new hub")
+	slog.Info(
+		"creating new hub",
+		aichteeteapee.FieldHubName, name,
+	)
 
 	return &hub{
 		name:     name,
@@ -60,20 +62,25 @@ func (h *hub) Name() string {
 }
 
 func (h *hub) Close() {
-	logger := logrus.WithField(aichteeteapee.FieldHubName, h.name)
-
 	h.mu.Lock()
 	defer h.mu.Unlock()
 
 	h.stopOnce.Do(func() {
-		logger.Info("closing hub")
+		slog.Info(
+			"closing hub",
+			aichteeteapee.FieldHubName, h.name,
+		)
 
 		close(h.doneCh)
 
 		// Stop all clients
 		clients := h.clients.GetAll()
-		logger.WithField(aichteeteapee.FieldTotalClients, len(clients)).
-			Debug("stopping all hub clients")
+
+		slog.Debug(
+			"stopping all hub clients",
+			aichteeteapee.FieldHubName, h.name,
+			aichteeteapee.FieldTotalClients, len(clients),
+		)
 
 		for _, client := range clients {
 			go client.Stop()
@@ -93,15 +100,14 @@ func (h *hub) Done() <-chan struct{} {
 }
 
 func (h *hub) AddClient(client *Client) {
-	logger := logrus.WithFields(logrus.Fields{
-		aichteeteapee.FieldHubName:  h.name,
-		aichteeteapee.FieldClientID: client.id,
-	})
-
 	h.mu.Lock()
 	defer h.mu.Unlock()
 
-	logger.Debug("adding client to hub")
+	slog.Debug(
+		"adding client to hub",
+		aichteeteapee.FieldHubName, h.name,
+		aichteeteapee.FieldClientID, client.id,
+	)
 
 	// Inject hub reference and doneCh into client
 	client.SetHub(h)
@@ -111,7 +117,12 @@ func (h *hub) AddClient(client *Client) {
 	h.wg.Go(func() {
 		defer func() {
 			// Remove client from hub when Run() exits
-			logger.Debug("client run finished, removing from hub")
+			slog.Debug(
+				"client run finished, removing from hub",
+				aichteeteapee.FieldHubName, h.name,
+				aichteeteapee.FieldClientID, client.id,
+			)
+
 			h.clients.Remove(client.id)
 		}()
 
@@ -120,12 +131,11 @@ func (h *hub) AddClient(client *Client) {
 }
 
 func (h *hub) RemoveClient(clientID uuid.UUID) {
-	logger := logrus.WithFields(logrus.Fields{
-		aichteeteapee.FieldHubName:  h.name,
-		aichteeteapee.FieldClientID: clientID,
-	})
-
-	logger.Debug("removing client from hub")
+	slog.Debug(
+		"removing client from hub",
+		aichteeteapee.FieldHubName, h.name,
+		aichteeteapee.FieldClientID, clientID,
+	)
 
 	if client := h.clients.Remove(clientID); client != nil {
 		client.Stop()
@@ -142,20 +152,23 @@ func (h *hub) GetOrCreateClient(
 	h.mu.Lock()
 	defer h.mu.Unlock()
 
-	logger := logrus.WithFields(logrus.Fields{
-		aichteeteapee.FieldHubName:  h.name,
-		aichteeteapee.FieldClientID: clientID,
-	})
-
 	// Check if client already exists
 	if existingClient := h.clients.Get(clientID); existingClient != nil {
-		logger.Debug("client already exists in hub")
+		slog.Debug(
+			"client already exists in hub",
+			aichteeteapee.FieldHubName, h.name,
+			aichteeteapee.FieldClientID, clientID,
+		)
 
 		return existingClient, false // false means not created, just retrieved
 	}
 
 	// Create new client and add it to hub properly
-	logger.Debug("creating new client and adding to hub")
+	slog.Debug(
+		"creating new client and adding to hub",
+		aichteeteapee.FieldHubName, h.name,
+		aichteeteapee.FieldClientID, clientID,
+	)
 
 	newClient := NewClientWithID(clientID, opts...)
 
@@ -167,7 +180,12 @@ func (h *hub) GetOrCreateClient(
 	h.wg.Go(func() {
 		defer func() {
 			// Remove client from hub when Run() exits
-			logger.Debug("client run finished, removing from hub")
+			slog.Debug(
+				"client run finished, removing from hub",
+				aichteeteapee.FieldHubName, h.name,
+				aichteeteapee.FieldClientID, newClient.id,
+			)
+
 			h.clients.Remove(newClient.id)
 		}()
 
@@ -184,12 +202,11 @@ func (h *hub) GetAllClients() map[uuid.UUID]*Client {
 func (h *hub) RegisterEventHandler(
 	eventType dabluveees.EventType, handler EventHandler,
 ) {
-	logger := logrus.WithFields(logrus.Fields{
-		aichteeteapee.FieldHubName:   h.name,
-		aichteeteapee.FieldEventType: string(eventType),
-	})
-
-	logger.Info("registering event handler for event")
+	slog.Info(
+		"registering event handler for event",
+		aichteeteapee.FieldHubName, h.name,
+		aichteeteapee.FieldEventType, string(eventType),
+	)
 
 	h.handlers.Add(eventType, handler)
 }
@@ -197,12 +214,11 @@ func (h *hub) RegisterEventHandler(
 func (h *hub) RegisterEventHandlers(
 	handlers map[dabluveees.EventType]EventHandler,
 ) {
-	logger := logrus.WithFields(logrus.Fields{
-		aichteeteapee.FieldHubName: h.name,
-	})
-
-	logger.WithField("count", len(handlers)).
-		Info("registering multiple event handlers")
+	slog.Info(
+		"registering multiple event handlers",
+		aichteeteapee.FieldHubName, h.name,
+		"count", len(handlers),
+	)
 
 	for eventType, handler := range handlers {
 		h.RegisterEventHandler(eventType, handler)
@@ -214,24 +230,36 @@ func (h *hub) UnregisterEventHandler(eventType dabluveees.EventType) {
 }
 
 func (h *hub) ProcessEvent(client *Client, event *dabluveees.Event) {
-	logger := logrus.WithFields(logrus.Fields{
-		aichteeteapee.FieldHubName:   h.name,
-		aichteeteapee.FieldClientID:  client.ID(),
-		aichteeteapee.FieldEventType: string(event.Type),
-		aichteeteapee.FieldEventID:   event.ID,
-	})
-
-	logger.Debug("processing event through hub")
+	slog.Debug(
+		"processing event through hub",
+		aichteeteapee.FieldHubName, h.name,
+		aichteeteapee.FieldClientID, client.ID(),
+		aichteeteapee.FieldEventType, string(event.Type),
+		aichteeteapee.FieldEventID, event.ID,
+	)
 
 	handler, exists := h.handlers.Get(event.Type)
 	if !exists {
-		logger.Debug("no handler registered for event type")
+		slog.Debug(
+			"no handler registered for event type",
+			aichteeteapee.FieldHubName, h.name,
+			aichteeteapee.FieldClientID, client.ID(),
+			aichteeteapee.FieldEventType, string(event.Type),
+			aichteeteapee.FieldEventID, event.ID,
+		)
 
 		return
 	}
 
 	if err := handler(h, client, event); err != nil {
-		logger.WithError(err).Error("event handler execution failed")
+		slog.Error(
+			"event handler execution failed",
+			"error", err,
+			aichteeteapee.FieldHubName, h.name,
+			aichteeteapee.FieldClientID, client.ID(),
+			aichteeteapee.FieldEventType, string(event.Type),
+			aichteeteapee.FieldEventID, event.ID,
+		)
 		// Note: Don't return error here as per v4 spec - just log it
 	}
 }

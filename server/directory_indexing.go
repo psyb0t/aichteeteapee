@@ -156,7 +156,7 @@ func (s *Server) generateDirectoryListing(
 	// Read directory contents
 	entries, err := os.ReadDir(fullPath)
 	if err != nil {
-		s.logger.WithError(err).Error("failed to read directory for listing")
+		s.logger.Error("failed to read directory for listing", "error", err)
 		aichteeteapee.WriteJSON(
 			w,
 			http.StatusInternalServerError,
@@ -211,7 +211,7 @@ func (s *Server) serveDirectoryListingJSON(
 
 	// For JSON, just return the entries array directly
 	if err := json.NewEncoder(w).Encode(listing.Entries); err != nil {
-		s.logger.WithError(err).Error("failed to encode directory listing JSON")
+		s.logger.Error("failed to encode directory listing JSON", "error", err)
 		aichteeteapee.WriteJSON(
 			w,
 			http.StatusInternalServerError,
@@ -231,8 +231,8 @@ func (s *Server) serveDirectoryListingHTML(
 
 	tmpl, err := template.New("directory").Parse(directoryListingHTMLTemplate)
 	if err != nil {
-		s.logger.WithError(err).Error(
-			"failed to parse directory listing template",
+		s.logger.Error(
+			"failed to parse directory listing template", "error", err,
 		)
 		aichteeteapee.WriteJSON(
 			w,
@@ -244,8 +244,8 @@ func (s *Server) serveDirectoryListingHTML(
 	}
 
 	if err := tmpl.Execute(w, listing); err != nil {
-		s.logger.WithError(err).Error(
-			"failed to execute directory listing template",
+		s.logger.Error(
+			"failed to execute directory listing template", "error", err,
 		)
 	}
 }

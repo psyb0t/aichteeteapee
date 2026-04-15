@@ -2,6 +2,7 @@ package wsunixbridge
 
 import (
 	"context"
+	"log/slog"
 	"net"
 	"os"
 	"path/filepath"
@@ -11,7 +12,6 @@ import (
 	"github.com/gorilla/websocket"
 	"github.com/psyb0t/aichteeteapee"
 	"github.com/psyb0t/ctxerrors"
-	"github.com/sirupsen/logrus"
 )
 
 // UnixSock represents Unix socket resources for a connection.
@@ -23,7 +23,7 @@ type UnixSock struct {
 }
 
 // Broadcast sends data to all connected clients.
-func (us *UnixSock) Broadcast(data []byte, logger *logrus.Entry) {
+func (us *UnixSock) Broadcast(data []byte, logger *slog.Logger) {
 	logger.Debug("collecting clients to broadcast")
 
 	us.ClientsMux.RLock()
@@ -31,12 +31,17 @@ func (us *UnixSock) Broadcast(data []byte, logger *logrus.Entry) {
 	copy(clients, us.Clients)
 	us.ClientsMux.RUnlock()
 
-	logger.Debugf("broadcasting %d clients", len(clients))
+	logger.Debug(
+		"broadcasting to clients",
+		"count", len(clients),
+	)
 
 	for _, client := range clients {
 		if _, err := client.Write(data); err != nil {
-			logger.WithError(err).
-				Debug("failed to write to UnixSock client")
+			logger.Debug(
+				"failed to write to UnixSock client",
+				"error", err,
+			)
 		}
 	}
 
@@ -48,7 +53,7 @@ func createUnixSockets(
 	socketsDir string,
 	connID uuid.UUID,
 	conn *Connection,
-	logger *logrus.Entry,
+	logger *slog.Logger,
 ) error {
 	basePath := filepath.Join(socketsDir, connID.String())
 	outputPath := basePath + writerUnixSockSuffix
@@ -56,13 +61,19 @@ func createUnixSockets(
 
 	// Remove any existing sockets
 	if err := os.Remove(outputPath); err != nil && !os.IsNotExist(err) {
-		logger.WithError(err).WithField(aichteeteapee.FieldPath, outputPath).
-			Debug("error removing existing WriterUnixSock socket")
+		logger.Debug(
+			"error removing existing WriterUnixSock socket",
+			"error", err,
+			aichteeteapee.FieldPath, outputPath,
+		)
 	}
 
 	if err := os.Remove(inputPath); err != nil && !os.IsNotExist(err) {
-		logger.WithError(err).WithField(aichteeteapee.FieldPath, inputPath).
-			Debug("error removing existing ReaderUnixSock socket")
+		logger.Debug(
+			"error removing existing ReaderUnixSock socket",
+			"error", err,
+			aichteeteapee.FieldPath, inputPath,
+		)
 	}
 
 	lc := &net.ListenConfig{}
@@ -99,7 +110,7 @@ func createUnixSockets(
 func acceptWriterUnixSockClients(
 	ctx context.Context,
 	conn *Connection,
-	logger *logrus.Entry,
+	logger *slog.Logger,
 ) {
 	for {
 		select {
@@ -112,8 +123,10 @@ func acceptWriterUnixSockClients(
 					return
 				}
 
-				logger.WithError(err).
-					Debug("WriterUnixSock socket accept error")
+				logger.Debug(
+					"WriterUnixSock socket accept error",
+					"error", err,
+				)
 
 				continue
 			}
@@ -136,12 +149,14 @@ func handleWriterUnixSockClient(
 	ctx context.Context,
 	conn *Connection,
 	client net.Conn,
-	logger *logrus.Entry,
+	logger *slog.Logger,
 ) {
 	defer func() {
 		if err := client.Close(); err != nil {
-			logger.WithError(err).
-				Debug("error closing WriterUnixSock client connection")
+			logger.Debug(
+				"error closing WriterUnixSock client connection",
+				"error", err,
+			)
 		}
 
 		removeWriterUnixSockClient(conn, client)
@@ -161,7 +176,10 @@ func handleWriterUnixSockClient(
 					return
 				}
 
-				logger.WithError(err).Debug("WriterUnixSock client read error")
+				logger.Debug(
+					"WriterUnixSock client read error",
+					"error", err,
+				)
 
 				return
 			}
@@ -172,7 +190,7 @@ func handleWriterUnixSockClient(
 func acceptReaderUnixSockClients(
 	ctx context.Context,
 	conn *Connection,
-	logger *logrus.Entry,
+	logger *slog.Logger,
 ) {
 	for {
 		select {
@@ -185,8 +203,10 @@ func acceptReaderUnixSockClients(
 					return
 				}
 
-				logger.WithError(err).
-					Debug("ReaderUnixSock socket accept error")
+				logger.Debug(
+					"ReaderUnixSock socket accept error",
+					"error", err,
+				)
 
 				continue
 			}
@@ -208,12 +228,14 @@ func handleReaderUnixSockClient(
 	ctx context.Context,
 	conn *Connection,
 	client net.Conn,
-	logger *logrus.Entry,
+	logger *slog.Logger,
 ) {
 	defer func() {
 		if err := client.Close(); err != nil {
-			logger.WithError(err).
-				Debug("error closing ReaderUnixSock client connection")
+			logger.Debug(
+				"error closing ReaderUnixSock client connection",
+				"error", err,
+			)
 		}
 
 		removeReaderUnixSockClient(conn, client)
@@ -233,8 +255,10 @@ func handleReaderUnixSockClient(
 					return
 				}
 
-				logger.WithError(err).
-					Debug("error reading from ReaderUnixSock socket")
+				logger.Debug(
+					"error reading from ReaderUnixSock socket",
+					"error", err,
+				)
 
 				return
 			}
@@ -245,7 +269,10 @@ func handleReaderUnixSockClient(
 
 			err = conn.Conn.WriteMessage(websocket.BinaryMessage, buffer[:n])
 			if err != nil {
-				logger.WithError(err).Debug("error writing to websocket")
+				logger.Debug(
+					"error writing to websocket",
+					"error", err,
+				)
 
 				return
 			}
@@ -285,16 +312,18 @@ func removeWriterUnixSockClient(conn *Connection, client net.Conn) {
 	}
 }
 
-func removeSocketFiles(conn *Connection, logger *logrus.Entry) {
+func removeSocketFiles(conn *Connection, logger *slog.Logger) {
 	// Remove output socket file
 	if conn.WriterUnixSock.Listener != nil {
 		ul, ok := conn.WriterUnixSock.Listener.(*net.UnixListener)
 		if ok {
 			addr := ul.Addr().String()
 			if err := os.Remove(addr); err != nil && !os.IsNotExist(err) {
-				logger.WithError(err).
-					WithField(aichteeteapee.FieldPath, addr).
-					Debug("error removing WriterUnixSock socket file")
+				logger.Debug(
+					"error removing WriterUnixSock socket file",
+					"error", err,
+					aichteeteapee.FieldPath, addr,
+				)
 			}
 		}
 	}
@@ -305,9 +334,11 @@ func removeSocketFiles(conn *Connection, logger *logrus.Entry) {
 		if ok {
 			addr := ul.Addr().String()
 			if err := os.Remove(addr); err != nil && !os.IsNotExist(err) {
-				logger.WithError(err).
-					WithField(aichteeteapee.FieldPath, addr).
-					Debug("error removing ReaderUnixSock socket file")
+				logger.Debug(
+					"error removing ReaderUnixSock socket file",
+					"error", err,
+					aichteeteapee.FieldPath, addr,
+				)
 			}
 		}
 	}

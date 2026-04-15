@@ -1,13 +1,14 @@
 package wsunixbridge
 
 import (
+	"fmt"
+	"log/slog"
 	"net/http"
 
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
 	"github.com/psyb0t/aichteeteapee"
 	dabluveees "github.com/psyb0t/aichteeteapee/server/dabluvee-es"
-	"github.com/sirupsen/logrus"
 )
 
 const (
@@ -51,19 +52,22 @@ func handleConnection(
 	upgrader websocket.Upgrader,
 ) {
 	connID := uuid.New()
-	logger := logrus.WithFields(logrus.Fields{
-		aichteeteapee.FieldRemoteAddr: r.RemoteAddr,
-		aichteeteapee.FieldOrigin: r.Header.Get(
+	logger := slog.Default().With(
+		aichteeteapee.FieldRemoteAddr, r.RemoteAddr,
+		aichteeteapee.FieldOrigin, r.Header.Get(
 			aichteeteapee.HeaderNameOrigin,
 		),
-		aichteeteapee.FieldConnectionID: connID,
-	})
+		aichteeteapee.FieldConnectionID, connID,
+	)
 
 	logger.Debug("unixsock websocket upgrade request received")
 
 	wsConn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
-		logger.WithError(err).Error("websocket upgrade failed")
+		logger.Error(
+			"websocket upgrade failed",
+			"error", err,
+		)
 
 		return // upgrader already wrote HTTP error response
 	}
@@ -79,10 +83,16 @@ func handleConnection(
 		logger,
 	)
 	if err != nil {
-		logger.WithError(err).Error("connection setup failed")
+		logger.Error(
+			"connection setup failed",
+			"error", err,
+		)
 
 		if err := wsConn.Close(); err != nil {
-			logger.WithError(err).Debug("error closing websocket connection")
+			logger.Debug(
+				"error closing websocket connection",
+				"error", err,
+			)
 		}
 	}
 }
@@ -90,17 +100,17 @@ func handleConnection(
 func handleWebSocketMessages(
 	wsConn *websocket.Conn,
 	conn *Connection,
-	logger *logrus.Entry,
+	logger *slog.Logger,
 ) {
-	logger.Debugf(
+	logger.Debug(fmt.Sprintf(
 		"handling websocket messages for connection %s",
 		conn.ID,
-	)
+	))
 
-	defer logger.Debugf(
+	defer logger.Debug(fmt.Sprintf(
 		"finished handling websocket messages for connection %s",
 		conn.ID,
-	)
+	))
 
 	for {
 		messageType, data, err := wsConn.ReadMessage()
@@ -117,7 +127,10 @@ func handleWebSocketMessages(
 				return
 			}
 
-			logger.WithError(err).Error("websocket read error")
+			logger.Error(
+				"websocket read error",
+				"error", err,
+			)
 
 			return
 		}

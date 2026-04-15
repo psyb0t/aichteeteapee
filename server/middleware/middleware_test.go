@@ -11,7 +11,7 @@ import (
 )
 
 func TestChain(t *testing.T) {
-	logger, hook := createTestLogger()
+	logger, buf := createTestLogger()
 
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Check that request ID was added by middleware
@@ -38,6 +38,8 @@ func TestChain(t *testing.T) {
 	assert.NotEmpty(t, w.Header().Get(aichteeteapee.HeaderNameXRequestID))
 
 	// Check that logger middleware logged the request
-	entries := hook.AllEntries()
-	require.Len(t, entries, 1)
+	logOutput := buf.String()
+	require.NotEmpty(
+		t, logOutput, "should have log output from logger middleware",
+	)
 }

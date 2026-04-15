@@ -1,6 +1,8 @@
 package server
 
 import (
+	"io"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -8,7 +10,6 @@ import (
 	"testing"
 
 	"github.com/psyb0t/aichteeteapee"
-	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -69,7 +70,7 @@ func TestServer_buildParentURL(t *testing.T) {
 }
 
 func TestServer_generateDirectoryListing(t *testing.T) {
-	logger := logrus.New()
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	server := &Server{logger: logger}
 
 	// Create a temporary directory with some test files

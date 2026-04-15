@@ -4,12 +4,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"sync"
 	"time"
 
 	"github.com/psyb0t/aichteeteapee"
-	"github.com/sirupsen/logrus"
 )
 
 // timeoutResponseWriter wraps http.ResponseWriter to prevent concurrent
@@ -139,12 +139,12 @@ func Timeout(opts ...TimeoutOption) Middleware {
 				if !responseWritten {
 					responseWritten = true
 
-					logrus.WithFields(logrus.Fields{
-						"method":  r.Method,
-						"path":    r.URL.Path,
-						"timeout": config.Timeout.String(),
-					}).Info(
-						"request timeout exceeded, returning gateway timeout",
+					slog.Info(
+						"request timeout exceeded, "+
+							"returning gateway timeout",
+						"method", r.Method,
+						"path", r.URL.Path,
+						"timeout", config.Timeout.String(),
 					)
 
 					w.Header().Set(

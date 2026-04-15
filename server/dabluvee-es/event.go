@@ -2,11 +2,11 @@ package dabluveees
 
 import (
 	"encoding/json"
+	"log/slog"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/psyb0t/aichteeteapee"
-	"github.com/sirupsen/logrus"
 )
 
 type EventType string
@@ -36,18 +36,21 @@ type Event struct {
 func NewEvent(eventType EventType, data any) *Event {
 	eventID := uuid.New()
 
-	logger := logrus.WithFields(logrus.Fields{
-		aichteeteapee.FieldEventID:   eventID,
-		aichteeteapee.FieldEventType: string(eventType),
-	})
-
-	logger.Debug("creating new event")
+	slog.Debug(
+		"creating new event",
+		aichteeteapee.FieldEventID, eventID,
+		aichteeteapee.FieldEventType, string(eventType),
+	)
 
 	var rawData json.RawMessage
 	if data != nil {
 		if jsonData, err := json.Marshal(data); err != nil {
-			logger.WithError(err).
-				Error("failed to marshal event data, using nil")
+			slog.Error(
+				"failed to marshal event data, using nil",
+				"error", err,
+				aichteeteapee.FieldEventID, eventID,
+				aichteeteapee.FieldEventType, string(eventType),
+			)
 		} else {
 			rawData = jsonData
 		}

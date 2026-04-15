@@ -1,19 +1,19 @@
 package middleware
 
 import (
+	"log/slog"
 	"maps"
 	"net/http"
 	"sync"
 	"time"
 
 	"github.com/psyb0t/aichteeteapee"
-	"github.com/sirupsen/logrus"
 )
 
 // LoggerConfig holds configuration for logger middleware.
 type LoggerConfig struct {
-	Logger         *logrus.Logger
-	LogLevel       logrus.Level
+	Logger         *slog.Logger
+	LogLevel       slog.Level
 	Message        string
 	SkipPaths      map[string]bool
 	ExtraFields    map[string]any
@@ -25,14 +25,14 @@ type LoggerConfig struct {
 type LoggerOption func(*LoggerConfig)
 
 // WithLogger sets the logger instance.
-func WithLogger(logger *logrus.Logger) LoggerOption {
+func WithLogger(logger *slog.Logger) LoggerOption {
 	return func(c *LoggerConfig) {
 		c.Logger = logger
 	}
 }
 
 // WithLogLevel sets the log level for requests.
-func WithLogLevel(level logrus.Level) LoggerOption {
+func WithLogLevel(level slog.Level) LoggerOption {
 	return func(c *LoggerConfig) {
 		c.LogLevel = level
 	}
@@ -90,8 +90,8 @@ func WithIncludeHeaders(headers ...string) LoggerOption {
 //nolint:funlen // Long function due to comprehensive logging configuration
 func Logger(opts ...LoggerOption) Middleware {
 	config := &LoggerConfig{
-		Logger:         logrus.StandardLogger(),
-		LogLevel:       logrus.InfoLevel,
+		Logger:         slog.Default(),
+		LogLevel:       slog.LevelInfo,
 		Message:        "HTTP request",
 		SkipPaths:      make(map[string]bool),
 		ExtraFields:    make(map[string]any),
@@ -113,6 +113,7 @@ func Logger(opts ...LoggerOption) Middleware {
 				return
 			}
 
+			ctx := r.Context()
 			start := time.Now()
 
 			// Capture response status
@@ -126,34 +127,39 @@ func Logger(opts ...LoggerOption) Middleware {
 				reqID := aichteeteapee.GetRequestID(r)
 				clientIP := aichteeteapee.GetClientIP(r)
 
-				fields := logrus.Fields{
-					"method":   r.Method,
-					"path":     r.URL.Path,
-					"status":   wrapped.getStatusCode(),
-					"duration": duration.String(),
-					"ip":       clientIP,
-					"userAgent": r.Header.Get(
+				args := []any{
+					"method", r.Method,
+					"path", r.URL.Path,
+					"status", wrapped.getStatusCode(),
+					"duration", duration.String(),
+					"ip", clientIP,
+					"userAgent", r.Header.Get(
 						aichteeteapee.HeaderNameUserAgent,
 					),
-					"requestId": reqID,
+					"requestId", reqID,
 				}
 
 				if config.IncludeQuery {
-					fields["query"] = r.URL.RawQuery
+					args = append(args, "query", r.URL.RawQuery)
 				}
 
-				maps.Copy(fields, config.ExtraFields)
+				for k, v := range config.ExtraFields {
+					args = append(args, k, v)
+				}
 
 				if config.IncludeHeaders {
 					for _, header := range config.HeaderFields {
 						if value := r.Header.Get(header); value != "" {
-							fields["header_"+header] = value
+							args = append(args, "header_"+header, value)
 						}
 					}
 				}
 
-				config.Logger.WithFields(fields).Log(
-					config.LogLevel, config.Message,
+				config.Logger.Log(
+					ctx,
+					config.LogLevel,
+					config.Message,
+					args...,
 				)
 			}()
 

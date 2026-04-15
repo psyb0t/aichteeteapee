@@ -2,9 +2,9 @@ package aichteeteapee
 
 import (
 	"encoding/json"
+	"fmt"
+	"log/slog"
 	"net/http"
-
-	"github.com/sirupsen/logrus"
 )
 
 // WriteJSON writes a JSON response with the given status code.
@@ -23,6 +23,9 @@ func WriteJSON(
 	encoder.SetIndent("", "  ") // Pretty print for better readability
 
 	if err := encoder.Encode(data); err != nil {
-		logrus.WithError(err).Error("Failed to encode JSON response")
+		slog.Error(
+			"Failed to encode JSON response",
+			"error", fmt.Sprintf("%v", err),
+		)
 	}
 }

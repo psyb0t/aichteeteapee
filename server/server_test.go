@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
+	"log/slog"
 	"net"
 	"net/http"
 	"net/http/httptest"
@@ -17,7 +19,6 @@ import (
 	"github.com/psyb0t/aichteeteapee"
 	"github.com/psyb0t/aichteeteapee/server/middleware"
 	"github.com/psyb0t/ctxerrors"
-	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -138,7 +139,7 @@ func TestServer_GetMux(t *testing.T) {
 }
 
 func TestServer_GetLogger(t *testing.T) {
-	logger := logrus.StandardLogger()
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	server, err := NewWithLogger(logger)
 	require.NoError(t, err)
 
@@ -784,7 +785,7 @@ func TestGroup_ConcurrentRouteRegistration(t *testing.T) {
 	}
 
 	mux := http.NewServeMux()
-	logger := logrus.StandardLogger()
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	group := NewGroup(mux, "/api", logger)
 
 	const numRoutes = 50
@@ -821,7 +822,7 @@ func TestMiddleware_ConcurrentExecution(t *testing.T) {
 		t.Skip("Skipping race condition test in short mode")
 	}
 
-	logger := logrus.StandardLogger()
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 
 	middlewares := []middleware.Middleware{
 		middleware.RequestID(),

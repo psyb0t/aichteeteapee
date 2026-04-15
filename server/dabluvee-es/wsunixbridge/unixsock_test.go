@@ -9,7 +9,6 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
-	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -55,7 +54,7 @@ func TestUnixSockBroadcast(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			logger := logrus.WithField("test", tt.name)
+			logger := testLogger()
 
 			// Create mock clients
 			var (
@@ -128,7 +127,7 @@ func TestCreateUnixSockets(t *testing.T) {
 
 			ctx := context.Background()
 			connID := uuid.New()
-			logger := logrus.WithField("test", tt.name)
+			logger := testLogger()
 
 			conn := &Connection{
 				ID:   connID,
@@ -291,7 +290,7 @@ func TestRemoveSocketFiles(t *testing.T) {
 				}
 			}
 
-			logger := logrus.WithField("test", tt.name)
+			logger := testLogger()
 
 			// Should not panic
 			removeSocketFiles(conn, logger)

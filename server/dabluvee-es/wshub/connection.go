@@ -1,6 +1,7 @@
 package wshub
 
 import (
+	"log/slog"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -9,7 +10,6 @@ import (
 	"github.com/gorilla/websocket"
 	"github.com/psyb0t/aichteeteapee"
 	dabluveees "github.com/psyb0t/aichteeteapee/server/dabluvee-es"
-	"github.com/sirupsen/logrus"
 )
 
 type Connection struct {
@@ -58,22 +58,28 @@ func (c *Connection) GetClientID() uuid.UUID {
 
 // Send sends an event to the connection's send channel.
 func (c *Connection) Send(event *dabluveees.Event) {
-	logger := logrus.WithFields(logrus.Fields{
-		aichteeteapee.FieldHubName:      c.GetHubName(),
-		aichteeteapee.FieldClientID:     c.GetClientID(),
-		aichteeteapee.FieldConnectionID: c.id,
-		aichteeteapee.FieldEventType:    event.Type,
-		aichteeteapee.FieldEventID:      event.ID,
-	})
-
 	if c.isDone.Load() {
-		logger.Debug("connection is done, cannot send event")
+		slog.Debug(
+			"connection is done, cannot send event",
+			aichteeteapee.FieldHubName, c.GetHubName(),
+			aichteeteapee.FieldClientID, c.GetClientID(),
+			aichteeteapee.FieldConnectionID, c.id,
+			aichteeteapee.FieldEventType, event.Type,
+			aichteeteapee.FieldEventID, event.ID,
+		)
 
 		return
 	}
 
 	if c.sendCh == nil || c.doneCh == nil {
-		logger.Debug("connection channels are nil, cannot send event")
+		slog.Debug(
+			"connection channels are nil, cannot send event",
+			aichteeteapee.FieldHubName, c.GetHubName(),
+			aichteeteapee.FieldClientID, c.GetClientID(),
+			aichteeteapee.FieldConnectionID, c.id,
+			aichteeteapee.FieldEventType, event.Type,
+			aichteeteapee.FieldEventID, event.ID,
+		)
 
 		return
 	}
@@ -84,36 +90,48 @@ func (c *Connection) Send(event *dabluveees.Event) {
 
 	// Check again after acquiring WaitGroup (race protection)
 	if c.isDone.Load() {
-		logger.Debug("connection became done during send, aborting")
+		slog.Debug(
+			"connection became done during send, aborting",
+			aichteeteapee.FieldHubName, c.GetHubName(),
+			aichteeteapee.FieldClientID, c.GetClientID(),
+			aichteeteapee.FieldConnectionID, c.id,
+		)
 
 		return
 	}
 
 	select {
 	case c.sendCh <- event:
-		logger.Debug("event queued for sending")
+		slog.Debug(
+			"event queued for sending",
+			aichteeteapee.FieldHubName, c.GetHubName(),
+			aichteeteapee.FieldClientID, c.GetClientID(),
+			aichteeteapee.FieldConnectionID, c.id,
+			aichteeteapee.FieldEventType, event.Type,
+			aichteeteapee.FieldEventID, event.ID,
+		)
 	case <-c.doneCh:
-		logrus.WithFields(logrus.Fields{
-			aichteeteapee.FieldHubName:      c.GetHubName(),
-			aichteeteapee.FieldClientID:     c.GetClientID(),
-			aichteeteapee.FieldConnectionID: c.id,
-		}).Debug("connection stopped, cannot send event")
+		slog.Debug(
+			"connection stopped, cannot send event",
+			aichteeteapee.FieldHubName, c.GetHubName(),
+			aichteeteapee.FieldClientID, c.GetClientID(),
+			aichteeteapee.FieldConnectionID, c.id,
+		)
 	}
 }
 
 // Stop cleanly shuts down the connection.
 func (c *Connection) Stop() {
-	logger := logrus.WithFields(logrus.Fields{
-		aichteeteapee.FieldHubName:      c.GetHubName(),
-		aichteeteapee.FieldClientID:     c.GetClientID(),
-		aichteeteapee.FieldConnectionID: c.id,
-	})
-
 	c.stopOnce.Do(func() {
 		// Set done flag atomically first
 		c.isDone.Store(true)
 
-		logger.Debug("stopping connection")
+		slog.Debug(
+			"stopping connection",
+			aichteeteapee.FieldHubName, c.GetHubName(),
+			aichteeteapee.FieldClientID, c.GetClientID(),
+			aichteeteapee.FieldConnectionID, c.id,
+		)
 
 		// Close doneCh first to signal shutdown
 		if c.doneCh != nil {
@@ -121,7 +139,13 @@ func (c *Connection) Stop() {
 		}
 
 		// Wait for all in-flight sends to complete before closing sendCh
-		logger.Debug("waiting for in-flight sends to complete")
+		slog.Debug(
+			"waiting for in-flight sends to complete",
+			aichteeteapee.FieldHubName, c.GetHubName(),
+			aichteeteapee.FieldClientID, c.GetClientID(),
+			aichteeteapee.FieldConnectionID, c.id,
+		)
+
 		c.sendWg.Wait()
 
 		// Now safe to close sendCh - no more sends can happen
@@ -133,37 +157,57 @@ func (c *Connection) Stop() {
 			_ = c.conn.Close()
 		}
 
-		logger.Debug("connection stop completed")
+		slog.Debug(
+			"connection stop completed",
+			aichteeteapee.FieldHubName, c.GetHubName(),
+			aichteeteapee.FieldClientID, c.GetClientID(),
+			aichteeteapee.FieldConnectionID, c.id,
+		)
 	})
 }
 
 // writePump handles outbound messages and keepalive.
 func (c *Connection) writePump() { //nolint:cyclop,funlen
-	logger := logrus.WithFields(logrus.Fields{
-		aichteeteapee.FieldHubName:      c.GetHubName(),
-		aichteeteapee.FieldClientID:     c.GetClientID(),
-		aichteeteapee.FieldConnectionID: c.id,
-	})
-
 	defer func() {
-		logger.Debug("write pump stopped")
+		slog.Debug(
+			"write pump stopped",
+			aichteeteapee.FieldHubName, c.GetHubName(),
+			aichteeteapee.FieldClientID, c.GetClientID(),
+			aichteeteapee.FieldConnectionID, c.id,
+		)
+
 		c.client.RemoveConnection(c.id) // Auto-cleanup
 	}()
 
 	if c.isDone.Load() {
-		logger.Debug("connection is done, cannot start write pump")
+		slog.Debug(
+			"connection is done, cannot start write pump",
+			aichteeteapee.FieldHubName, c.GetHubName(),
+			aichteeteapee.FieldClientID, c.GetClientID(),
+			aichteeteapee.FieldConnectionID, c.id,
+		)
 
 		return
 	}
 
-	logger.Debug("starting connection write pump")
+	slog.Debug(
+		"starting connection write pump",
+		aichteeteapee.FieldHubName, c.GetHubName(),
+		aichteeteapee.FieldClientID, c.GetClientID(),
+		aichteeteapee.FieldConnectionID, c.id,
+	)
 
 	ticker := time.NewTicker(c.client.config.PingInterval)
 	defer ticker.Stop()
 
 	for {
 		if c.isDone.Load() {
-			logger.Debug("connection is done, stopping write pump")
+			slog.Debug(
+				"connection is done, stopping write pump",
+				aichteeteapee.FieldHubName, c.GetHubName(),
+				aichteeteapee.FieldClientID, c.GetClientID(),
+				aichteeteapee.FieldConnectionID, c.id,
+			)
 
 			return
 		}
@@ -188,20 +232,35 @@ func (c *Connection) writePump() { //nolint:cyclop,funlen
 				if websocket.IsCloseError(
 					err, websocket.CloseNormalClosure, websocket.CloseGoingAway,
 				) {
-					logger.Info("connection closed normally during write")
+					slog.Info(
+						"connection closed normally during write",
+						aichteeteapee.FieldHubName, c.GetHubName(),
+						aichteeteapee.FieldClientID, c.GetClientID(),
+						aichteeteapee.FieldConnectionID, c.id,
+					)
 
 					return
 				}
 
-				logger.WithError(err).Error("connection write error")
+				slog.Error(
+					"connection write error",
+					"error", err,
+					aichteeteapee.FieldHubName, c.GetHubName(),
+					aichteeteapee.FieldClientID, c.GetClientID(),
+					aichteeteapee.FieldConnectionID, c.id,
+				)
 
 				return
 			}
 
-			logger.WithFields(logrus.Fields{
-				aichteeteapee.FieldEventType: string(event.Type),
-				aichteeteapee.FieldEventID:   event.ID,
-			}).Debug("event sent to connection")
+			slog.Debug(
+				"event sent to connection",
+				aichteeteapee.FieldHubName, c.GetHubName(),
+				aichteeteapee.FieldClientID, c.GetClientID(),
+				aichteeteapee.FieldConnectionID, c.id,
+				aichteeteapee.FieldEventType, string(event.Type),
+				aichteeteapee.FieldEventID, event.ID,
+			)
 
 		case <-ticker.C:
 			// Send ping
@@ -214,12 +273,23 @@ func (c *Connection) writePump() { //nolint:cyclop,funlen
 				if websocket.IsCloseError(
 					err, websocket.CloseNormalClosure, websocket.CloseGoingAway,
 				) {
-					logger.Info("connection closed normally during ping")
+					slog.Info(
+						"connection closed normally during ping",
+						aichteeteapee.FieldHubName, c.GetHubName(),
+						aichteeteapee.FieldClientID, c.GetClientID(),
+						aichteeteapee.FieldConnectionID, c.id,
+					)
 
 					return
 				}
 
-				logger.WithError(err).Error("connection ping error")
+				slog.Error(
+					"connection ping error",
+					"error", err,
+					aichteeteapee.FieldHubName, c.GetHubName(),
+					aichteeteapee.FieldClientID, c.GetClientID(),
+					aichteeteapee.FieldConnectionID, c.id,
+				)
 
 				return
 			}
@@ -232,24 +302,34 @@ func (c *Connection) writePump() { //nolint:cyclop,funlen
 
 // readPump handles inbound messages and connection monitoring.
 func (c *Connection) readPump() { //nolint:cyclop,funlen
-	logger := logrus.WithFields(logrus.Fields{
-		aichteeteapee.FieldHubName:      c.GetHubName(),
-		aichteeteapee.FieldClientID:     c.GetClientID(),
-		aichteeteapee.FieldConnectionID: c.id,
-	})
-
 	defer func() {
-		logger.Debug("read pump stopped")
+		slog.Debug(
+			"read pump stopped",
+			aichteeteapee.FieldHubName, c.GetHubName(),
+			aichteeteapee.FieldClientID, c.GetClientID(),
+			aichteeteapee.FieldConnectionID, c.id,
+		)
+
 		c.client.RemoveConnection(c.id) // Auto-cleanup
 	}()
 
 	if c.isDone.Load() {
-		logger.Debug("connection is done, cannot start read pump")
+		slog.Debug(
+			"connection is done, cannot start read pump",
+			aichteeteapee.FieldHubName, c.GetHubName(),
+			aichteeteapee.FieldClientID, c.GetClientID(),
+			aichteeteapee.FieldConnectionID, c.id,
+		)
 
 		return
 	}
 
-	logger.Debug("starting connection read pump")
+	slog.Debug(
+		"starting connection read pump",
+		aichteeteapee.FieldHubName, c.GetHubName(),
+		aichteeteapee.FieldClientID, c.GetClientID(),
+		aichteeteapee.FieldConnectionID, c.id,
+	)
 
 	// Configure connection
 	c.conn.SetReadLimit(c.client.config.ReadLimit)
@@ -268,7 +348,12 @@ func (c *Connection) readPump() { //nolint:cyclop,funlen
 
 	for {
 		if c.isDone.Load() {
-			logger.Debug("connection is done, stopping read pump")
+			slog.Debug(
+				"connection is done, stopping read pump",
+				aichteeteapee.FieldHubName, c.GetHubName(),
+				aichteeteapee.FieldClientID, c.GetClientID(),
+				aichteeteapee.FieldConnectionID, c.id,
+			)
 
 			return
 		}
@@ -285,22 +370,37 @@ func (c *Connection) readPump() { //nolint:cyclop,funlen
 				websocket.CloseNormalClosure,
 				websocket.CloseGoingAway,
 				websocket.CloseAbnormalClosure) {
-				logger.Info("websocket connection closed")
+				slog.Info(
+					"websocket connection closed",
+					aichteeteapee.FieldHubName, c.GetHubName(),
+					aichteeteapee.FieldClientID, c.GetClientID(),
+					aichteeteapee.FieldConnectionID, c.id,
+				)
 
 				return
 			}
 
-			logger.WithError(err).Error("connection read error")
+			slog.Error(
+				"connection read error",
+				"error", err,
+				aichteeteapee.FieldHubName, c.GetHubName(),
+				aichteeteapee.FieldClientID, c.GetClientID(),
+				aichteeteapee.FieldConnectionID, c.id,
+			)
 
 			return
 		}
 
 		// Check if done after reading event
 		if c.isDone.Load() {
-			logger.WithFields(logrus.Fields{
-				aichteeteapee.FieldEventType: string(event.Type),
-				aichteeteapee.FieldEventID:   event.ID,
-			}).Debug("connection is done, cannot process event")
+			slog.Debug(
+				"connection is done, cannot process event",
+				aichteeteapee.FieldHubName, c.GetHubName(),
+				aichteeteapee.FieldClientID, c.GetClientID(),
+				aichteeteapee.FieldConnectionID, c.id,
+				aichteeteapee.FieldEventType, string(event.Type),
+				aichteeteapee.FieldEventID, event.ID,
+			)
 
 			return
 		}
@@ -308,10 +408,14 @@ func (c *Connection) readPump() { //nolint:cyclop,funlen
 		// Reset read deadline
 		_ = c.conn.SetReadDeadline(time.Now().Add(c.client.config.ReadTimeout))
 
-		logger.WithFields(logrus.Fields{
-			aichteeteapee.FieldEventType: string(event.Type),
-			aichteeteapee.FieldEventID:   event.ID,
-		}).Debug("event received from connection")
+		slog.Debug(
+			"event received from connection",
+			aichteeteapee.FieldHubName, c.GetHubName(),
+			aichteeteapee.FieldClientID, c.GetClientID(),
+			aichteeteapee.FieldConnectionID, c.id,
+			aichteeteapee.FieldEventType, string(event.Type),
+			aichteeteapee.FieldEventID, event.ID,
+		)
 
 		// Process event through hub
 		if c.client.hub != nil {
@@ -320,6 +424,11 @@ func (c *Connection) readPump() { //nolint:cyclop,funlen
 			continue
 		}
 
-		logger.Debug("hub is nil, cannot process event")
+		slog.Debug(
+			"hub is nil, cannot process event",
+			aichteeteapee.FieldHubName, c.GetHubName(),
+			aichteeteapee.FieldClientID, c.GetClientID(),
+			aichteeteapee.FieldConnectionID, c.id,
+		)
 	}
 }

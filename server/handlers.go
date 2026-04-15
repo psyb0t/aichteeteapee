@@ -53,8 +53,9 @@ func (s *Server) EchoHandler(
 	if r.Body != nil {
 		decoder := json.NewDecoder(r.Body)
 		if err := decoder.Decode(&body); err != nil {
-			s.logger.WithError(err).Error(
+			s.logger.Error(
 				"Failed to decode request body in echo handler",
+				"error", err,
 			)
 		}
 	}
@@ -143,9 +144,10 @@ func (s *Server) FileUploadHandler(
 	// Ensure the uploads directory exists
 	const dirPermissions = 0o750
 	if err := os.MkdirAll(uploadsDir, dirPermissions); err != nil {
-		s.logger.WithError(err).
-			WithField("dir", uploadsDir).
-			Error("Failed to create uploads directory")
+		s.logger.Error("Failed to create uploads directory",
+			"error", err,
+			"dir", uploadsDir,
+		)
 	}
 
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -176,7 +178,7 @@ func (s *Server) handleFileUpload(
 	config *FileUploadHandlerConfig,
 ) error {
 	if err := r.ParseMultipartForm(s.config.FileUploadMaxMemory); err != nil {
-		s.logger.WithError(err).Error("Failed to parse multipart form")
+		s.logger.Error("Failed to parse multipart form", "error", err)
 		aichteeteapee.WriteJSON(
 			w,
 			http.StatusBadRequest,
@@ -188,7 +190,7 @@ func (s *Server) handleFileUpload(
 
 	file, handler, err := r.FormFile("file")
 	if err != nil {
-		s.logger.WithError(err).Error("Failed to get file from form")
+		s.logger.Error("Failed to get file from form", "error", err)
 		aichteeteapee.WriteJSON(
 			w,
 			http.StatusBadRequest,
@@ -200,8 +202,7 @@ func (s *Server) handleFileUpload(
 
 	defer func() {
 		if closeErr := file.Close(); closeErr != nil {
-			s.logger.WithError(closeErr).
-				Error("Failed to close uploaded file")
+			s.logger.Error("Failed to close uploaded file", "error", closeErr)
 		}
 	}()
 
@@ -224,9 +225,10 @@ func (s *Server) handleFileUpload(
 	// Get absolute path for response
 	absolutePath, err := filepath.Abs(filePath)
 	if err != nil {
-		s.logger.WithError(err).
-			WithField("path", filePath).
-			Warn("Failed to get absolute path, using relative path")
+		s.logger.Warn("Failed to get absolute path, using relative path",
+			"error", err,
+			"path", filePath,
+		)
 
 		absolutePath = filePath
 	}
@@ -243,7 +245,7 @@ func (s *Server) handleFileUpload(
 	if config.postprocessor != nil {
 		processedResponse, err := config.postprocessor(response, r)
 		if err != nil {
-			s.logger.WithError(err).Error("Failed to postprocess response")
+			s.logger.Error("Failed to postprocess response", "error", err)
 			aichteeteapee.WriteJSON(
 				w,
 				http.StatusInternalServerError,
@@ -272,22 +274,24 @@ func (s *Server) saveUploadedFile(
 ) error {
 	dst, err := os.Create(filePath)
 	if err != nil {
-		s.logger.WithError(err).
-			WithField("path", filePath).
-			Error("Failed to create destination file")
+		s.logger.Error("Failed to create destination file",
+			"error", err,
+			"path", filePath,
+		)
 
 		return fmt.Errorf("create file %s: %w", filePath, err)
 	}
 
 	defer func() {
 		if closeErr := dst.Close(); closeErr != nil {
-			s.logger.WithError(closeErr).
-				Error("Failed to close destination file")
+			s.logger.Error(
+				"Failed to close destination file", "error", closeErr,
+			)
 		}
 	}()
 
 	if _, err := io.Copy(dst, src); err != nil {
-		s.logger.WithError(err).Error("Failed to copy file content")
+		s.logger.Error("Failed to copy file content", "error", err)
 
 		return fmt.Errorf("copy file content: %w", err)
 	}

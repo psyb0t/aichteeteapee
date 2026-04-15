@@ -3,6 +3,8 @@ package server
 import (
 	"context"
 	"errors"
+	"fmt"
+	"log/slog"
 	"net"
 	"net/http"
 	"os"
@@ -14,7 +16,6 @@ import (
 	"github.com/psyb0t/aichteeteapee"
 	commonerrors "github.com/psyb0t/common-go/errors"
 	"github.com/psyb0t/ctxerrors"
-	"github.com/sirupsen/logrus"
 )
 
 const (
@@ -91,7 +92,7 @@ type Server struct {
 	httpServer    *http.Server
 	httpsServer   *http.Server
 	mux           *http.ServeMux
-	logger        *logrus.Logger
+	logger        *slog.Logger
 	config        Config
 	router        *Router
 	httpListener  net.Listener
@@ -104,11 +105,11 @@ type Server struct {
 }
 
 func New() (*Server, error) {
-	return NewWithLogger(logrus.StandardLogger())
+	return NewWithLogger(slog.Default())
 }
 
 func NewWithLogger(
-	logger *logrus.Logger,
+	logger *slog.Logger,
 ) (*Server, error) {
 	cfg, err := parseConfig()
 	if err != nil {
@@ -121,12 +122,12 @@ func NewWithLogger(
 func NewWithConfig(
 	config Config,
 ) (*Server, error) {
-	return NewWithConfigAndLogger(config, logrus.StandardLogger())
+	return NewWithConfigAndLogger(config, slog.Default())
 }
 
 func NewWithConfigAndLogger(
 	config Config,
-	logger *logrus.Logger,
+	logger *slog.Logger,
 ) (*Server, error) {
 	mux := http.NewServeMux()
 
@@ -226,11 +227,11 @@ func (s *Server) setupRoute(
 	routeConfig RouteConfig,
 ) {
 	if routeConfig.Handler == nil {
-		s.logger.Warnf(
+		s.logger.Warn(fmt.Sprintf(
 			"Route %s %s has no handler",
 			routeConfig.Method,
 			routeConfig.Path,
-		)
+		))
 
 		return
 	}
@@ -446,7 +447,9 @@ func (s *Server) Start(
 
 	defer func() {
 		if stopErr := s.Stop(ctx); stopErr != nil {
-			s.logger.Errorf("Error during cleanup: %v", stopErr)
+			s.logger.Error(fmt.Sprintf(
+				"Error during cleanup: %v", stopErr,
+			))
 		}
 	}()
 
@@ -493,7 +496,9 @@ func (s *Server) createListeners(
 		httpsListener, err = lc.Listen(ctx, "tcp", s.httpsServer.Addr)
 		if err != nil {
 			if closeErr := httpListener.Close(); closeErr != nil {
-				s.logger.Errorf("Failed to close HTTP listener: %v", closeErr)
+				s.logger.Error(fmt.Sprintf(
+					"Failed to close HTTP listener: %v", closeErr,
+				))
 			}
 
 			return nil, nil, ctxerrors.Wrap(
@@ -523,10 +528,14 @@ func (s *Server) serveAndWait(
 }
 
 func (s *Server) logServerStart() {
-	s.logger.Infof("Starting HTTP server on %s", s.httpServer.Addr)
+	s.logger.Info(fmt.Sprintf(
+		"Starting HTTP server on %s", s.httpServer.Addr,
+	))
 
 	if s.config.TLSEnabled {
-		s.logger.Infof("Starting HTTPS server on %s", s.httpsServer.Addr)
+		s.logger.Info(fmt.Sprintf(
+			"Starting HTTPS server on %s", s.httpsServer.Addr,
+		))
 	}
 }
 
@@ -617,10 +626,10 @@ func (s *Server) Stop(ctx context.Context) error {
 					shutdownCtx,
 				)
 				if shutdownErr != nil {
-					s.logger.Errorf(
-						"HTTP server shutdown error: %v",
-						shutdownErr,
-					)
+					s.logger.Error(fmt.Sprintf(
+						"HTTP server shutdown error: %v", shutdownErr,
+					))
+
 					addError(ctxerrors.Wrap(
 						shutdownErr,
 						"failed to shutdown HTTP server",
@@ -640,10 +649,10 @@ func (s *Server) Stop(ctx context.Context) error {
 					shutdownCtx,
 				)
 				if shutdownErr != nil {
-					s.logger.Errorf(
-						"HTTPS server shutdown error: %v",
-						shutdownErr,
-					)
+					s.logger.Error(fmt.Sprintf(
+						"HTTPS server shutdown error: %v", shutdownErr,
+					))
+
 					addError(ctxerrors.Wrap(
 						shutdownErr,
 						"failed to shutdown HTTPS server",
@@ -666,10 +675,10 @@ func (s *Server) Stop(ctx context.Context) error {
 
 			const additionalErrorIndexOffset = 2
 			for i, shutdownErr := range shutdownErrors[1:] {
-				s.logger.Errorf(
+				s.logger.Error(fmt.Sprintf(
 					"Additional shutdown error %d: %v",
 					i+additionalErrorIndexOffset, shutdownErr,
-				)
+				))
 			}
 		}
 	})
@@ -696,10 +705,11 @@ func (s *Server) closeListeners(
 				closeErr.Error(),
 				"use of closed network connection",
 			) {
-				s.logger.Errorf(
+				s.logger.Error(fmt.Sprintf(
 					"Failed to close %s listener: %v",
 					name, closeErr,
-				)
+				))
+
 				*shutdownErrors = append(
 					*shutdownErrors,
 					ctxerrors.Wrapf(
@@ -709,13 +719,13 @@ func (s *Server) closeListeners(
 					),
 				)
 			} else {
-				s.logger.Debugf(
+				s.logger.Debug(fmt.Sprintf(
 					"%s listener was already closed by server shutdown",
 					name,
-				)
+				))
 			}
 		} else {
-			s.logger.Infof("%s listener closed", name)
+			s.logger.Info(fmt.Sprintf("%s listener closed", name))
 		}
 	}
 
@@ -728,7 +738,7 @@ func (s *Server) GetMux() *http.ServeMux {
 	return s.mux
 }
 
-func (s *Server) GetLogger() *logrus.Logger {
+func (s *Server) GetLogger() *slog.Logger {
 	return s.logger
 }
 

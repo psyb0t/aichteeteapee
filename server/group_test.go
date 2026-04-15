@@ -1,11 +1,12 @@
 package server
 
 import (
+	"io"
+	"log/slog"
 	"net/http"
 	"testing"
 
 	"github.com/psyb0t/aichteeteapee/server/middleware"
-	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -190,7 +191,7 @@ func TestBuildRoute(t *testing.T) {
 
 func TestNewGroup(t *testing.T) {
 	mux := http.NewServeMux()
-	logger := logrus.StandardLogger()
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 
 	group := NewGroup(mux, "/api", logger)
 
@@ -203,7 +204,7 @@ func TestNewGroup(t *testing.T) {
 
 func TestGroup_Group(t *testing.T) {
 	mux := http.NewServeMux()
-	logger := logrus.StandardLogger()
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 
 	parentGroup := NewGroup(mux, "/api", logger)
 	subGroup := parentGroup.Group("/v1")
@@ -216,7 +217,7 @@ func TestGroup_Group(t *testing.T) {
 
 func TestGroup_HTTPMethods(t *testing.T) {
 	mux := http.NewServeMux()
-	logger := logrus.StandardLogger()
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	group := NewGroup(mux, "/api", logger)
 
 	handler := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {

@@ -3,19 +3,22 @@ package wsunixbridge
 import (
 	"bytes"
 	"io"
+	"log/slog"
 	"net"
 	"testing"
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
+func testLogger() *slog.Logger {
+	return slog.New(slog.NewTextHandler(io.Discard, nil))
+}
+
 func TestRemoveConnectionNonExistent(t *testing.T) {
-	// Create a logger for testing
-	logger := logrus.WithField("test", "removeConnection")
+	logger := testLogger()
 
 	// Try to remove a connection that doesn't exist
 	nonExistentID := uuid.New()
@@ -143,7 +146,7 @@ func TestRemoveConnection(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			logger := logrus.WithField("test", tt.name)
+			logger := testLogger()
 			connID := uuid.New()
 
 			if tt.connectionExists {
@@ -247,7 +250,7 @@ func TestCloseAllClients(t *testing.T) {
 				readerClients = append(readerClients, client)
 			}
 
-			logger := logrus.WithField("test", tt.name)
+			logger := testLogger()
 			closeAllClients(conn, logger)
 
 			// Verify all clients were closed
@@ -308,7 +311,7 @@ func TestCloseListeners(t *testing.T) {
 				}
 			}
 
-			logger := logrus.WithField("test", tt.name)
+			logger := testLogger()
 
 			// Should not panic
 			closeListeners(conn, logger)

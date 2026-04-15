@@ -1,12 +1,12 @@
 package wshub
 
 import (
+	"log/slog"
 	"net/http"
 
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
 	"github.com/psyb0t/aichteeteapee"
-	"github.com/sirupsen/logrus"
 )
 
 // UpgradeHandler creates an HTTP handler that upgrades connections
@@ -32,44 +32,55 @@ func UpgradeHandler( //nolint:funlen
 		EnableCompression: config.EnableCompression,
 	}
 
-	logrus.WithFields(logrus.Fields{
-		aichteeteapee.FieldReadBufferSize:    config.ReadBufferSize,
-		aichteeteapee.FieldWriteBufferSize:   config.WriteBufferSize,
-		aichteeteapee.FieldHandshakeTimeout:  config.HandshakeTimeout,
-		aichteeteapee.FieldEnableCompression: config.EnableCompression,
-		aichteeteapee.FieldHubName:           hub.Name(),
-	}).Debug("created websocket upgrade handler")
+	slog.Debug(
+		"created websocket upgrade handler",
+		aichteeteapee.FieldReadBufferSize, config.ReadBufferSize,
+		aichteeteapee.FieldWriteBufferSize, config.WriteBufferSize,
+		aichteeteapee.FieldHandshakeTimeout, config.HandshakeTimeout,
+		aichteeteapee.FieldEnableCompression, config.EnableCompression,
+		aichteeteapee.FieldHubName, hub.Name(),
+	)
 
 	return func(w http.ResponseWriter, r *http.Request) {
-		logger := logrus.WithFields(logrus.Fields{
-			aichteeteapee.FieldRemoteAddr: r.RemoteAddr,
-			aichteeteapee.FieldOrigin:     r.Header.Get("Origin"),
-		})
-
-		logger.WithFields(logrus.Fields{
-			aichteeteapee.FieldUserAgent: r.UserAgent(),
-			aichteeteapee.FieldEndpoint:  r.URL.Path,
-		}).Debug("websocket upgrade request received")
+		slog.Debug(
+			"websocket upgrade request received",
+			aichteeteapee.FieldRemoteAddr, r.RemoteAddr,
+			aichteeteapee.FieldOrigin, r.Header.Get("Origin"),
+			aichteeteapee.FieldUserAgent, r.UserAgent(),
+			aichteeteapee.FieldEndpoint, r.URL.Path,
+		)
 
 		// Upgrade HTTP connection to WebSocket
 		conn, err := upgrader.Upgrade(w, r, nil)
 		if err != nil {
-			logger.WithError(err).Error("websocket upgrade failed")
+			slog.Error(
+				"websocket upgrade failed",
+				"error", err,
+				aichteeteapee.FieldRemoteAddr, r.RemoteAddr,
+				aichteeteapee.FieldOrigin, r.Header.Get("Origin"),
+			)
 
 			return // upgrader already wrote HTTP error response
 		}
 
 		// Handle connection close before any other operations
 		conn.SetCloseHandler(func(code int, text string) error {
-			logger.WithFields(logrus.Fields{
-				aichteeteapee.FieldCloseCode: code,
-				aichteeteapee.FieldCloseText: text,
-			}).Debug("websocket close handler triggered")
+			slog.Debug(
+				"websocket close handler triggered",
+				aichteeteapee.FieldRemoteAddr, r.RemoteAddr,
+				aichteeteapee.FieldOrigin, r.Header.Get("Origin"),
+				aichteeteapee.FieldCloseCode, code,
+				aichteeteapee.FieldCloseText, text,
+			)
 
 			return nil
 		})
 
-		logger.Info("websocket connection established")
+		slog.Info(
+			"websocket connection established",
+			aichteeteapee.FieldRemoteAddr, r.RemoteAddr,
+			aichteeteapee.FieldOrigin, r.Header.Get("Origin"),
+		)
 
 		// Extract client ID and get or create client
 		var client *Client
@@ -77,9 +88,6 @@ func UpgradeHandler( //nolint:funlen
 		clientID := extractClientIDFromRequest(r)
 		if clientID != "" {
 			parsedClientID := parseClientID(clientID)
-			clientLogger := logger.WithField(
-				aichteeteapee.FieldClientID, parsedClientID,
-			)
 
 			// Use atomic get-or-create to avoid race conditions
 			var wasCreated bool
@@ -89,16 +97,30 @@ func UpgradeHandler( //nolint:funlen
 			)
 
 			if !wasCreated {
-				clientLogger.Debug("adding connection to existing client")
+				slog.Debug(
+					"adding connection to existing client",
+					aichteeteapee.FieldRemoteAddr, r.RemoteAddr,
+					aichteeteapee.FieldOrigin, r.Header.Get("Origin"),
+					aichteeteapee.FieldClientID, parsedClientID,
+				)
 			} else {
-				clientLogger.Debug("created new client with specified ID")
+				slog.Debug(
+					"created new client with specified ID",
+					aichteeteapee.FieldRemoteAddr, r.RemoteAddr,
+					aichteeteapee.FieldOrigin, r.Header.Get("Origin"),
+					aichteeteapee.FieldClientID, parsedClientID,
+				)
 			}
 
 			// Create and add connection using AddConnection
 			connection := NewConnection(conn, client)
 			client.AddConnection(connection)
 		} else {
-			logger.Debug("creating client with generated ID")
+			slog.Debug(
+				"creating client with generated ID",
+				aichteeteapee.FieldRemoteAddr, r.RemoteAddr,
+				aichteeteapee.FieldOrigin, r.Header.Get("Origin"),
+			)
 
 			client = NewClient(config.ClientOptions...)
 			hub.AddClient(client)
@@ -108,11 +130,19 @@ func UpgradeHandler( //nolint:funlen
 			client.AddConnection(connection)
 		}
 
-		finalLogger := logger.WithField(
+		slog.Debug(
+			"client ready",
+			aichteeteapee.FieldRemoteAddr, r.RemoteAddr,
+			aichteeteapee.FieldOrigin, r.Header.Get("Origin"),
 			aichteeteapee.FieldClientID, client.ID(),
 		)
-		finalLogger.Debug("client ready")
-		finalLogger.Debug("client connection handled successfully")
+
+		slog.Debug(
+			"client connection handled successfully",
+			aichteeteapee.FieldRemoteAddr, r.RemoteAddr,
+			aichteeteapee.FieldOrigin, r.Header.Get("Origin"),
+			aichteeteapee.FieldClientID, client.ID(),
+		)
 	}
 }
 
@@ -142,8 +172,10 @@ func parseClientID(clientID string) uuid.UUID {
 		return parsedID
 	}
 
-	logrus.WithField("providedClientID", clientID).
-		Warn("invalid client ID format, generating new UUID")
+	slog.Warn(
+		"invalid client ID format, generating new UUID",
+		"providedClientID", clientID,
+	)
 
 	return uuid.New()
 }

@@ -1,6 +1,7 @@
 package wshub
 
 import (
+	"log/slog"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -8,7 +9,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/psyb0t/aichteeteapee"
 	dabluveees "github.com/psyb0t/aichteeteapee/server/dabluvee-es"
-	"github.com/sirupsen/logrus"
 )
 
 type Client struct {
@@ -43,10 +43,6 @@ func NewClient(opts ...ClientOption) *Client {
 }
 
 func NewClientWithID(clientID uuid.UUID, opts ...ClientOption) *Client {
-	logger := logrus.WithFields(logrus.Fields{
-		aichteeteapee.FieldClientID: clientID,
-	})
-
 	config := NewClientConfig()
 	for _, opt := range opts {
 		opt(&config)
@@ -62,7 +58,10 @@ func NewClientWithID(clientID uuid.UUID, opts ...ClientOption) *Client {
 		config:        config,
 	}
 
-	logger.Debug("created new client")
+	slog.Debug(
+		"created new client",
+		aichteeteapee.FieldClientID, clientID,
+	)
 
 	return client
 }
@@ -79,20 +78,24 @@ func (c *Client) SetHub(hub Hub) {
 }
 
 func (c *Client) AddConnection(conn *Connection) {
-	logger := logrus.WithFields(logrus.Fields{
-		aichteeteapee.FieldHubName:      c.GetHubName(),
-		aichteeteapee.FieldClientID:     c.id,
-		aichteeteapee.FieldConnectionID: conn.id,
-	})
-
 	if c.isStopped.Load() {
-		logger.Debug("client is done, cannot add connection")
+		slog.Debug(
+			"client is done, cannot add connection",
+			aichteeteapee.FieldHubName, c.GetHubName(),
+			aichteeteapee.FieldClientID, c.id,
+			aichteeteapee.FieldConnectionID, conn.id,
+		)
 
 		return
 	}
 
-	logger.WithField(aichteeteapee.FieldTotalConns, c.connections.Count()+1).
-		Debug("adding new connection to client")
+	slog.Debug(
+		"adding new connection to client",
+		aichteeteapee.FieldHubName, c.GetHubName(),
+		aichteeteapee.FieldClientID, c.id,
+		aichteeteapee.FieldConnectionID, conn.id,
+		aichteeteapee.FieldTotalConns, c.connections.Count()+1,
+	)
 
 	c.connections.Add(conn)
 
@@ -108,18 +111,22 @@ func (c *Client) AddConnection(conn *Connection) {
 		}
 	})
 
-	logger.Debug("connection pumps started")
+	slog.Debug(
+		"connection pumps started",
+		aichteeteapee.FieldHubName, c.GetHubName(),
+		aichteeteapee.FieldClientID, c.id,
+		aichteeteapee.FieldConnectionID, conn.id,
+	)
 }
 
 func (c *Client) RemoveConnection(connectionID uuid.UUID) {
-	logger := logrus.WithFields(logrus.Fields{
-		aichteeteapee.FieldHubName:      c.GetHubName(),
-		aichteeteapee.FieldClientID:     c.id,
-		aichteeteapee.FieldConnectionID: connectionID,
-	})
-
 	if c.isStopped.Load() {
-		logger.Debug("client is done, cannot remove connection")
+		slog.Debug(
+			"client is done, cannot remove connection",
+			aichteeteapee.FieldHubName, c.GetHubName(),
+			aichteeteapee.FieldClientID, c.id,
+			aichteeteapee.FieldConnectionID, connectionID,
+		)
 
 		return
 	}
@@ -127,14 +134,24 @@ func (c *Client) RemoveConnection(connectionID uuid.UUID) {
 	conn := c.connections.Remove(connectionID)
 	if conn != nil {
 		connectionCount := c.connections.Count()
-		logger.WithField(aichteeteapee.FieldTotalConns, connectionCount).
-			Debug("removed connection from client")
+
+		slog.Debug(
+			"removed connection from client",
+			aichteeteapee.FieldHubName, c.GetHubName(),
+			aichteeteapee.FieldClientID, c.id,
+			aichteeteapee.FieldConnectionID, connectionID,
+			aichteeteapee.FieldTotalConns, connectionCount,
+		)
 
 		conn.Stop()
 
 		// If no connections left, trigger client shutdown
 		if connectionCount == 0 {
-			logger.Debug("no connections left, triggering client shutdown")
+			slog.Debug(
+				"no connections left, triggering client shutdown",
+				aichteeteapee.FieldHubName, c.GetHubName(),
+				aichteeteapee.FieldClientID, c.id,
+			)
 
 			go c.Stop()
 		}
@@ -165,33 +182,56 @@ func (c *Client) SendEvent(event *dabluveees.Event) {
 
 // Send sends an event to the client's send channel for distribution.
 func (c *Client) Send(event *dabluveees.Event) {
-	logger := logrus.WithFields(logrus.Fields{
-		aichteeteapee.FieldHubName:   c.GetHubName(),
-		aichteeteapee.FieldClientID:  c.id,
-		aichteeteapee.FieldEventType: event.Type,
-		aichteeteapee.FieldEventID:   event.ID,
-	})
-
 	if c.isStopped.Load() {
-		logger.Debug("client is done, cannot send event")
+		slog.Debug(
+			"client is done, cannot send event",
+			aichteeteapee.FieldHubName, c.GetHubName(),
+			aichteeteapee.FieldClientID, c.id,
+			aichteeteapee.FieldEventType, event.Type,
+			aichteeteapee.FieldEventID, event.ID,
+		)
 
 		return
 	}
 
 	if c.sendCh == nil || c.doneCh == nil {
-		logger.Debug("client channels are nil, cannot send event")
+		slog.Debug(
+			"client channels are nil, cannot send event",
+			aichteeteapee.FieldHubName, c.GetHubName(),
+			aichteeteapee.FieldClientID, c.id,
+			aichteeteapee.FieldEventType, event.Type,
+			aichteeteapee.FieldEventID, event.ID,
+		)
 
 		return
 	}
 
 	select {
 	case c.sendCh <- event:
-		logger.Debug("event queued for client distribution")
+		slog.Debug(
+			"event queued for client distribution",
+			aichteeteapee.FieldHubName, c.GetHubName(),
+			aichteeteapee.FieldClientID, c.id,
+			aichteeteapee.FieldEventType, event.Type,
+			aichteeteapee.FieldEventID, event.ID,
+		)
 	case <-c.doneCh:
-		logger.Debug("client stopped, cannot send event")
+		slog.Debug(
+			"client stopped, cannot send event",
+			aichteeteapee.FieldHubName, c.GetHubName(),
+			aichteeteapee.FieldClientID, c.id,
+			aichteeteapee.FieldEventType, event.Type,
+			aichteeteapee.FieldEventID, event.ID,
+		)
 	default:
-		logger.WithField(aichteeteapee.FieldBufferSize, cap(c.sendCh)).
-			Warn("client send buffer full, dropping message")
+		slog.Warn(
+			"client send buffer full, dropping message",
+			aichteeteapee.FieldHubName, c.GetHubName(),
+			aichteeteapee.FieldClientID, c.id,
+			aichteeteapee.FieldEventType, event.Type,
+			aichteeteapee.FieldEventID, event.ID,
+			aichteeteapee.FieldBufferSize, cap(c.sendCh),
+		)
 	}
 }
 
@@ -202,11 +242,6 @@ func (c *Client) IsSubscribedTo(_ dabluveees.EventType) bool {
 
 // Stop gracefully shuts down the client and all its connections.
 func (c *Client) Stop() {
-	logger := logrus.WithFields(logrus.Fields{
-		aichteeteapee.FieldHubName:  c.GetHubName(),
-		aichteeteapee.FieldClientID: c.id,
-	})
-
 	// Bail out if Run() was never called
 	if !c.isRunning.Load() {
 		return
@@ -219,7 +254,11 @@ func (c *Client) Stop() {
 		// Set done flag atomically first
 		c.isStopped.Store(true)
 
-		logger.Info("stopping client")
+		slog.Info(
+			"stopping client",
+			aichteeteapee.FieldHubName, c.GetHubName(),
+			aichteeteapee.FieldClientID, c.id,
+		)
 
 		// Signal shutdown - check for nil channels first
 		if c.doneCh != nil {
@@ -247,38 +286,53 @@ func (c *Client) Stop() {
 
 		select {
 		case <-done:
-			logger.Debug("stopped on doneCh signal")
+			slog.Debug(
+				"stopped on doneCh signal",
+				aichteeteapee.FieldHubName, c.GetHubName(),
+				aichteeteapee.FieldClientID, c.id,
+			)
 		case <-time.After(5 * time.Second): //nolint:mnd
 			// reasonable shutdown timeout
-			logger.Warn("stopped on timeout")
+			slog.Warn(
+				"stopped on timeout",
+				aichteeteapee.FieldHubName, c.GetHubName(),
+				aichteeteapee.FieldClientID, c.id,
+			)
 		}
 	})
 }
 
 // Run starts the client's distribution pump.
 func (c *Client) Run() {
-	logger := logrus.WithFields(logrus.Fields{
-		aichteeteapee.FieldHubName:  c.GetHubName(),
-		aichteeteapee.FieldClientID: c.id,
-	})
-
 	// Set running flag at the very start
 	c.isRunning.Store(true)
 	defer c.isRunning.Store(false)
 
 	if c.hub == nil {
-		logger.Error("client hub is nil, cannot run")
+		slog.Error(
+			"client hub is nil, cannot run",
+			aichteeteapee.FieldHubName, c.GetHubName(),
+			aichteeteapee.FieldClientID, c.id,
+		)
 
 		return
 	}
 
 	if c.isStopped.Load() {
-		logger.Debug("client is stopped, cannot run")
+		slog.Debug(
+			"client is stopped, cannot run",
+			aichteeteapee.FieldHubName, c.GetHubName(),
+			aichteeteapee.FieldClientID, c.id,
+		)
 
 		return
 	}
 
-	logger.Debug("starting client distribution pump")
+	slog.Debug(
+		"starting client distribution pump",
+		aichteeteapee.FieldHubName, c.GetHubName(),
+		aichteeteapee.FieldClientID, c.id,
+	)
 
 	c.wg.Go(func() {
 		c.distributionPump()
@@ -291,28 +345,45 @@ func (c *Client) Run() {
 
 	select {
 	case <-c.doneCh:
-		logger.Debug("client stopped via done channel")
+		slog.Debug(
+			"client stopped via done channel",
+			aichteeteapee.FieldHubName, c.GetHubName(),
+			aichteeteapee.FieldClientID, c.id,
+		)
 	case <-c.hub.Done():
-		logger.Debug("client stopped via hub.Done() channel")
+		slog.Debug(
+			"client stopped via hub.Done() channel",
+			aichteeteapee.FieldHubName, c.GetHubName(),
+			aichteeteapee.FieldClientID, c.id,
+		)
 	}
 }
 
 // distributionPump distributes events from sendCh to all connections.
+//
+//nolint:funlen // Event distribution loop requires comprehensive handling
 func (c *Client) distributionPump() {
-	logger := logrus.WithFields(logrus.Fields{
-		aichteeteapee.FieldHubName:  c.GetHubName(),
-		aichteeteapee.FieldClientID: c.id,
-	})
-
 	defer func() {
-		logger.Debug("distribution pump stopped")
+		slog.Debug(
+			"distribution pump stopped",
+			aichteeteapee.FieldHubName, c.GetHubName(),
+			aichteeteapee.FieldClientID, c.id,
+		)
 	}()
 
-	logger.Debug("starting client distribution pump")
+	slog.Debug(
+		"starting client distribution pump",
+		aichteeteapee.FieldHubName, c.GetHubName(),
+		aichteeteapee.FieldClientID, c.id,
+	)
 
 	for {
 		if c.isStopped.Load() {
-			logger.Debug("client is done, stopping distribution pump")
+			slog.Debug(
+				"client is done, stopping distribution pump",
+				aichteeteapee.FieldHubName, c.GetHubName(),
+				aichteeteapee.FieldClientID, c.id,
+			)
 
 			return
 		}
@@ -323,20 +394,27 @@ func (c *Client) distributionPump() {
 				return // Channel closed
 			}
 
-			eventLogger := logger.WithFields(logrus.Fields{
-				aichteeteapee.FieldEventType: event.Type,
-				aichteeteapee.FieldEventID:   event.ID,
-			})
-
 			if c.isStopped.Load() {
-				eventLogger.Debug("client is done, cannot distribute event")
+				slog.Debug(
+					"client is done, cannot distribute event",
+					aichteeteapee.FieldHubName, c.GetHubName(),
+					aichteeteapee.FieldClientID, c.id,
+					aichteeteapee.FieldEventType, event.Type,
+					aichteeteapee.FieldEventID, event.ID,
+				)
 
 				return
 			}
 
 			connections := c.GetConnections()
 			if len(connections) == 0 {
-				eventLogger.Debug("no connections to distribute event to")
+				slog.Debug(
+					"no connections to distribute event to",
+					aichteeteapee.FieldHubName, c.GetHubName(),
+					aichteeteapee.FieldClientID, c.id,
+					aichteeteapee.FieldEventType, event.Type,
+					aichteeteapee.FieldEventID, event.ID,
+				)
 
 				continue
 			}
@@ -344,14 +422,25 @@ func (c *Client) distributionPump() {
 			// Distribute to all connections
 			for connID, conn := range connections {
 				if c.isStopped.Load() {
-					logger.Debug("client done during distribution, stopping")
+					slog.Debug(
+						"client done during distribution, stopping",
+						aichteeteapee.FieldHubName, c.GetHubName(),
+						aichteeteapee.FieldClientID, c.id,
+					)
 
 					return
 				}
 
 				conn.Send(event)
-				eventLogger.WithField(aichteeteapee.FieldConnectionID, connID).
-					Debug("event distributed to connection")
+
+				slog.Debug(
+					"event distributed to connection",
+					aichteeteapee.FieldHubName, c.GetHubName(),
+					aichteeteapee.FieldClientID, c.id,
+					aichteeteapee.FieldEventType, event.Type,
+					aichteeteapee.FieldEventID, event.ID,
+					aichteeteapee.FieldConnectionID, connID,
+				)
 			}
 
 		case <-c.doneCh:

@@ -1,11 +1,11 @@
 package dabluveees
 
 import (
+	"log/slog"
 	"net/http"
 	"time"
 
 	"github.com/psyb0t/aichteeteapee"
-	"github.com/sirupsen/logrus"
 )
 
 // UpgradeHandlerConfig holds WebSocket upgrade handler configuration.
@@ -31,12 +31,13 @@ func NewUpgradeHandlerConfig() UpgradeHandlerConfig {
 		CheckOrigin:  aichteeteapee.GetDefaultWebSocketCheckOrigin,
 	}
 
-	logrus.WithFields(logrus.Fields{
-		aichteeteapee.FieldReadBufferSize:    config.ReadBufferSize,
-		aichteeteapee.FieldWriteBufferSize:   config.WriteBufferSize,
-		aichteeteapee.FieldHandshakeTimeout:  config.HandshakeTimeout,
-		aichteeteapee.FieldEnableCompression: config.EnableCompression,
-	}).Debug("created websocket handler config with defaults")
+	slog.Debug(
+		"created websocket handler config with defaults",
+		aichteeteapee.FieldReadBufferSize, config.ReadBufferSize,
+		aichteeteapee.FieldWriteBufferSize, config.WriteBufferSize,
+		aichteeteapee.FieldHandshakeTimeout, config.HandshakeTimeout,
+		aichteeteapee.FieldEnableCompression, config.EnableCompression,
+	)
 
 	return config
 }
