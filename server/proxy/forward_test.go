@@ -293,7 +293,7 @@ func TestForwardRequest_WithCache(t *testing.T) {
 	assert.Equal(t, 1, callCount)
 }
 
-func TestForwardRequest_CacheSkipsNonGET(
+func TestForwardRequest_CacheDifferentBodies(
 	t *testing.T,
 ) {
 	callCount := 0
@@ -322,19 +322,36 @@ func TestForwardRequest_CacheSkipsNonGET(
 		CacheTTL:   time.Minute,
 	}
 
-	payload := &RequestPayload{
-		Method: http.MethodPost,
-		URL:    upstream.URL,
-	}
-
+	// Same URL, different bodies = different cache keys.
 	_, _ = ForwardRequest(
-		context.Background(), cfg, payload,
+		context.Background(), cfg,
+		&RequestPayload{
+			Method: http.MethodPost,
+			URL:    upstream.URL,
+			Body:   []byte(`{"prompt":"a"}`),
+		},
 	)
 	_, _ = ForwardRequest(
-		context.Background(), cfg, payload,
+		context.Background(), cfg,
+		&RequestPayload{
+			Method: http.MethodPost,
+			URL:    upstream.URL,
+			Body:   []byte(`{"prompt":"b"}`),
+		},
 	)
 
-	// POST should hit upstream both times.
+	assert.Equal(t, 2, callCount)
+
+	// Same body again = cache hit.
+	_, _ = ForwardRequest(
+		context.Background(), cfg,
+		&RequestPayload{
+			Method: http.MethodPost,
+			URL:    upstream.URL,
+			Body:   []byte(`{"prompt":"a"}`),
+		},
+	)
+
 	assert.Equal(t, 2, callCount)
 }
 
@@ -496,45 +513,93 @@ func TestWriteError(t *testing.T) {
 	assert.Contains(t, w.Body.String(), "NOT_FOUND")
 }
 
-func TestIsCacheable(t *testing.T) {
-	tests := []struct {
-		method string
-		want   bool
-	}{
-		{http.MethodGet, true},
-		{http.MethodHead, true},
-		{http.MethodPost, false},
-		{http.MethodPut, false},
-		{http.MethodDelete, false},
+func TestRequestPayloadHash(t *testing.T) {
+	base := &RequestPayload{
+		Method: http.MethodGet,
+		URL:    "http://example.com/a",
 	}
+
+	tests := []struct {
+		name    string
+		payload *RequestPayload
+		differ  bool
+	}{
+		{
+			name:    "same request = same hash",
+			payload: base,
+		},
+		{
+			name: "different URL",
+			payload: &RequestPayload{
+				Method: http.MethodGet,
+				URL:    "http://example.com/b",
+			},
+			differ: true,
+		},
+		{
+			name: "different method",
+			payload: &RequestPayload{
+				Method: http.MethodPost,
+				URL:    "http://example.com/a",
+			},
+			differ: true,
+		},
+		{
+			name: "with body",
+			payload: &RequestPayload{
+				Method: http.MethodPost,
+				URL:    "http://example.com/a",
+				Body:   []byte("data"),
+			},
+			differ: true,
+		},
+		{
+			name: "different body",
+			payload: &RequestPayload{
+				Method: http.MethodPost,
+				URL:    "http://example.com/a",
+				Body:   []byte("other"),
+			},
+			differ: true,
+		},
+		{
+			name: "with headers",
+			payload: &RequestPayload{
+				Method: http.MethodGet,
+				URL:    "http://example.com/a",
+				Headers: map[string][]string{
+					"Authorization": {"Bearer x"},
+				},
+			},
+			differ: true,
+		},
+		{
+			name: "different header value",
+			payload: &RequestPayload{
+				Method: http.MethodGet,
+				URL:    "http://example.com/a",
+				Headers: map[string][]string{
+					"Authorization": {"Bearer y"},
+				},
+			},
+			differ: true,
+		},
+	}
+
+	baseHash := base.Hash()
+	assert.Len(t, baseHash, 64)
 
 	for _, tt := range tests {
-		t.Run(tt.method, func(t *testing.T) {
-			assert.Equal(
-				t, tt.want,
-				isCacheable(&RequestPayload{
-					Method: tt.method,
-				}),
-			)
+		t.Run(tt.name, func(t *testing.T) {
+			h := tt.payload.Hash()
+
+			if tt.differ {
+				assert.NotEqual(t, baseHash, h)
+
+				return
+			}
+
+			assert.Equal(t, baseHash, h)
 		})
 	}
-}
-
-func TestDefaultCacheKey(t *testing.T) {
-	a := defaultCacheKey(&RequestPayload{
-		Method: http.MethodGet,
-		URL:    "http://example.com/a",
-	})
-	b := defaultCacheKey(&RequestPayload{
-		Method: http.MethodGet,
-		URL:    "http://example.com/b",
-	})
-	c := defaultCacheKey(&RequestPayload{
-		Method: http.MethodPost,
-		URL:    "http://example.com/a",
-	})
-
-	assert.NotEqual(t, a, b)
-	assert.NotEqual(t, a, c)
-	assert.Len(t, a, 64) // sha256 hex
 }

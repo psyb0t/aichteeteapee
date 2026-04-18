@@ -3,8 +3,6 @@ package proxy
 import (
 	"bytes"
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
 	"encoding/json"
 	"io"
 	"net/http"
@@ -43,7 +41,7 @@ func ForwardRequest(
 	cfg ForwardConfig,
 	payload *RequestPayload,
 ) (*ResponseResult, error) {
-	if cfg.Cache != nil && isCacheable(payload) {
+	if cfg.Cache != nil {
 		return forwardWithCache(ctx, cfg, payload)
 	}
 
@@ -210,11 +208,6 @@ func WriteError(
 	)
 }
 
-func isCacheable(payload *RequestPayload) bool {
-	return payload.Method == http.MethodGet ||
-		payload.Method == http.MethodHead
-}
-
 func cacheKey(
 	cfg ForwardConfig,
 	payload *RequestPayload,
@@ -223,16 +216,5 @@ func cacheKey(
 		return cfg.CacheKeyFn(payload)
 	}
 
-	return defaultCacheKey(payload)
-}
-
-func defaultCacheKey(
-	payload *RequestPayload,
-) string {
-	h := sha256.New()
-	h.Write([]byte(payload.Method))
-	h.Write([]byte("\n"))
-	h.Write([]byte(payload.URL))
-
-	return hex.EncodeToString(h.Sum(nil))
+	return payload.Hash()
 }
