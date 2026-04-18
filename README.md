@@ -6,13 +6,30 @@ A Go HTTP library that does everything you need and nothing you don't. Spin up a
 
 ```go
 srv, _ := server.New()
-srv.GetRootGroup().GET("/hello", func(w http.ResponseWriter, _ *http.Request) {
-    aichteeteapee.WriteJSON(w, http.StatusOK, map[string]string{"msg": "hi"})
-})
-srv.Start(ctx, nil)
+
+router := &server.Router{
+    GlobalMiddlewares: []middleware.Middleware{
+        middleware.RequestID(),
+        middleware.Logger(),
+        middleware.Recovery(),
+        middleware.SecurityHeaders(),
+    },
+    Groups: []server.GroupConfig{{
+        Path: "/",
+        Routes: []server.RouteConfig{{
+            Method:  http.MethodGet,
+            Path:    "/hello",
+            Handler: func(w http.ResponseWriter, _ *http.Request) {
+                aichteeteapee.WriteJSON(w, http.StatusOK, map[string]string{"msg": "hi"})
+            },
+        }},
+    }},
+}
+
+srv.Start(ctx, router)
 ```
 
-That gives you HTTP + HTTPS, graceful shutdown, structured logging, request IDs, and security headers. Out of the box.
+Request IDs, structured logging, panic recovery, security headers, graceful shutdown, TLS support. You pick what you want in the middleware stack.
 
 ## What's in the box
 
