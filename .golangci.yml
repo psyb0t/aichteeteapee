@@ -109,6 +109,13 @@ linters:
             - github.com/joho/godotenv
             - github.com/spf13/cobra
             - github.com/gorilla/websocket
+            - github.com/hibiken/asynq
+            - github.com/redis/
+            - github.com/testcontainers/
+            - github.com/labstack/echo/
+            - github.com/getkin/kin-openapi/
+            - github.com/oapi-codegen/
+            - github.com/swaggo/
 
   exclusions:
     generated: lax

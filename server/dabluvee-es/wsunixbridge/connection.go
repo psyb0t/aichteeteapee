@@ -32,7 +32,7 @@ type InitMessageData struct {
 // Global map to track active connections.
 //
 //nolint:gochecknoglobals
-var connectionSockets = commontypes.NewMapWithMutex[uuid.UUID, *Connection]()
+var connectionSockets = commontypes.NewMap[uuid.UUID, *Connection]()
 
 func setupConnection( //nolint:funlen
 	ctx context.Context,

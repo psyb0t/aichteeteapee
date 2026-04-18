@@ -32,6 +32,12 @@ var (
 	ErrUnexpectedNumberOfResults = errors.New("unexpected number of results")
 	ErrNotFound                  = errors.New("not found")
 
+	// Operation errors
+	ErrFetchFailed   = errors.New("fetch failed")
+	ErrParseFailed   = errors.New("parse failed")
+	ErrWriteFailed   = errors.New("write failed")
+	ErrPublishFailed = errors.New("publish failed")
+
 	// Process State errors
 	ErrFailed     = errors.New("failed")
 	ErrTimeout    = errors.New("timeout")

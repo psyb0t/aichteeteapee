@@ -5,44 +5,43 @@ const (
 	FieldClientID = "clientID"
 
 	// WebSocket-specific fields.
-	FieldConnectionID = "connectionID" // Individual connection identifier
+	FieldConnectionID = "connectionID"
 
 	// Event-related fields.
-	FieldEventType = "eventType" // Event type being processed
-	FieldEventID   = "eventID"   // Unique event identifier
+	FieldEventType = "eventType"
+	FieldEventID   = "eventID"
 
 	// Hub and system identifiers.
-	FieldHubName = "hubName" // Hub instance name
+	FieldHubName = "hubName"
 
 	// Error and performance fields.
-	FieldTotalConns   = "totalConns"   // Connection count context
-	FieldTotalClients = "totalClients" // Connection count context
-	FieldBufferSize   = "bufferSize"   // Buffer-related metrics
+	FieldTotalConns   = "totalConns"
+	FieldTotalClients = "totalClients"
+	FieldBufferSize   = "bufferSize"
 
 	// Network and connection fields.
-	FieldRemoteAddr = "remoteAddr" // Client remote address
-	FieldUserAgent  = "userAgent"  // HTTP User-Agent header
-	FieldOrigin     = "origin"     // WebSocket origin header
+	FieldRemoteAddr = "remoteAddr"
+	FieldUserAgent  = "userAgent"
+	FieldOrigin     = "origin"
 
 	// WebSocket close fields.
-	FieldCloseCode = "closeCode" // WebSocket close code
-	FieldCloseText = "closeText" // WebSocket close text
+	FieldCloseCode = "closeCode"
+	FieldCloseText = "closeText"
 
 	// Configuration fields.
-	FieldReadBufferSize   = "readBufferSize"   // WebSocket read buffer size
-	FieldWriteBufferSize  = "writeBufferSize"  // WebSocket write buffer size
-	FieldHandshakeTimeout = "handshakeTimeout" // WebSocket handshake timeout
-	// WebSocket compression setting.
+	FieldReadBufferSize    = "readBufferSize"
+	FieldWriteBufferSize   = "writeBufferSize"
+	FieldHandshakeTimeout  = "handshakeTimeout"
 	FieldEnableCompression = "enableCompression"
-	FieldOldReadSize       = "oldReadSize"  // Previous read buffer size
-	FieldOldWriteSize      = "oldWriteSize" // Previous write buffer size
-	FieldNewReadSize       = "newReadSize"  // New read buffer size
-	FieldNewWriteSize      = "newWriteSize" // New write buffer size
+	FieldOldReadSize       = "oldReadSize"
+	FieldOldWriteSize      = "oldWriteSize"
+	FieldNewReadSize       = "newReadSize"
+	FieldNewWriteSize      = "newWriteSize"
 
 	// Server and endpoint fields.
-	FieldEndpoint = "endpoint" // HTTP endpoint path
+	FieldEndpoint = "endpoint"
 
 	// File system and data fields.
-	FieldPath  = "path"  // File system path
-	FieldBytes = "bytes" // Data size in bytes
+	FieldPath  = "path"
+	FieldBytes = "bytes"
 )

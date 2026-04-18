@@ -12,4 +12,9 @@ const (
 	ContentTypeApplicationFormURLEncoded = "application/x-www-form-urlencoded"
 	ContentTypeHTML                      = "text/html"
 	ContentTypeHTMLUTF8                  = "text/html; charset=UTF-8"
+	ContentTypeTextEventStream           = "text/event-stream"
+
+	// ContentTypeXYAML is the legacy unregistered MIME type for YAML.
+	// Prefer ContentTypeYAML ("application/yaml") for new code.
+	ContentTypeXYAML = "application/x-yaml"
 )

@@ -5,6 +5,9 @@ const (
 	HeaderNameAuthorization = "Authorization"
 	HeaderNameXAPIKey       = "X-Api-Key" //nolint: gosec
 
+	// Authentication schemes.
+	AuthSchemeBearer = "Bearer "
+
 	// Content headers.
 	HeaderNameContentType    = "Content-Type"
 	HeaderNameContentLength  = "Content-Length"
@@ -16,10 +19,12 @@ const (
 	HeaderNameXCorrelationID = "X-Correlation-ID"
 
 	// Client info.
-	HeaderNameUserAgent     = "User-Agent"
-	HeaderNameXForwardedFor = "X-Forwarded-For"
-	HeaderNameXRealIP       = "X-Real-IP"
-	HeaderNameXClientID     = "X-Client-ID"
+	HeaderNameUserAgent       = "User-Agent"
+	HeaderNameXForwardedFor   = "X-Forwarded-For"
+	HeaderNameXForwardedProto = "X-Forwarded-Proto"
+	HeaderNameXForwardedHost  = "X-Forwarded-Host"
+	HeaderNameXRealIP         = "X-Real-IP"
+	HeaderNameXClientID       = "X-Client-ID"
 
 	// CORS headers.
 	HeaderNameOrigin                        = "Origin"
@@ -35,6 +40,17 @@ const (
 	HeaderNameCacheControl = "Cache-Control"
 	HeaderNameETag         = "ETag"
 	HeaderNameIfNoneMatch  = "If-None-Match"
+
+	// Hop-by-hop headers (RFC 2616 section 13.5.1).
+	// These must not be forwarded by proxies.
+	HeaderNameConnection         = "Connection"
+	HeaderNameKeepAlive          = "Keep-Alive"
+	HeaderNameProxyAuthenticate  = "Proxy-Authenticate"
+	HeaderNameProxyAuthorization = "Proxy-Authorization"
+	HeaderNameTE                 = "Te"
+	HeaderNameTrailers           = "Trailers"
+	HeaderNameTransferEncoding   = "Transfer-Encoding"
+	HeaderNameUpgrade            = "Upgrade"
 
 	// Security headers.
 	HeaderNameStrictTransportSecurity = "Strict-Transport-Security"

@@ -7,7 +7,6 @@ type ErrorResponse struct {
 	Details any    `json:"details,omitempty"`
 }
 
-// Predefined error responses for common scenarios.
 var (
 	// File and path errors.
 	ErrorResponseFileNotFound = ErrorResponse{
@@ -25,7 +24,12 @@ var (
 		Message: "Path traversal denied",
 	}
 
-	// HTTP errors.
+	// Standard HTTP errors.
+	ErrorResponseNotFound = ErrorResponse{
+		Code:    ErrorCodeNotFound,
+		Message: "Not found",
+	}
+
 	ErrorResponseEndpointNotFound = ErrorResponse{
 		Code:    ErrorCodeEndpointNotFound,
 		Message: "Endpoint not found",
@@ -34,6 +38,46 @@ var (
 	ErrorResponseMethodNotAllowed = ErrorResponse{
 		Code:    ErrorCodeMethodNotAllowed,
 		Message: "Method not allowed",
+	}
+
+	ErrorResponseConflict = ErrorResponse{
+		Code:    ErrorCodeConflict,
+		Message: "Conflict",
+	}
+
+	ErrorResponseGone = ErrorResponse{
+		Code:    ErrorCodeGone,
+		Message: "Gone",
+	}
+
+	ErrorResponseUnprocessableEntity = ErrorResponse{
+		Code:    ErrorCodeUnprocessableEntity,
+		Message: "Unprocessable entity",
+	}
+
+	ErrorResponseTooManyRequests = ErrorResponse{
+		Code:    ErrorCodeTooManyRequests,
+		Message: "Too many requests",
+	}
+
+	ErrorResponseNotImplemented = ErrorResponse{
+		Code:    ErrorCodeNotImplemented,
+		Message: "Not implemented",
+	}
+
+	ErrorResponseBadGateway = ErrorResponse{
+		Code:    ErrorCodeBadGateway,
+		Message: "Bad gateway",
+	}
+
+	ErrorResponseServiceUnavailable = ErrorResponse{
+		Code:    ErrorCodeServiceUnavailable,
+		Message: "Service unavailable",
+	}
+
+	ErrorResponseGatewayTimeout = ErrorResponse{
+		Code:    ErrorCodeGatewayTimeout,
+		Message: "Gateway timeout",
 	}
 
 	// User-related errors.
