@@ -773,10 +773,11 @@ github.com/prometheus/common/model
 github.com/prometheus/procfs
 github.com/prometheus/procfs/internal/fs
 github.com/prometheus/procfs/internal/util
-# github.com/psyb0t/common-go v0.0.0-20260417233347-55d0962b8a77
+# github.com/psyb0t/common-go v0.0.0-20260417235224-ecff9486d757
 ## explicit; go 1.26
 github.com/psyb0t/common-go/cache
 github.com/psyb0t/common-go/errors
+github.com/psyb0t/common-go/slogging
 github.com/psyb0t/common-go/types
 # github.com/psyb0t/ctxerrors v0.2.3
 ## explicit; go 1.25

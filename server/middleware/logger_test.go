@@ -9,51 +9,69 @@ import (
 	"testing"
 
 	"github.com/psyb0t/aichteeteapee"
+	"github.com/psyb0t/common-go/slogging"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 func TestLogger(t *testing.T) {
 	logger, buf := createTestLogger()
-	mw := Logger(
-		WithLogger(logger),
+
+	// Chain RequestID → Logger like production.
+	chain := Chain(
+		createTestHandler(),
+		RequestID(),
+		Logger(),
 	)
 
-	handler := createTestHandler()
+	req := createTestRequest(
+		http.MethodGet, "/test",
+	)
+	req.Header.Set(
+		aichteeteapee.HeaderNameXForwardedFor,
+		"192.168.1.1",
+	)
 
-	// Add request ID to context
-	req := createTestRequestWithContext(http.MethodGet, "/test", map[any]any{
-		aichteeteapee.ContextKeyRequestID: "test-req-123",
-	})
-	req.Header.Set("X-Forwarded-For", "192.168.1.1")
+	// Seed the context with the buffer logger so
+	// RequestID middleware enriches the right one.
+	ctx := slogging.GetCtxWithLogger(
+		req.Context(), logger,
+	)
+
+	req = req.WithContext(ctx)
 
 	w := httptest.NewRecorder()
-	mw(handler).ServeHTTP(w, req)
+	chain.ServeHTTP(w, req)
 
 	assert.Equal(t, http.StatusOK, w.Code)
 	assert.Equal(t, "test response", w.Body.String())
 
-	// Check that log output contains expected fields
 	logOutput := buf.String()
-	require.NotEmpty(t, logOutput, "should have log output")
+	require.NotEmpty(t, logOutput)
 	assert.Contains(t, logOutput, "HTTP request")
 	assert.Contains(t, logOutput, "GET")
 	assert.Contains(t, logOutput, "/test")
-	assert.Contains(t, logOutput, "test-req-123")
+	assert.Contains(t, logOutput, "requestId")
 }
 
 func TestLoggerMiddleware_SkipPaths(t *testing.T) {
 	logger, buf := createTestLogger()
 
 	mw := Logger(
-		WithLogger(logger),
 		WithSkipPaths("/health", "/metrics"),
 	)
 
 	handler := createTestHandler()
 
-	// Test skipped path
-	req := createTestRequest(http.MethodGet, "/health")
+	req := createTestRequest(
+		http.MethodGet, "/health",
+	)
+
+	ctx := slogging.GetCtxWithLogger(
+		req.Context(), logger,
+	)
+
+	req = req.WithContext(ctx)
 	w := httptest.NewRecorder()
 
 	mw(handler).ServeHTTP(w, req)
@@ -61,8 +79,13 @@ func TestLoggerMiddleware_SkipPaths(t *testing.T) {
 	assert.Equal(t, http.StatusOK, w.Code)
 	assert.Empty(t, buf.String(), "no log output for skipped path")
 
-	// Test non-skipped path
 	req = createTestRequest(http.MethodGet, "/api")
+
+	ctx = slogging.GetCtxWithLogger(
+		req.Context(), logger,
+	)
+
+	req = req.WithContext(ctx)
 	w = httptest.NewRecorder()
 
 	mw(handler).ServeHTTP(w, req)
@@ -115,7 +138,6 @@ func TestLoggerMiddleware_AllOptions(t *testing.T) {
 	logger, buf := createTestLogger()
 
 	mw := Logger(
-		WithLogger(logger),
 		WithLogLevel(slog.LevelWarn),
 		WithLogMessage("Custom log message"),
 		WithExtraFields(map[string]any{
@@ -123,16 +145,28 @@ func TestLoggerMiddleware_AllOptions(t *testing.T) {
 			"version": "1.0.0",
 		}),
 		WithIncludeQuery(false),
-		WithIncludeHeaders("Authorization", "X-API-Key"),
+		WithIncludeHeaders(
+			aichteeteapee.HeaderNameAuthorization,
+			aichteeteapee.HeaderNameXAPIKey,
+		),
 	)
 
 	handler := createTestHandler()
 
 	req := createTestRequestWithHeaders(
-		http.MethodGet, "/test?param=value", map[string]string{
-			"Authorization": "Bearer token123",
-			"X-API-Key":     "secret-key",
-		})
+		http.MethodGet,
+		"/test?param=value",
+		map[string]string{
+			aichteeteapee.HeaderNameAuthorization: "Bearer token123",
+			aichteeteapee.HeaderNameXAPIKey:       "secret-key",
+		},
+	)
+
+	ctx := slogging.GetCtxWithLogger(
+		req.Context(), logger,
+	)
+
+	req = req.WithContext(ctx)
 	w := httptest.NewRecorder()
 
 	mw(handler).ServeHTTP(w, req)

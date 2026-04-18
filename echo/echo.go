@@ -3,13 +3,13 @@ package echo
 import (
 	"context"
 	"errors"
-	"log/slog"
 	"net/http"
 	"path"
 	"time"
 
 	"github.com/labstack/echo/v4"
 	"github.com/psyb0t/aichteeteapee"
+	"github.com/psyb0t/common-go/slogging"
 	"github.com/psyb0t/ctxerrors"
 	httpSwagger "github.com/swaggo/http-swagger"
 )
@@ -84,11 +84,13 @@ func NewWithConfig(
 }
 
 func (e *Echo) Start(ctx context.Context) error {
-	slog.Debug(
+	logger := slogging.GetLogger(ctx)
+
+	logger.Debug(
 		"starting echo server",
 		"address", e.config.ListenAddress,
 	)
-	defer slog.Debug("echo server stopped")
+	defer logger.Debug("echo server stopped")
 
 	errCh := make(chan error, 1)
 

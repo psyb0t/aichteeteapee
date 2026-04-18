@@ -8,40 +8,54 @@ import (
 	"testing"
 
 	"github.com/psyb0t/aichteeteapee"
+	"github.com/psyb0t/common-go/slogging"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 func TestRecovery(t *testing.T) {
-	logger, buf := createTestLogger()
-	mw := Recovery(
-		WithRecoveryLogger(logger),
-	)
+	bufLogger, buf := createTestLogger()
+	mw := Recovery()
 
 	handler := createPanicHandler("test panic")
 
-	// Add request ID to context
-	req := createTestRequestWithContext(http.MethodGet, "/test", map[any]any{
-		aichteeteapee.ContextKeyRequestID: "panic-req-456",
-	})
+	req := createTestRequestWithContext(
+		http.MethodGet, "/test", map[any]any{
+			aichteeteapee.ContextKeyRequestID: "panic-req-456",
+		},
+	)
 	req.Header.Set("X-Real-IP", "10.0.0.1")
 
+	ctxLogger := bufLogger.With(
+		"requestId", "panic-req-456",
+		"method", req.Method,
+		"path", req.URL.Path,
+		"ip", "10.0.0.1",
+	)
+
+	ctx := slogging.GetCtxWithLogger(
+		req.Context(), ctxLogger,
+	)
+
+	req = req.WithContext(ctx)
 	w := httptest.NewRecorder()
 
-	// Should not panic
 	assert.NotPanics(t, func() {
 		mw(handler).ServeHTTP(w, req)
 	})
 
-	assert.Equal(t, http.StatusInternalServerError, w.Code)
+	assert.Equal(
+		t, http.StatusInternalServerError, w.Code,
+	)
 	assert.Equal(
 		t, aichteeteapee.ContentTypeJSON,
-		w.Header().Get(aichteeteapee.HeaderNameContentType),
+		w.Header().Get(
+			aichteeteapee.HeaderNameContentType,
+		),
 	)
 
-	// Check that panic was logged
 	logOutput := buf.String()
-	require.NotEmpty(t, logOutput, "should have log output")
+	require.NotEmpty(t, logOutput)
 	assert.Contains(t, logOutput, "Panic recovered")
 	assert.Contains(t, logOutput, "test panic")
 	assert.Contains(t, logOutput, "GET")
@@ -53,11 +67,19 @@ func TestRecovery(t *testing.T) {
 func TestRecoveryMiddleware_EdgeCases(t *testing.T) {
 	t.Run("panic with different types", func(t *testing.T) {
 		logger, buf := createTestLogger()
-		mw := Recovery(WithRecoveryLogger(logger))
+		mw := Recovery()
 
-		handler := createPanicHandler(42) // Non-string panic
+		handler := createPanicHandler(42)
 
-		req := createTestRequest(http.MethodGet, "/test")
+		req := createTestRequest(
+			http.MethodGet, "/test",
+		)
+
+		ctx := slogging.GetCtxWithLogger(
+			req.Context(), logger,
+		)
+
+		req = req.WithContext(ctx)
 		w := httptest.NewRecorder()
 
 		assert.NotPanics(t, func() {
@@ -69,20 +91,40 @@ func TestRecoveryMiddleware_EdgeCases(t *testing.T) {
 	})
 
 	t.Run("panic with struct type", func(t *testing.T) {
-		logger, buf := createTestLogger()
-		mw := Recovery(WithRecoveryLogger(logger))
+		bufLogger, buf := createTestLogger()
+		mw := Recovery()
 
 		type CustomError struct {
 			Message string
 		}
 
-		handler := createPanicHandler(CustomError{Message: "custom error"})
+		handler := createPanicHandler(
+			CustomError{Message: "custom error"},
+		)
 
 		req := createTestRequestWithContext(
 			http.MethodPost, "/panic", map[any]any{
 				aichteeteapee.ContextKeyRequestID: "panic-test-789",
-			})
-		req.Header.Set("X-Forwarded-For", "192.168.1.100")
+			},
+		)
+		req.Header.Set(
+			"X-Forwarded-For", "192.168.1.100",
+		)
+
+		// Simulate what RequestID + Logger middlewares
+		// would put on the context logger.
+		ctxLogger := bufLogger.With(
+			"requestId", "panic-test-789",
+			"method", req.Method,
+			"path", req.URL.Path,
+			"ip", "192.168.1.100",
+		)
+
+		ctx := slogging.GetCtxWithLogger(
+			req.Context(), ctxLogger,
+		)
+
+		req = req.WithContext(ctx)
 
 		w := httptest.NewRecorder()
 
@@ -173,12 +215,15 @@ func TestRecoveryMiddleware_AllOptions(t *testing.T) {
 	logger, buf := createTestLogger()
 
 	mw := Recovery(
-		WithRecoveryLogger(logger),
-		WithRecoveryLogLevel(slog.LevelError+4), // Fatal equivalent
+		WithRecoveryLogLevel(slog.LevelError+4),
 		WithRecoveryLogMessage("Panic occurred"),
 		WithRecoveryStatusCode(http.StatusBadGateway),
-		WithRecoveryResponse(map[string]string{"error": "server_panic"}),
-		WithRecoveryContentType("application/json"),
+		WithRecoveryResponse(
+			map[string]string{"error": "server_panic"},
+		),
+		WithRecoveryContentType(
+			aichteeteapee.ContentTypeJSON,
+		),
 		WithIncludeStack(true),
 		WithRecoveryExtraFields(map[string]any{
 			"alert": "critical",
@@ -188,7 +233,15 @@ func TestRecoveryMiddleware_AllOptions(t *testing.T) {
 
 	handler := createPanicHandler("test panic")
 
-	req := createTestRequest(http.MethodGet, "/test")
+	req := createTestRequest(
+		http.MethodGet, "/test",
+	)
+
+	ctx := slogging.GetCtxWithLogger(
+		req.Context(), logger,
+	)
+
+	req = req.WithContext(ctx)
 	w := httptest.NewRecorder()
 
 	mw(handler).ServeHTTP(w, req)
@@ -196,7 +249,9 @@ func TestRecoveryMiddleware_AllOptions(t *testing.T) {
 	assert.Equal(t, http.StatusBadGateway, w.Code)
 	assert.Equal(
 		t, aichteeteapee.ContentTypeJSON,
-		w.Header().Get("Content-Type"),
+		w.Header().Get(
+			aichteeteapee.HeaderNameContentType,
+		),
 	)
 	assert.Contains(t, w.Body.String(), "server_panic")
 

@@ -822,11 +822,9 @@ func TestMiddleware_ConcurrentExecution(t *testing.T) {
 		t.Skip("Skipping race condition test in short mode")
 	}
 
-	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
-
 	middlewares := []middleware.Middleware{
 		middleware.RequestID(),
-		middleware.Logger(middleware.WithLogger(logger)),
+		middleware.Logger(),
 		middleware.SecurityHeaders(),
 		middleware.CORS(),
 	}

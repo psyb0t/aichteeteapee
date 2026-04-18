@@ -10,6 +10,7 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 	echomiddleware "github.com/oapi-codegen/echo-middleware"
+	"github.com/psyb0t/aichteeteapee"
 	oapimiddleware "github.com/psyb0t/aichteeteapee/oapi-codegen/middleware"
 )
 
@@ -63,15 +64,22 @@ func BearerAuth(validate TokenValidator) AuthFunc {
 }
 
 func extractBearerToken(r *http.Request) string {
-	authHeader := r.Header.Get("Authorization")
+	authHeader := r.Header.Get(
+		aichteeteapee.HeaderNameAuthorization,
+	)
 	if authHeader == "" {
 		return ""
 	}
 
-	const prefix = "Bearer "
-	if !strings.HasPrefix(authHeader, prefix) {
+	if !strings.HasPrefix(
+		authHeader,
+		aichteeteapee.AuthSchemeBearer,
+	) {
 		return ""
 	}
 
-	return strings.TrimPrefix(authHeader, prefix)
+	return strings.TrimPrefix(
+		authHeader,
+		aichteeteapee.AuthSchemeBearer,
+	)
 }

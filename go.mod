@@ -8,7 +8,7 @@ require (
 	github.com/gorilla/websocket v1.5.3
 	github.com/labstack/echo/v4 v4.15.1
 	github.com/oapi-codegen/echo-middleware v1.0.2
-	github.com/psyb0t/common-go v0.0.0-20260417233347-55d0962b8a77
+	github.com/psyb0t/common-go v0.0.0-20260417235224-ecff9486d757
 	github.com/psyb0t/ctxerrors v0.2.3
 	github.com/psyb0t/gonfiguration v1.5.0
 	github.com/spf13/viper v1.21.0

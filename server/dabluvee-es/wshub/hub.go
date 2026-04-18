@@ -42,7 +42,6 @@ type hub struct {
 	mu       sync.Mutex
 }
 
-//nolint:ireturn // factory returns interface by design
 func NewHub(name string) Hub {
 	slog.Info(
 		"creating new hub",
