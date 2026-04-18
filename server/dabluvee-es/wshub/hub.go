@@ -42,6 +42,7 @@ type hub struct {
 	mu       sync.Mutex
 }
 
+//nolint:ireturn
 func NewHub(name string) Hub {
 	slog.Info(
 		"creating new hub",
