@@ -10,7 +10,7 @@ A Go HTTP library that does everything you need and nothing you don't. Spin up a
   - [Root package — constants and utilities](#root-package--constants-and-utilities)
   - [server/](#server--http-server)
   - [server/middleware/](#servermiddleware--middleware-stack)
-  - [server/proxy/](#serverproxy--http-request-forwarding)
+  - [server/prawxxey/](#serverprawxxey--http-request-forwarding)
   - [server/dabluvee-es/](#serverdabluvee-es--websocket-event-system)
   - [echo/](#echo--echo-framework-wrapper)
   - [echo/middleware/](#echomiddleware--echo-api-middleware)
@@ -159,12 +159,14 @@ middleware.Logger(
 
 **EnforceRequestContentType** — reject requests with wrong `Content-Type`. Skips GET/HEAD/DELETE. Convenience: `EnforceRequestContentTypeJSON()`.
 
-### `server/proxy/` — HTTP request forwarding
+### `server/prawxxey/` — HTTP request forwarding
+
+Pronounced "proxy". Obviously.
 
 Forward requests to upstream servers with optional response caching.
 
 ```go
-result, err := proxy.ForwardRequest(ctx, proxy.ForwardConfig{
+result, err := prawxxey.ForwardRequest(ctx, prawxxey.ForwardConfig{
     HTTPClient: http.DefaultClient,
     Cache:      myCache,            // nil = no caching
     CacheTTL:   5 * time.Minute,
