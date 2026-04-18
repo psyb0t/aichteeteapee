@@ -28,7 +28,7 @@ func ParseConfig() (Config, error) {
 	return cfg, nil
 }
 
-func FromConfig(cfg Config) (Cache, func(), error) {
+func New(cfg Config) (Cache, func(), error) { //nolint:ireturn
 	switch cfg.Mode {
 	case "memory":
 		c := NewMemory(cfg.MaxEntries)
