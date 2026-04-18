@@ -1,6 +1,6 @@
 # serbewr/middleware — middleware stack
 
-Every middleware uses `slogging.GetLogger(ctx)` for structured logging with context propagation. The chain builds up the logger progressively — RequestID adds the request ID, Logger adds method/path/ip, and any downstream code gets all fields automatically via `slogging.GetLogger(ctx)`.
+The whole stack plays nice together. Every middleware uses `slogging.GetLogger(ctx)` for structured logging with context propagation — RequestID adds the request ID, Logger adds method/path/ip, and downstream code gets all fields for free via `slogging.GetLogger(ctx)`. Set it up once, never think about it again.
 
 ## RequestID
 
@@ -66,7 +66,7 @@ Skip paths use `path.Clean` normalization. Custom validators bypass the built-in
 
 ## CORS
 
-Blocks unknown origins by default. Use `WithAllowAllOrigins()` or `aichteeteapee.FuckSecurity()` to go permissive.
+Blocks unknown origins by default, because that's what a sane default looks like. Use `WithAllowAllOrigins()` or `aichteeteapee.FuckSecurity()` when you need to go permissive.
 
 ```go
 middleware.CORS(
@@ -119,7 +119,7 @@ middleware.Timeout(middleware.WithDefaultTimeout()) // 10s
 middleware.Timeout(middleware.WithLongTimeout())    // 30s
 ```
 
-Handlers must respect `ctx.Done()` — the timeout cancels the context but cannot kill a goroutine that ignores it.
+Handlers must respect `ctx.Done()` — the timeout cancels the context but can't kill a goroutine that ignores it. If your handler doesn't check the context, that's on you.
 
 ## EnforceRequestContentType
 

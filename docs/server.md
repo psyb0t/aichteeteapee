@@ -1,6 +1,6 @@
 # serbewr — HTTP server
 
-Pronounced "server".
+Pronounced "server". D'oooh you kno.
 
 Built on `net/http` with routing via Go 1.22+ `ServeMux` patterns.
 
@@ -110,7 +110,7 @@ HTTP and HTTPS servers run simultaneously on separate ports.
 
 ## Configuration
 
-All config is read from environment variables with sensible defaults.
+All config is read from environment variables with sensible defaults. Or just use `NewWithConfig(config)` and set everything in code — your call.
 
 | Variable | Default | Description |
 |---|---|---|

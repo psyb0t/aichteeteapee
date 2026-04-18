@@ -1,6 +1,6 @@
 # serbewr/dabluvee-es — WebSocket event system
 
-Pronounced "WS".
+Pronounced "WS" — because why stop at one wordplay.
 
 Three-tier architecture: **Hub** -> **Client** -> **Connection**.
 
@@ -67,7 +67,7 @@ hub.Close() // stops all clients, waits for goroutines
 
 ## Client
 
-Represents a logical user. One client can have multiple WebSocket connections (e.g. multiple browser tabs). Events sent to a client are distributed to all its connections.
+Represents a logical user. One client can have multiple WebSocket connections — multiple browser tabs, a phone and a laptop, whatever. Events sent to a client get distributed to all of them.
 
 ```go
 client := wshub.NewClient(
@@ -105,11 +105,11 @@ wshub.UpgradeHandler(hub,
 )
 ```
 
-Default `CheckOrigin` validates `Origin` against `Host`. Use `aichteeteapee.GetPermissiveWebSocketCheckOrigin` or `aichteeteapee.FuckSecurity()` for local dev.
+Default `CheckOrigin` validates `Origin` against `Host`, because that's what secure means. Use `aichteeteapee.GetPermissiveWebSocketCheckOrigin` or `aichteeteapee.FuckSecurity()` when you're just trying to get stuff working locally.
 
 ## Unix Socket Bridge
 
-`wsunixbridge` bridges WebSocket connections to Unix domain sockets for integrating external tools (shells, processes, etc.).
+`wsunixbridge` bridges WebSocket connections to Unix domain sockets for when you need to plug in external tools — shells, processes, whatever speaks bytes over a socket.
 
 ```go
 handler := wsunixbridge.NewUpgradeHandler(

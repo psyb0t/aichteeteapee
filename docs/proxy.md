@@ -1,6 +1,6 @@
 # serbewr/prawxxey — HTTP request forwarding
 
-Pronounced "proxy".
+Pronounced "proxy", because of course it is.
 
 Forward requests to upstream servers with optional response caching.
 
@@ -35,9 +35,9 @@ payload := &prawxxey.RequestPayload{
 
 ## What it does
 
-- Sets `X-Forwarded-For`, `X-Real-IP`, `X-Forwarded-Proto` on upstream requests
+- Sets `X-Forwarded-For`, `X-Real-IP`, `X-Forwarded-Proto` on upstream requests — the stuff proxies are supposed to do
 - Strips hop-by-hop headers per RFC 2616
-- Limits response body size (default 100MB, configurable)
+- Limits response body size (default 100MB, configurable) — so a rogue upstream can't OOM you
 - Caches 2xx responses only, skips errors
 - Cache key = `sha256(method + url + headers + body)` with configurable header exclusions
 - Custom cache key function via `CacheKeyFn`

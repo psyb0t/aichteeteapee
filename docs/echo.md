@@ -1,6 +1,6 @@
 # echo — Echo framework integration
 
-For when you want [labstack/echo](https://github.com/labstack/echo) instead of `net/http`.
+For when you want [labstack/echo](https://github.com/labstack/echo) instead of `net/http`. No judgment.
 
 ## echo/
 
