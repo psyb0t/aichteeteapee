@@ -154,7 +154,6 @@ func TestLoggerMiddleware_AllOptions(t *testing.T) {
 	handler := createTestHandler()
 
 	req := createTestRequestWithHeaders(
-		http.MethodGet,
 		"/test?param=value",
 		map[string]string{
 			aichteeteapee.HeaderNameAuthorization: "Bearer token123",

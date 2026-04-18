@@ -138,11 +138,16 @@ func TestWithUpgradeHandlerSubprotocols(t *testing.T) {
 func TestWithUpgradeHandlerCheckOrigin(t *testing.T) {
 	config := NewUpgradeHandlerConfig()
 
-	// Test that default CheckOrigin allows all origins
+	// Test that default CheckOrigin rejects mismatched origins
 	req := &http.Request{
 		Header: make(http.Header),
+		Host:   "myapp.example.com",
 	}
 	req.Header.Set("Origin", "https://evil.example.com")
+	assert.False(t, config.CheckOrigin(req))
+
+	// Test that matching origin is accepted
+	req.Header.Set("Origin", "https://myapp.example.com")
 	assert.True(t, config.CheckOrigin(req))
 
 	// Test custom CheckOrigin function
@@ -213,28 +218,28 @@ func TestUpgradeHandlerConfig_ProductionReadyDefaults(t *testing.T) {
 func TestUpgradeHandlerConfig_SecurityDefaults(t *testing.T) {
 	config := NewUpgradeHandlerConfig()
 
-	// Test default CheckOrigin behavior - should allow all
-	// (dev-friendly, but needs configuration for production)
 	req := &http.Request{
 		Header: make(http.Header),
+		Host:   "myapp.local:8080",
 	}
 
-	// Test various origins
-	testOrigins := []string{
-		"https://example.com",
-		"http://localhost:3000",
-		"https://evil.com",
-		"null",
-		"",
+	tests := []struct {
+		origin string
+		expect bool
+	}{
+		{"https://myapp.local:8080", true},
+		{"http://myapp.local:8080", true},
+		{"", true},
+		{"https://evil.com", false},
+		{"http://localhost:3000", false},
+		{"null", false},
 	}
 
-	for _, origin := range testOrigins {
-		req.Header.Set("Origin", origin)
-		// Default allows all - this is by design for development ease
-		// Production deployments should configure a proper CheckOrigin function
-		assert.True(
-			t, config.CheckOrigin(req),
-			"Default CheckOrigin should allow origin: %s", origin,
+	for _, tt := range tests {
+		req.Header.Set("Origin", tt.origin)
+		assert.Equal(
+			t, tt.expect, config.CheckOrigin(req),
+			"origin=%q, host=%q", tt.origin, req.Host,
 		)
 	}
 }

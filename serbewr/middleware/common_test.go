@@ -62,11 +62,11 @@ func createTestRequestWithContext(
 	return req.WithContext(ctx)
 }
 
-// createTestRequestWithHeaders creates a test request with headers.
+// createTestRequestWithHeaders creates a GET test request with headers.
 func createTestRequestWithHeaders(
-	method, path string, headers map[string]string,
+	path string, headers map[string]string,
 ) *http.Request {
-	req := httptest.NewRequest(method, path, nil)
+	req := httptest.NewRequest(http.MethodGet, path, nil)
 
 	for key, value := range headers {
 		req.Header.Set(key, value)

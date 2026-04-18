@@ -48,6 +48,7 @@ func (us *UnixSock) Broadcast(data []byte, logger *slog.Logger) {
 	logger.Debug("broadcast complete")
 }
 
+//nolint:funlen // Socket setup with permission hardening requires length
 func createUnixSockets(
 	ctx context.Context,
 	socketsDir string,
@@ -88,6 +89,14 @@ func createUnixSockets(
 		return ctxerrors.Wrap(err, "failed to create WriterUnixSock socket")
 	}
 
+	if err := os.Chmod(outputPath, socketPermissions); err != nil {
+		logger.Warn(
+			"failed to chmod WriterUnixSock socket file",
+			"error", err,
+			aichteeteapee.FieldPath, outputPath,
+		)
+	}
+
 	conn.WriterUnixSock.Listener = writerUnixSockListener
 	conn.WriterUnixSock.Path = outputPath
 
@@ -99,6 +108,14 @@ func createUnixSockets(
 	)
 	if err != nil {
 		return ctxerrors.Wrap(err, "failed to create ReaderUnixSock socket")
+	}
+
+	if err := os.Chmod(inputPath, socketPermissions); err != nil {
+		logger.Warn(
+			"failed to chmod ReaderUnixSock socket file",
+			"error", err,
+			aichteeteapee.FieldPath, inputPath,
+		)
 	}
 
 	conn.ReaderUnixSock.Listener = readerUnixSockListener
@@ -267,7 +284,10 @@ func handleReaderUnixSockClient(
 				continue
 			}
 
+			conn.WriteMu.Lock()
 			err = conn.Conn.WriteMessage(websocket.BinaryMessage, buffer[:n])
+			conn.WriteMu.Unlock()
+
 			if err != nil {
 				logger.Debug(
 					"error writing to websocket",

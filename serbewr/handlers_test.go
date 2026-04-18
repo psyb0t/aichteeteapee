@@ -516,9 +516,17 @@ func TestFileUploadHandler(t *testing.T) {
 						"from original due to UUID prefix",
 				)
 
-				// Verify file was actually saved
-				filePath, ok := response["path"].(string)
+				// Verify path is relative filename, not absolute
+				responsePath, ok := response["path"].(string)
 				require.True(t, ok)
+				assert.False(
+					t,
+					filepath.IsAbs(responsePath),
+					"path should be relative filename",
+				)
+
+				// Verify file was actually saved
+				filePath := filepath.Join(tempDir, savedFilename)
 				assert.FileExists(t, filePath)
 
 				// Verify file content matches fixture
@@ -976,9 +984,17 @@ func TestFileUploadIntegration(t *testing.T) {
 						"from original due to UUID prefix",
 				)
 
-				// Verify file exists and content matches
-				filePath, ok := response["path"].(string)
+				// Verify path is relative filename
+				responsePath, ok := response["path"].(string)
 				require.True(t, ok)
+				assert.False(
+					t,
+					filepath.IsAbs(responsePath),
+					"path should be relative filename",
+				)
+
+				// Verify file exists and content matches
+				filePath := filepath.Join(tempDir, savedFilename)
 				assert.FileExists(t, filePath)
 
 				uploadedContent, err := os.ReadFile(filePath)
@@ -1325,11 +1341,13 @@ func TestFileUploadHandlerWithFilenamePrependType(t *testing.T) {
 			// Run the specific validation for this prepend type
 			tt.validateFunc(t, savedFilename, tt.uploadedFile)
 
-			// Verify file was actually saved with the expected filename
-			filePath, ok := response["path"].(string)
+			// Verify path is relative and file was saved
+			responsePath, ok := response["path"].(string)
 			require.True(t, ok)
+			assert.Equal(t, savedFilename, responsePath)
+
+			filePath := filepath.Join(tempDir, savedFilename)
 			assert.FileExists(t, filePath)
-			assert.Contains(t, filePath, savedFilename)
 		})
 	}
 }

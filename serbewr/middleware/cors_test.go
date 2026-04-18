@@ -5,10 +5,13 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/psyb0t/aichteeteapee"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestCORS(t *testing.T) {
+	// Use explicit AllowAllOrigins to test CORS header behavior
+	// (default is now secure / no wildcard)
 	tests := []struct {
 		name           string
 		method         string
@@ -45,7 +48,7 @@ func TestCORS(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			middleware := CORS()
+			middleware := CORS(WithAllowAllOrigins())
 
 			handler := createTestHandler()
 
@@ -115,7 +118,24 @@ func TestCORSMiddleware_MissingCoverage(t *testing.T) {
 		assert.Equal(t, "", w.Header().Get("Access-Control-Allow-Origin"))
 	})
 
-	t.Run("OPTIONS without origin", func(t *testing.T) {
+	t.Run("OPTIONS without origin uses secure default", func(t *testing.T) {
+		middleware := CORS()
+
+		handler := createTestHandler()
+
+		req := createTestRequest(http.MethodOptions, "/test")
+		w := httptest.NewRecorder()
+
+		middleware(handler).ServeHTTP(w, req)
+
+		assert.Equal(t, http.StatusNoContent, w.Code)
+		assert.Empty(t, w.Header().Get("Access-Control-Allow-Origin"))
+	})
+
+	t.Run("OPTIONS without origin in dev mode", func(t *testing.T) {
+		aichteeteapee.FuckSecurity()
+		defer aichteeteapee.UnfuckSecurity()
+
 		middleware := CORS()
 
 		handler := createTestHandler()
@@ -130,31 +150,62 @@ func TestCORSMiddleware_MissingCoverage(t *testing.T) {
 	})
 }
 
-// Test to prove CORS defaults are insecure.
-func TestCORSMiddleware_InsecureDefaults(t *testing.T) {
-	t.Run("default CORS allows any origin - security risk", func(t *testing.T) {
-		// Create CORS middleware with NO configuration (uses defaults)
+func TestCORSMiddleware_SecureDefaults(t *testing.T) {
+	t.Run("default CORS blocks unknown origins", func(t *testing.T) {
 		corsMiddleware := CORS()
 
 		handler := createTestHandler()
 
-		// Make request from arbitrary evil origin
 		req := createTestRequestWithHeaders(
-			http.MethodGet, "/test", map[string]string{
+			"/test", map[string]string{
 				"Origin": "https://evil-hacker-site.com",
 			})
 
 		w := httptest.NewRecorder()
 		corsMiddleware(handler).ServeHTTP(w, req)
 
-		// Check if evil origin is allowed
 		allowedOrigin := w.Header().Get("Access-Control-Allow-Origin")
+		assert.Empty(t, allowedOrigin, "secure default blocks unknown origins")
+	})
 
-		// This proves insecure defaults - any origin is allowed
-		assert.Equal(
-			t, "*", allowedOrigin,
-			"CORS defaults allow any origin - security risk for production",
-		)
+	t.Run("FuckSecurity enables permissive CORS", func(t *testing.T) {
+		aichteeteapee.FuckSecurity()
+		defer aichteeteapee.UnfuckSecurity()
+
+		corsMiddleware := CORS()
+
+		handler := createTestHandler()
+
+		req := createTestRequestWithHeaders(
+			"/test", map[string]string{
+				"Origin": "https://evil-hacker-site.com",
+			})
+
+		w := httptest.NewRecorder()
+		corsMiddleware(handler).ServeHTTP(w, req)
+
+		allowedOrigin := w.Header().Get("Access-Control-Allow-Origin")
+		assert.Equal(t, "*", allowedOrigin, "dev mode allows all origins")
+	})
+
+	t.Run("UnfuckSecurity restores secure defaults", func(t *testing.T) {
+		aichteeteapee.FuckSecurity()
+		aichteeteapee.UnfuckSecurity()
+
+		corsMiddleware := CORS()
+
+		handler := createTestHandler()
+
+		req := createTestRequestWithHeaders(
+			"/test", map[string]string{
+				"Origin": "https://evil-hacker-site.com",
+			})
+
+		w := httptest.NewRecorder()
+		corsMiddleware(handler).ServeHTTP(w, req)
+
+		allowedOrigin := w.Header().Get("Access-Control-Allow-Origin")
+		assert.Empty(t, allowedOrigin, "unfucked = secure again")
 	})
 }
 

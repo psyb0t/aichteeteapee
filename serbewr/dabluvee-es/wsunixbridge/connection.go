@@ -4,6 +4,7 @@ import (
 	"context"
 	"log/slog"
 	"os"
+	"sync"
 
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
@@ -16,8 +17,9 @@ import (
 type Connection struct {
 	ID             uuid.UUID
 	Conn           *websocket.Conn
-	WriterUnixSock UnixSock // Unix socket for writing data
-	ReaderUnixSock UnixSock // Unix socket for reading data
+	WriteMu        sync.Mutex // Mutex to serialize concurrent WebSocket writes
+	WriterUnixSock UnixSock   // Unix socket for writing data
+	ReaderUnixSock UnixSock   // Unix socket for reading data
 }
 
 // ConnectionHandler is called when a new connection is established.

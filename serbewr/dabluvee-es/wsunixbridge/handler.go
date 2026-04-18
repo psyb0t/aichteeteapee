@@ -12,8 +12,9 @@ import (
 )
 
 const (
-	dirPermissions = 0o750
-	bufferSize     = 4096
+	dirPermissions    = 0o700
+	socketPermissions = 0o600
+	bufferSize        = 4096
 
 	// Socket constants.
 	writerUnixSockSuffix = "_output"

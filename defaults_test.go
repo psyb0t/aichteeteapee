@@ -74,33 +74,40 @@ func TestGetDefaultWebSocketCheckOrigin(t *testing.T) {
 	tests := []struct {
 		name   string
 		origin string
+		host   string
 		want   bool
 	}{
 		{
-			name:   "any origin should be allowed",
-			origin: "https://example.com",
+			name:   "matching origin allowed",
+			origin: "https://myapp.local:8080",
+			host:   "myapp.local:8080",
 			want:   true,
 		},
 		{
-			name:   "localhost should be allowed",
-			origin: "http://localhost:3000",
-			want:   true,
-		},
-		{
-			name:   "malicious origin should still be allowed (unsafe default)",
-			origin: "https://malicious.com",
-			want:   true,
-		},
-		{
-			name:   "empty origin should be allowed",
+			name:   "empty origin allowed (same-origin request)",
 			origin: "",
+			host:   "myapp.local:8080",
 			want:   true,
+		},
+		{
+			name:   "mismatched origin rejected",
+			origin: "https://evil.com",
+			host:   "myapp.local:8080",
+			want:   false,
+		},
+		{
+			name:   "localhost mismatch rejected",
+			origin: "http://localhost:3000",
+			host:   "myapp.local:8080",
+			want:   false,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			req := httptest.NewRequest(http.MethodGet, "/ws", nil)
+
+			req.Host = tt.host
 			if tt.origin != "" {
 				req.Header.Set("Origin", tt.origin)
 			}
@@ -108,9 +115,43 @@ func TestGetDefaultWebSocketCheckOrigin(t *testing.T) {
 			result := GetDefaultWebSocketCheckOrigin(req)
 			assert.Equal(
 				t, tt.want, result,
-				"GetDefaultWebSocketCheckOrigin should return %v for origin %s",
-				tt.want, tt.origin,
+				"origin=%q host=%q", tt.origin, tt.host,
 			)
 		})
 	}
+}
+
+func TestDevMode(t *testing.T) {
+	t.Run("FuckSecurity enables dev mode", func(t *testing.T) {
+		FuckSecurity()
+
+		defer UnfuckSecurity()
+
+		assert.True(t, IsDevMode())
+		assert.True(t, GetDefaultCORSAllowAllOrigins())
+
+		req := httptest.NewRequest(http.MethodGet, "/ws", nil)
+		req.Host = "myapp.local:8080"
+		req.Header.Set("Origin", "https://evil.com")
+		assert.True(t, GetDefaultWebSocketCheckOrigin(req))
+	})
+
+	t.Run("UnfuckSecurity restores secure defaults", func(t *testing.T) {
+		FuckSecurity()
+		UnfuckSecurity()
+
+		assert.False(t, IsDevMode())
+		assert.False(t, GetDefaultCORSAllowAllOrigins())
+
+		req := httptest.NewRequest(http.MethodGet, "/ws", nil)
+		req.Host = "myapp.local:8080"
+		req.Header.Set("Origin", "https://evil.com")
+		assert.False(t, GetDefaultWebSocketCheckOrigin(req))
+	})
+
+	t.Run("permissive check origin always allows", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodGet, "/ws", nil)
+		req.Header.Set("Origin", "https://evil.com")
+		assert.True(t, GetPermissiveWebSocketCheckOrigin(req))
+	})
 }
