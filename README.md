@@ -4,6 +4,21 @@ Pronounced "HTTP". The name is the whole joke. Moving on.
 
 A Go HTTP library that does everything you need and nothing you don't. Spin up a production-ready server with middleware, WebSocket hubs, file uploads, static serving, request proxying with caching, and OpenAPI validation — all with sane defaults and zero boilerplate.
 
+## Table of Contents
+
+- [What's in the box](#whats-in-the-box)
+  - [Root package — constants and utilities](#root-package--constants-and-utilities)
+  - [server/](#server--http-server)
+  - [server/middleware/](#servermiddleware--middleware-stack)
+  - [server/proxy/](#serverproxy--http-request-forwarding)
+  - [server/dabluvee-es/](#serverdabluvee-es--websocket-event-system)
+  - [echo/](#echo--echo-framework-wrapper)
+  - [echo/middleware/](#echomiddleware--echo-api-middleware)
+  - [oapi-codegen/middleware/](#oapi-codegenmiddleware--openapi-validation-for-echo)
+- [Logging](#logging)
+- [Development](#development)
+- [License](#license)
+
 ```go
 srv, _ := server.New()
 
