@@ -7,7 +7,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
-	dabluveees "github.com/psyb0t/aichteeteapee/server/dabluvee-es"
+	dabluveees "github.com/psyb0t/aichteeteapee/serbewr/dabluvee-es"
 	commontypes "github.com/psyb0t/common-go/types"
 	"github.com/psyb0t/ctxerrors"
 )

@@ -4,7 +4,7 @@ import (
 	"net/http"
 	"time"
 
-	dabluveees "github.com/psyb0t/aichteeteapee/server/dabluvee-es"
+	dabluveees "github.com/psyb0t/aichteeteapee/serbewr/dabluvee-es"
 )
 
 // UpgradeHandlerConfig extends the shared websocket config

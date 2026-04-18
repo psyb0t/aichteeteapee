@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	dabluveees "github.com/psyb0t/aichteeteapee/server/dabluvee-es"
+	dabluveees "github.com/psyb0t/aichteeteapee/serbewr/dabluvee-es"
 	"github.com/stretchr/testify/require"
 )
 

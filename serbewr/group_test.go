@@ -1,4 +1,4 @@
-package server
+package serbewr
 
 import (
 	"io"
@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/psyb0t/aichteeteapee/server/middleware"
+	"github.com/psyb0t/aichteeteapee/serbewr/middleware"
 	"github.com/stretchr/testify/assert"
 )
 

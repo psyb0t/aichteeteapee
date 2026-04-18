@@ -1,4 +1,4 @@
-package server
+package serbewr
 
 import (
 	"context"
@@ -17,7 +17,7 @@ import (
 	"time"
 
 	"github.com/psyb0t/aichteeteapee"
-	"github.com/psyb0t/aichteeteapee/server/middleware"
+	"github.com/psyb0t/aichteeteapee/serbewr/middleware"
 	"github.com/psyb0t/ctxerrors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

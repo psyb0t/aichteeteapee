@@ -10,7 +10,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
-	dabluveees "github.com/psyb0t/aichteeteapee/server/dabluvee-es"
+	dabluveees "github.com/psyb0t/aichteeteapee/serbewr/dabluvee-es"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

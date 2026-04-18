@@ -1,7 +1,7 @@
 package wshub
 
 import (
-	dabluveees "github.com/psyb0t/aichteeteapee/server/dabluvee-es"
+	dabluveees "github.com/psyb0t/aichteeteapee/serbewr/dabluvee-es"
 )
 
 // EventHandler processes events with access to the hub, client, and event,
