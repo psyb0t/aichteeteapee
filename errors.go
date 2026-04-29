@@ -23,3 +23,17 @@ var (
 	ErrServiceUnavailable = errors.New("service unavailable")
 	ErrGatewayTimeout     = errors.New("gateway timeout")
 )
+
+// Response handling errors.
+var (
+	ErrInvalidResponse          = errors.New("invalid response")
+	ErrEmptyResponse            = errors.New("empty response")
+	ErrUnexpectedResponseStatus = errors.New("unexpected response status")
+)
+
+// Anti-bot / scraping errors.
+var (
+	ErrBotDetected      = errors.New("bot detected")
+	ErrChallengeBlocked = errors.New("challenge blocked")
+	ErrCaptchaRequired  = errors.New("captcha required")
+)
