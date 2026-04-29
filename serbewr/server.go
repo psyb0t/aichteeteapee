@@ -14,7 +14,6 @@ import (
 	"time"
 
 	"github.com/psyb0t/aichteeteapee"
-	commonerrors "github.com/psyb0t/common-go/errors"
 	"github.com/psyb0t/ctxerrors"
 )
 
@@ -455,14 +454,14 @@ func (s *Server) validateTLSConfig() error {
 
 	if s.config.TLSCertFile == "" {
 		return ctxerrors.Wrap(
-			commonerrors.ErrTLSCertFileNotSpecified,
+			aichteeteapee.ErrTLSCertFileNotSpecified,
 			"TLS enabled but no cert file provided",
 		)
 	}
 
 	if s.config.TLSKeyFile == "" {
 		return ctxerrors.Wrap(
-			commonerrors.ErrTLSKeyFileNotSpecified,
+			aichteeteapee.ErrTLSKeyFileNotSpecified,
 			"TLS enabled but no key file provided",
 		)
 	}

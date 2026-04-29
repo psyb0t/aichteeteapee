@@ -37,3 +37,16 @@ var (
 	ErrChallengeBlocked = errors.New("challenge blocked")
 	ErrCaptchaRequired  = errors.New("captcha required")
 )
+
+// API client errors.
+var (
+	ErrAPIError       = errors.New("API error")
+	ErrAPIKeyNotSet   = errors.New("api key is not set")
+	ErrNilRequestBody = errors.New("request body is nil")
+)
+
+// TLS & Security errors.
+var (
+	ErrTLSCertFileNotSpecified = errors.New("TLS cert file not specified")
+	ErrTLSKeyFileNotSpecified  = errors.New("TLS key file not specified")
+)
