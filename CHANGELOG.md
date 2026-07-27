@@ -2,7 +2,7 @@
 
 All notable changes per release. Versions follow [semver](https://semver.org).
 
-## v1.7.1 — 2026-07-27
+## v1.9.1 — 2026-07-27
 
 Self-hosted README badges + `go fix` lint tooling.
 
@@ -15,7 +15,7 @@ Self-hosted README badges + `go fix` lint tooling.
   previously applied fixes in-place); run `make lint-fix` to apply. No library
   code changed.
 
-## v1.7.0 and earlier
+## v1.9.0 and earlier
 
 See the git tags for the pre-CHANGELOG release history — the HTTP library
 (`serbewr` router, middleware, WebSocket hubs, file uploads, OpenAPI validation).
