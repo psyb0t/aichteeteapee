@@ -1,5 +1,11 @@
 # aichteeteapee
 
+[![Go Reference](https://pkg.go.dev/badge/github.com/psyb0t/aichteeteapee.svg)](https://pkg.go.dev/github.com/psyb0t/aichteeteapee)
+[![CI](https://github.com/psyb0t/aichteeteapee/actions/workflows/pipeline.yml/badge.svg?branch=main)](https://github.com/psyb0t/aichteeteapee/actions/workflows/pipeline.yml)
+[![coverage](https://raw.githubusercontent.com/psyb0t/aichteeteapee/badges/coverage.svg)](https://github.com/psyb0t/aichteeteapee/actions/workflows/pipeline.yml)
+[![version](https://raw.githubusercontent.com/psyb0t/aichteeteapee/badges/version.svg)](https://github.com/psyb0t/aichteeteapee/tags)
+[![license](https://raw.githubusercontent.com/psyb0t/aichteeteapee/badges/license.svg)](LICENSE)
+
 Pronounced "HTTP". The name is the whole joke. Moving on.
 
 A Go HTTP library that does everything you need and nothing you don't. Spin up a production-ready server with middleware, WebSocket hubs, file uploads, static serving, request proxying with caching, and OpenAPI validation — all with secure defaults and zero boilerplate.
@@ -86,6 +92,15 @@ Pronounced "WS" — because why stop at one wordplay. Three-tier architecture (H
 ### [`echo/`](docs/echo.md) — Echo framework integration
 
 For when you want [labstack/echo](https://github.com/labstack/echo) instead of `net/http`. Wrapper with auto-served OpenAPI specs, Swagger UI, Bearer auth middleware, and OpenAPI request validation via oapi-codegen. [Full docs](docs/echo.md).
+
+### TODO — client-side utilities
+
+Everything above is **server-side**. There is no HTTP *client* here yet — an
+outbound request helper (a `clientutils`-style package: a `Do`/`Get`/`POST`
+wrapper that reuses the same content-type and header constants, handles JSON
+encode/decode, and returns the same `ErrorResponse` envelope). It's a planned
+addition so code making outbound calls gets the same batteries the server side
+already has, instead of hand-rolling `net/http` each time.
 
 ## Logging
 
