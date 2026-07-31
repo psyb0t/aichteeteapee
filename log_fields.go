@@ -44,4 +44,13 @@ const (
 	// File system and data fields.
 	FieldPath  = "path"
 	FieldBytes = "bytes"
+
+	// Request fields. Set on the scope by the RequestID and Logger
+	// middleware, so every line logged under the request carries them.
+	FieldRequestID = "requestId"
+	FieldMethod    = "method"
+	FieldIP        = "ip"
+	FieldStatus    = "status"
+	FieldDuration  = "duration"
+	FieldQuery     = "query"
 )

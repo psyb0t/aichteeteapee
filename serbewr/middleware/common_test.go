@@ -75,15 +75,27 @@ func createTestRequestWithHeaders(
 	return req
 }
 
-// createTestLogger creates a test slog.Logger that discards output
-// and a buffer to capture log output when needed.
-func createTestLogger() (*slog.Logger, *bytes.Buffer) {
-	buf := &bytes.Buffer{}
-	logger := slog.New(slog.NewTextHandler(buf, &slog.HandlerOptions{
-		Level: slog.LevelDebug,
-	}))
+// captureDefaultLogger points slog.Default() at a buffer for the duration of
+// one test and restores it afterwards. The middleware build their loggers from
+// scope.GetLogger, which reads slog.Default(), so this is how a test sees what
+// they emitted. Callers must NOT be parallel: the default logger is
+// process-wide, so two tests swapping it at once would each read the other's
+// output.
+func captureDefaultLogger(t *testing.T) *bytes.Buffer {
+	t.Helper()
 
-	return logger, buf
+	buf := &bytes.Buffer{}
+	previous := slog.Default()
+
+	slog.SetDefault(slog.New(slog.NewTextHandler(buf, &slog.HandlerOptions{
+		Level: slog.LevelDebug,
+	})))
+
+	t.Cleanup(func() {
+		slog.SetDefault(previous)
+	})
+
+	return buf
 }
 
 // assertSecurityHeaders checks that security headers are set correctly.

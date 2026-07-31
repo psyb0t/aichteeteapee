@@ -9,7 +9,7 @@ import (
 	"path"
 
 	"github.com/psyb0t/aichteeteapee"
-	"github.com/psyb0t/common-go/slogging"
+	"github.com/psyb0t/common-go/scope"
 )
 
 // BasicAuthConfig holds configuration for basic auth middleware.
@@ -122,7 +122,7 @@ func BasicAuth(opts ...BasicAuthOption) Middleware {
 
 			user, pass, ok := r.BasicAuth()
 			if !ok {
-				slogging.GetLogger(r.Context()).Warn(
+				scope.GetLogger(r.Context()).Warn(
 					"missing basic auth credentials",
 				)
 				unauthorized(w, config)
@@ -131,7 +131,7 @@ func BasicAuth(opts ...BasicAuthOption) Middleware {
 			}
 
 			if !authenticateUser(config, user, pass) {
-				slogging.GetLogger(r.Context()).Warn(
+				scope.GetLogger(r.Context()).Warn(
 					"basic auth failed",
 					"user", user,
 				)

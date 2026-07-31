@@ -22,10 +22,10 @@ var (
 
 	// Field & Data errors
 	ErrNilOutput                      = errors.New("output is nil")
-	ErrNilRequestBody                 = errors.New("request body is nil")
 	ErrNilField                       = errors.New("field is nil")
 	ErrRequiredFieldNotSet            = errors.New("required field is not set")
 	ErrRequiredLLMResponseFieldNotSet = errors.New("required llm response field is not set")
+	ErrAlreadyExists                  = errors.New("already exists")
 
 	// Job & Process errors
 	ErrJobFailed                 = errors.New("job failed")
@@ -33,25 +33,33 @@ var (
 	ErrNotFound                  = errors.New("not found")
 
 	// Operation errors
-	ErrFetchFailed   = errors.New("fetch failed")
-	ErrParseFailed   = errors.New("parse failed")
-	ErrWriteFailed   = errors.New("write failed")
-	ErrPublishFailed = errors.New("publish failed")
+	ErrFetchFailed     = errors.New("fetch failed")
+	ErrParseFailed     = errors.New("parse failed")
+	ErrWriteFailed     = errors.New("write failed")
+	ErrPublishFailed   = errors.New("publish failed")
+	ErrSubscribeFailed = errors.New("subscribe failed")
+	ErrDownloadFailed  = errors.New("download failed")
+	ErrUploadFailed    = errors.New("upload failed")
+	ErrUpsertFailed    = errors.New("upsert failed")
+	ErrDeleteFailed    = errors.New("delete failed")
+	ErrConnectFailed   = errors.New("connect failed")
+	ErrBrowseFailed    = errors.New("browse failed")
+	ErrSeedFailed      = errors.New("seed failed")
+	ErrMigrationFailed = errors.New("migration failed")
+	ErrUnmarshalFailed = errors.New("unmarshal failed")
+	ErrMarshalFailed   = errors.New("marshal failed")
 
 	// Process State errors
-	ErrFailed     = errors.New("failed")
-	ErrTimeout    = errors.New("timeout")
-	ErrTerminated = errors.New("terminated")
-	ErrKilled     = errors.New("killed")
-	ErrClosing    = errors.New("closing")
+	ErrFailed       = errors.New("failed")
+	ErrTimeout      = errors.New("timeout")
+	ErrTerminated   = errors.New("terminated")
+	ErrKilled       = errors.New("killed")
+	ErrClosing      = errors.New("closing")
+	ErrShuttingDown = errors.New("shutting down")
+	ErrCancelled    = errors.New("cancelled")
 
 	// API & HTTP errors
-	ErrAPIError                 = errors.New("API error")
-	ErrAPIKeyNotSet             = errors.New("api key is not set")
 	ErrUnexpectedHTTPStatusCode = errors.New("unexpected http status code")
 	ErrNotAuthenticated         = errors.New("not authenticated")
-
-	// TLS & Security errors
-	ErrTLSCertFileNotSpecified = errors.New("TLS cert file not specified")
-	ErrTLSKeyFileNotSpecified  = errors.New("TLS key file not specified")
+	ErrRateLimited              = errors.New("rate limited")
 )

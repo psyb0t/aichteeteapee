@@ -5,7 +5,7 @@ import (
 	"strings"
 
 	"github.com/psyb0t/aichteeteapee"
-	"github.com/psyb0t/common-go/slogging"
+	"github.com/psyb0t/common-go/scope"
 )
 
 // EnforceRequestContentTypeMiddleware enforces specific content types on
@@ -26,7 +26,7 @@ func EnforceRequestContentType(allowedContentTypes ...string) Middleware {
 				aichteeteapee.HeaderNameContentType,
 			)
 			if contentType == "" {
-				slogging.GetLogger(r.Context()).Debug(
+				scope.GetLogger(r.Context()).Debug(
 					"missing content-type header",
 				)
 				aichteeteapee.WriteJSON(
@@ -51,7 +51,7 @@ func EnforceRequestContentType(allowedContentTypes ...string) Middleware {
 				}
 			}
 
-			slogging.GetLogger(r.Context()).Debug(
+			scope.GetLogger(r.Context()).Debug(
 				"unsupported content-type",
 				"contentType", mediaType,
 			)

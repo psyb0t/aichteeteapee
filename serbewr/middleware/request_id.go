@@ -7,7 +7,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/psyb0t/aichteeteapee"
-	"github.com/psyb0t/common-go/slogging"
+	"github.com/psyb0t/common-go/scope"
 )
 
 const (
@@ -56,12 +56,12 @@ func RequestID() Middleware {
 					reqID,
 				)
 
-				logger := slogging.GetLogger(ctx).With(
-					"requestId", reqID,
-				)
-
-				ctx = slogging.GetCtxWithLogger(
-					ctx, logger,
+				// On the scope rather than a ctx-pinned logger, so it also
+				// crosses a process hop via scope.ToJSON and shows up on
+				// every line any downstream package logs.
+				ctx = scope.Set(
+					ctx,
+					scope.Attr(aichteeteapee.FieldRequestID, reqID),
 				)
 
 				next.ServeHTTP(w, r.WithContext(ctx))

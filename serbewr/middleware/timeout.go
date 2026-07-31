@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/psyb0t/aichteeteapee"
-	"github.com/psyb0t/common-go/slogging"
+	"github.com/psyb0t/common-go/scope"
 )
 
 // timeoutResponseWriter wraps http.ResponseWriter to prevent concurrent
@@ -139,7 +139,7 @@ func Timeout(opts ...TimeoutOption) Middleware {
 				if !responseWritten {
 					responseWritten = true
 
-					slogging.GetLogger(r.Context()).Warn(
+					scope.GetLogger(r.Context()).Warn(
 						"request timeout exceeded",
 						"timeout", config.Timeout.String(),
 					)

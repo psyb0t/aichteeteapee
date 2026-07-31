@@ -9,13 +9,12 @@ import (
 	"testing"
 
 	"github.com/psyb0t/aichteeteapee"
-	"github.com/psyb0t/common-go/slogging"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 func TestLogger(t *testing.T) {
-	logger, buf := createTestLogger()
+	buf := captureDefaultLogger(t)
 
 	// Chain RequestID → Logger like production.
 	chain := Chain(
@@ -32,14 +31,6 @@ func TestLogger(t *testing.T) {
 		"192.168.1.1",
 	)
 
-	// Seed the context with the buffer logger so
-	// RequestID middleware enriches the right one.
-	ctx := slogging.GetCtxWithLogger(
-		req.Context(), logger,
-	)
-
-	req = req.WithContext(ctx)
-
 	w := httptest.NewRecorder()
 	chain.ServeHTTP(w, req)
 
@@ -55,7 +46,7 @@ func TestLogger(t *testing.T) {
 }
 
 func TestLoggerMiddleware_SkipPaths(t *testing.T) {
-	logger, buf := createTestLogger()
+	buf := captureDefaultLogger(t)
 
 	mw := Logger(
 		WithSkipPaths("/health", "/metrics"),
@@ -67,11 +58,6 @@ func TestLoggerMiddleware_SkipPaths(t *testing.T) {
 		http.MethodGet, "/health",
 	)
 
-	ctx := slogging.GetCtxWithLogger(
-		req.Context(), logger,
-	)
-
-	req = req.WithContext(ctx)
 	w := httptest.NewRecorder()
 
 	mw(handler).ServeHTTP(w, req)
@@ -81,11 +67,6 @@ func TestLoggerMiddleware_SkipPaths(t *testing.T) {
 
 	req = createTestRequest(http.MethodGet, "/api")
 
-	ctx = slogging.GetCtxWithLogger(
-		req.Context(), logger,
-	)
-
-	req = req.WithContext(ctx)
 	w = httptest.NewRecorder()
 
 	mw(handler).ServeHTTP(w, req)
@@ -135,7 +116,7 @@ func TestLoggerMiddleware_ResponseWriterRaceCondition(t *testing.T) {
 }
 
 func TestLoggerMiddleware_AllOptions(t *testing.T) {
-	logger, buf := createTestLogger()
+	buf := captureDefaultLogger(t)
 
 	mw := Logger(
 		WithLogLevel(slog.LevelWarn),
@@ -161,11 +142,6 @@ func TestLoggerMiddleware_AllOptions(t *testing.T) {
 		},
 	)
 
-	ctx := slogging.GetCtxWithLogger(
-		req.Context(), logger,
-	)
-
-	req = req.WithContext(ctx)
 	w := httptest.NewRecorder()
 
 	mw(handler).ServeHTTP(w, req)

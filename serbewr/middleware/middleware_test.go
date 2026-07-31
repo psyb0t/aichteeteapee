@@ -6,13 +6,12 @@ import (
 	"testing"
 
 	"github.com/psyb0t/aichteeteapee"
-	"github.com/psyb0t/common-go/slogging"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 func TestChain(t *testing.T) {
-	logger, buf := createTestLogger()
+	buf := captureDefaultLogger(t)
 
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Check that request ID was added by middleware
@@ -31,11 +30,6 @@ func TestChain(t *testing.T) {
 
 	req := createTestRequest(http.MethodGet, "/test")
 
-	ctx := slogging.GetCtxWithLogger(
-		req.Context(), logger,
-	)
-
-	req = req.WithContext(ctx)
 	w := httptest.NewRecorder()
 
 	chainedHandler.ServeHTTP(w, req)

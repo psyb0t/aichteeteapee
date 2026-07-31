@@ -104,12 +104,16 @@ already has, instead of hand-rolling `net/http` each time.
 
 ## Logging
 
-All middleware and proxy code uses [common-go/slogging](https://github.com/psyb0t/common-go) for context-propagated structured logging.
+All middleware and proxy code uses [common-go/scope](https://github.com/psyb0t/common-go) for context-propagated structured logging.
 
-The middleware chain builds up the logger progressively:
-1. **RequestID** adds `requestId` to the context logger
+The middleware chain builds up the request's scope progressively:
+1. **RequestID** puts `requestId` on the scope
 2. **Logger** adds `method`, `path`, `ip`
-3. Downstream code calls `slogging.GetLogger(ctx)` and gets all fields automatically
+3. Downstream code calls `scope.GetLogger(ctx)` and gets all fields automatically
+
+The context carries attributes, not a logger. `scope.GetLogger` applies them to `slog.Default()` at the moment you ask, so configure your handler once at startup with `slog.SetDefault` and every line picks it up. Because they are data rather than a logger, the same attributes also cross a process boundary via `scope.ToJSON` / `scope.FromJSON`.
+
+Field names come from the constants in `log_fields.go` — `FieldRequestID`, `FieldMethod`, `FieldPath`, `FieldIP` and friends.
 
 No explicit logger passing. Every log line from every middleware and handler automatically includes the full request context.
 

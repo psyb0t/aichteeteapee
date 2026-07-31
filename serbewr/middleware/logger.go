@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/psyb0t/aichteeteapee"
-	"github.com/psyb0t/common-go/slogging"
+	"github.com/psyb0t/common-go/scope"
 )
 
 type LoggerConfig struct {
@@ -106,14 +106,14 @@ func Logger(opts ...LoggerOption) Middleware {
 				ctx := r.Context()
 				start := time.Now()
 
-				logger := slogging.GetLogger(ctx).With(
-					"method", r.Method,
-					"path", r.URL.Path,
-					"ip", aichteeteapee.GetClientIP(r),
-				)
-
-				ctx = slogging.GetCtxWithLogger(
-					ctx, logger,
+				ctx = scope.Set(
+					ctx,
+					scope.Attr(aichteeteapee.FieldMethod, r.Method),
+					scope.Attr(aichteeteapee.FieldPath, r.URL.Path),
+					scope.Attr(
+						aichteeteapee.FieldIP,
+						aichteeteapee.GetClientIP(r),
+					),
 				)
 
 				wrapped := &loggerResponseWriter{
@@ -124,33 +124,43 @@ func Logger(opts ...LoggerOption) Middleware {
 				}
 
 				defer func() {
-					l := slogging.GetLogger(ctx).With(
-						"status", wrapped.getStatusCode(),
-						"duration", time.Since(start).String(),
-						"userAgent", r.Header.Get(
+					// Built here rather than before next, because status and
+					// duration are only known now. Attributes an INNER
+					// handler added are deliberately not reflected: stdlib
+					// middleware pass a new *http.Request inward, so this
+					// ctx is the one we created. RequestID must therefore
+					// run OUTER of this middleware for its id to appear.
+					logger := scope.GetLogger(ctx).With(
+						aichteeteapee.FieldStatus,
+						wrapped.getStatusCode(),
+						aichteeteapee.FieldDuration,
+						time.Since(start).String(),
+						aichteeteapee.FieldUserAgent,
+						r.Header.Get(
 							aichteeteapee.HeaderNameUserAgent,
 						),
 					)
 
 					if config.IncludeQuery {
-						l = l.With(
-							"query", r.URL.RawQuery,
+						logger = logger.With(
+							aichteeteapee.FieldQuery,
+							r.URL.RawQuery,
 						)
 					}
 
 					for k, v := range config.ExtraFields {
-						l = l.With(k, v)
+						logger = logger.With(k, v)
 					}
 
 					if config.IncludeHeaders {
 						for _, h := range config.HeaderFields {
 							if v := r.Header.Get(h); v != "" {
-								l = l.With("header_"+h, v)
+								logger = logger.With("header_"+h, v)
 							}
 						}
 					}
 
-					l.Log(
+					logger.Log(
 						ctx,
 						config.LogLevel,
 						config.Message,

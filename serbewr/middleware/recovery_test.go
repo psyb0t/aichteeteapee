@@ -8,13 +8,13 @@ import (
 	"testing"
 
 	"github.com/psyb0t/aichteeteapee"
-	"github.com/psyb0t/common-go/slogging"
+	"github.com/psyb0t/common-go/scope"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 func TestRecovery(t *testing.T) {
-	bufLogger, buf := createTestLogger()
+	buf := captureDefaultLogger(t)
 	mw := Recovery()
 
 	handler := createPanicHandler("test panic")
@@ -26,15 +26,12 @@ func TestRecovery(t *testing.T) {
 	)
 	req.Header.Set("X-Real-IP", "10.0.0.1")
 
-	ctxLogger := bufLogger.With(
-		"requestId", "panic-req-456",
-		"method", req.Method,
-		"path", req.URL.Path,
-		"ip", "10.0.0.1",
-	)
-
-	ctx := slogging.GetCtxWithLogger(
-		req.Context(), ctxLogger,
+	ctx := scope.Set(
+		req.Context(),
+		scope.Attr(aichteeteapee.FieldRequestID, "panic-req-456"),
+		scope.Attr(aichteeteapee.FieldMethod, req.Method),
+		scope.Attr(aichteeteapee.FieldPath, req.URL.Path),
+		scope.Attr(aichteeteapee.FieldIP, "10.0.0.1"),
 	)
 
 	req = req.WithContext(ctx)
@@ -66,7 +63,7 @@ func TestRecovery(t *testing.T) {
 
 func TestRecoveryMiddleware_EdgeCases(t *testing.T) {
 	t.Run("panic with different types", func(t *testing.T) {
-		logger, buf := createTestLogger()
+		buf := captureDefaultLogger(t)
 		mw := Recovery()
 
 		handler := createPanicHandler(42)
@@ -75,11 +72,6 @@ func TestRecoveryMiddleware_EdgeCases(t *testing.T) {
 			http.MethodGet, "/test",
 		)
 
-		ctx := slogging.GetCtxWithLogger(
-			req.Context(), logger,
-		)
-
-		req = req.WithContext(ctx)
 		w := httptest.NewRecorder()
 
 		assert.NotPanics(t, func() {
@@ -91,7 +83,7 @@ func TestRecoveryMiddleware_EdgeCases(t *testing.T) {
 	})
 
 	t.Run("panic with struct type", func(t *testing.T) {
-		bufLogger, buf := createTestLogger()
+		buf := captureDefaultLogger(t)
 		mw := Recovery()
 
 		type CustomError struct {
@@ -111,17 +103,16 @@ func TestRecoveryMiddleware_EdgeCases(t *testing.T) {
 			"X-Forwarded-For", "192.168.1.100",
 		)
 
-		// Simulate what RequestID + Logger middlewares
-		// would put on the context logger.
-		ctxLogger := bufLogger.With(
-			"requestId", "panic-test-789",
-			"method", req.Method,
-			"path", req.URL.Path,
-			"ip", "192.168.1.100",
-		)
-
-		ctx := slogging.GetCtxWithLogger(
-			req.Context(), ctxLogger,
+		// Simulate what the RequestID + Logger middleware
+		// would put on the scope.
+		ctx := scope.Set(
+			req.Context(),
+			scope.Attr(
+				aichteeteapee.FieldRequestID, "panic-test-789",
+			),
+			scope.Attr(aichteeteapee.FieldMethod, req.Method),
+			scope.Attr(aichteeteapee.FieldPath, req.URL.Path),
+			scope.Attr(aichteeteapee.FieldIP, "192.168.1.100"),
 		)
 
 		req = req.WithContext(ctx)
@@ -212,7 +203,7 @@ func TestRecoveryMiddleware_CanFailDuringRecovery(t *testing.T) {
 }
 
 func TestRecoveryMiddleware_AllOptions(t *testing.T) {
-	logger, buf := createTestLogger()
+	buf := captureDefaultLogger(t)
 
 	mw := Recovery(
 		WithRecoveryLogLevel(slog.LevelError+4),
@@ -237,11 +228,6 @@ func TestRecoveryMiddleware_AllOptions(t *testing.T) {
 		http.MethodGet, "/test",
 	)
 
-	ctx := slogging.GetCtxWithLogger(
-		req.Context(), logger,
-	)
-
-	req = req.WithContext(ctx)
 	w := httptest.NewRecorder()
 
 	mw(handler).ServeHTTP(w, req)
