@@ -2,6 +2,22 @@
 
 All notable changes per release. Versions follow [semver](https://semver.org).
 
+## v1.10.1 — 2026-08-01
+
+Repository infrastructure only. No library code changed — no package, exported
+symbol, middleware, option or handler signature is different from v1.10.0.
+
+- The repository is mirrored to GitLab and Codeberg on every branch and tag
+  push, and archived to the Wayback Machine and Software Heritage on pushes to
+  the default branch, on tags, and once a month. Both jobs live in one
+  `mirror-and-archive.yml` beside the pipeline. Gitee is wired but disabled:
+  without a mobile number bound to the account it silently creates the repo
+  private rather than refusing.
+- Issues opened on the Codeberg and GitLab mirrors are pulled back into GitHub
+  every six hours. The scheduled run jitters up to ten minutes so an account's
+  crons do not hit both mirrors at the same time; a manual run does not wait.
+- `.telemetry/` is excluded from the Docker build context.
+
 ## v1.10.0 — 2026-07-31
 
 Request context carries attributes instead of a logger, and the psyb0t
