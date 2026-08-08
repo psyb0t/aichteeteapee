@@ -1,6 +1,6 @@
 # serbewr/middleware — middleware stack
 
-The whole stack plays nice together. Every middleware uses `scope.GetLogger(ctx)` for structured logging with context propagation — RequestID puts the request ID on the scope, Logger adds method/path/ip, and downstream code gets all fields for free via `scope.GetLogger(ctx)`. Set it up once, never think about it again.
+The whole stack plays nice together. Every middleware uses `ctxscope.GetLogger(ctx)` for structured logging with context propagation — RequestID puts the request ID on the scope, Logger adds method/path/ip, and downstream code gets all fields for free via `ctxscope.GetLogger(ctx)`. Set it up once, never think about it again.
 
 ## RequestID
 

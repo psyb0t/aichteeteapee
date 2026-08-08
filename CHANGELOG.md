@@ -2,6 +2,18 @@
 
 All notable changes per release. Versions follow [semver](https://semver.org).
 
+## v1.10.4 — 2026-08-08
+
+Documentation. No code change.
+
+- The README's Logging section and `docs/middleware.md` still described the
+  logging surface as `common-go/scope` and `scope.GetLogger(ctx)`. v1.10.3 moved
+  the code to [`ctxscope`](https://github.com/psyb0t/ctxscope) and common-go
+  v0.4.0 removed the old package, so both documents named a package that no
+  longer exists and a call that no longer compiles.
+- Both now use `ctxscope`, including the `ToJSON` / `FromJSON` pair described in
+  the cross-process paragraph.
+
 ## v1.10.3 — 2026-08-08
 
 Dependency migration. No API change.
