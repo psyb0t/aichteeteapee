@@ -9,7 +9,7 @@ import (
 	"runtime/debug"
 
 	"github.com/psyb0t/aichteeteapee"
-	"github.com/psyb0t/common-go/scope"
+	"github.com/psyb0t/ctxscope"
 )
 
 // RecoveryConfig holds configuration for recovery middleware.
@@ -121,7 +121,7 @@ func Recovery(opts ...RecoveryOption) Middleware {
 						return
 					}
 
-					logger := scope.GetLogger(ctx)
+					logger := ctxscope.GetLogger(ctx)
 
 					logger = logger.With(
 						"error", recovered,

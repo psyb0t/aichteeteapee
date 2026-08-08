@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/psyb0t/aichteeteapee"
-	"github.com/psyb0t/common-go/scope"
+	"github.com/psyb0t/ctxscope"
 )
 
 // timeoutResponseWriter wraps http.ResponseWriter to prevent concurrent
@@ -139,7 +139,7 @@ func Timeout(opts ...TimeoutOption) Middleware {
 				if !responseWritten {
 					responseWritten = true
 
-					scope.GetLogger(r.Context()).Warn(
+					ctxscope.GetLogger(r.Context()).Warn(
 						"request timeout exceeded",
 						"timeout", config.Timeout.String(),
 					)

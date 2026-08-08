@@ -2,6 +2,20 @@
 
 All notable changes per release. Versions follow [semver](https://semver.org).
 
+## v1.10.3 — 2026-08-08
+
+Dependency migration. No API change.
+
+- Log scope now comes from `github.com/psyb0t/ctxscope` instead of
+  `github.com/psyb0t/common-go/scope`. That package was extracted into its own
+  module so it can ship on its own schedule rather than one shared with a module
+  that also carries gorm, echo, NATS and the Temporal SDK. The API is unchanged
+  apart from the package name — every call site moved from `scope.X` to
+  `ctxscope.X`.
+- `common-go` remains a dependency for `cache`, `errors`, `slogging` and `types`.
+- No exported signature here mentions a scope type, so the public API is
+  untouched — this is a patch.
+
 ## v1.10.2 — 2026-08-08
 
 Repository infrastructure only. No library code changed.

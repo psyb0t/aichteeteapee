@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/psyb0t/aichteeteapee"
-	"github.com/psyb0t/common-go/scope"
+	"github.com/psyb0t/ctxscope"
 )
 
 type LoggerConfig struct {
@@ -106,11 +106,11 @@ func Logger(opts ...LoggerOption) Middleware {
 				ctx := r.Context()
 				start := time.Now()
 
-				ctx = scope.Set(
+				ctx = ctxscope.Set(
 					ctx,
-					scope.Attr(aichteeteapee.FieldMethod, r.Method),
-					scope.Attr(aichteeteapee.FieldPath, r.URL.Path),
-					scope.Attr(
+					ctxscope.Attr(aichteeteapee.FieldMethod, r.Method),
+					ctxscope.Attr(aichteeteapee.FieldPath, r.URL.Path),
+					ctxscope.Attr(
 						aichteeteapee.FieldIP,
 						aichteeteapee.GetClientIP(r),
 					),
@@ -130,7 +130,7 @@ func Logger(opts ...LoggerOption) Middleware {
 					// middleware pass a new *http.Request inward, so this
 					// ctx is the one we created. RequestID must therefore
 					// run OUTER of this middleware for its id to appear.
-					logger := scope.GetLogger(ctx).With(
+					logger := ctxscope.GetLogger(ctx).With(
 						aichteeteapee.FieldStatus,
 						wrapped.getStatusCode(),
 						aichteeteapee.FieldDuration,

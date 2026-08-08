@@ -11,8 +11,8 @@ import (
 
 	"github.com/psyb0t/aichteeteapee"
 	"github.com/psyb0t/common-go/cache"
-	"github.com/psyb0t/common-go/scope"
 	"github.com/psyb0t/ctxerrors"
+	"github.com/psyb0t/ctxscope"
 )
 
 var errResponseBodyTooLarge = errors.New(
@@ -52,7 +52,7 @@ func ForwardRequest(
 	cfg ForwardConfig,
 	payload *RequestPayload,
 ) (*ResponseResult, error) {
-	logger := scope.GetLogger(ctx)
+	logger := ctxscope.GetLogger(ctx)
 
 	logger.Debug(
 		"forwarding request",
@@ -113,7 +113,7 @@ func tryCache(
 	cfg ForwardConfig,
 	key string,
 ) (*ResponseResult, bool) {
-	logger := scope.GetLogger(ctx)
+	logger := ctxscope.GetLogger(ctx)
 
 	data, err := cfg.Cache.Get(ctx, key)
 	if err != nil {
@@ -157,7 +157,7 @@ func storeInCache(
 	key string,
 	result *ResponseResult,
 ) {
-	logger := scope.GetLogger(ctx)
+	logger := ctxscope.GetLogger(ctx)
 
 	if result.StatusCode < http.StatusOK ||
 		result.StatusCode >= http.StatusMultipleChoices {
@@ -203,7 +203,7 @@ func doUpstreamRequest(
 
 	resp, err := httpClient.Do(req)
 	if err != nil {
-		scope.GetLogger(ctx).Error(
+		ctxscope.GetLogger(ctx).Error(
 			"upstream request failed",
 			"upstreamURL", payload.URL,
 			"duration", time.Since(start).String(),
@@ -284,7 +284,7 @@ func logUpstreamResponse(
 	statusCode, bodySize int,
 	duration time.Duration,
 ) {
-	logger := scope.GetLogger(ctx).With(
+	logger := ctxscope.GetLogger(ctx).With(
 		"upstreamURL", url,
 		"statusCode", statusCode,
 		"duration", duration.String(),

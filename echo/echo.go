@@ -9,8 +9,8 @@ import (
 
 	"github.com/labstack/echo/v4"
 	"github.com/psyb0t/aichteeteapee"
-	"github.com/psyb0t/common-go/scope"
 	"github.com/psyb0t/ctxerrors"
+	"github.com/psyb0t/ctxscope"
 	httpSwagger "github.com/swaggo/http-swagger"
 )
 
@@ -84,7 +84,7 @@ func NewWithConfig(
 }
 
 func (e *Echo) Start(ctx context.Context) error {
-	logger := scope.GetLogger(ctx)
+	logger := ctxscope.GetLogger(ctx)
 
 	logger.Debug(
 		"starting echo server",

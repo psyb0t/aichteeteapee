@@ -9,7 +9,7 @@ import (
 	"path"
 
 	"github.com/psyb0t/aichteeteapee"
-	"github.com/psyb0t/common-go/scope"
+	"github.com/psyb0t/ctxscope"
 )
 
 // BasicAuthConfig holds configuration for basic auth middleware.
@@ -122,7 +122,7 @@ func BasicAuth(opts ...BasicAuthOption) Middleware {
 
 			user, pass, ok := r.BasicAuth()
 			if !ok {
-				scope.GetLogger(r.Context()).Warn(
+				ctxscope.GetLogger(r.Context()).Warn(
 					"missing basic auth credentials",
 				)
 				unauthorized(w, config)
@@ -131,7 +131,7 @@ func BasicAuth(opts ...BasicAuthOption) Middleware {
 			}
 
 			if !authenticateUser(config, user, pass) {
-				scope.GetLogger(r.Context()).Warn(
+				ctxscope.GetLogger(r.Context()).Warn(
 					"basic auth failed",
 					"user", user,
 				)

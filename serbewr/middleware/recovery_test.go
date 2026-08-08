@@ -8,7 +8,7 @@ import (
 	"testing"
 
 	"github.com/psyb0t/aichteeteapee"
-	"github.com/psyb0t/common-go/scope"
+	"github.com/psyb0t/ctxscope"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -26,12 +26,12 @@ func TestRecovery(t *testing.T) {
 	)
 	req.Header.Set("X-Real-IP", "10.0.0.1")
 
-	ctx := scope.Set(
+	ctx := ctxscope.Set(
 		req.Context(),
-		scope.Attr(aichteeteapee.FieldRequestID, "panic-req-456"),
-		scope.Attr(aichteeteapee.FieldMethod, req.Method),
-		scope.Attr(aichteeteapee.FieldPath, req.URL.Path),
-		scope.Attr(aichteeteapee.FieldIP, "10.0.0.1"),
+		ctxscope.Attr(aichteeteapee.FieldRequestID, "panic-req-456"),
+		ctxscope.Attr(aichteeteapee.FieldMethod, req.Method),
+		ctxscope.Attr(aichteeteapee.FieldPath, req.URL.Path),
+		ctxscope.Attr(aichteeteapee.FieldIP, "10.0.0.1"),
 	)
 
 	req = req.WithContext(ctx)
@@ -105,14 +105,14 @@ func TestRecoveryMiddleware_EdgeCases(t *testing.T) {
 
 		// Simulate what the RequestID + Logger middleware
 		// would put on the scope.
-		ctx := scope.Set(
+		ctx := ctxscope.Set(
 			req.Context(),
-			scope.Attr(
+			ctxscope.Attr(
 				aichteeteapee.FieldRequestID, "panic-test-789",
 			),
-			scope.Attr(aichteeteapee.FieldMethod, req.Method),
-			scope.Attr(aichteeteapee.FieldPath, req.URL.Path),
-			scope.Attr(aichteeteapee.FieldIP, "192.168.1.100"),
+			ctxscope.Attr(aichteeteapee.FieldMethod, req.Method),
+			ctxscope.Attr(aichteeteapee.FieldPath, req.URL.Path),
+			ctxscope.Attr(aichteeteapee.FieldIP, "192.168.1.100"),
 		)
 
 		req = req.WithContext(ctx)

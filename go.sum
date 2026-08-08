@@ -608,8 +608,10 @@ github.com/prometheus/procfs v0.7.3 h1:4jVXhlkAyzOScmCkXBTOLRLTz8EeU+eyjrwB/EPq0
 github.com/prometheus/procfs v0.7.3/go.mod h1:cz+aTbrPOrUb4q7XlbU9ygM+/jj0fzG6c1xBZuNvfVA=
 github.com/psyb0t/common-go v0.3.1 h1:61QRIjOkMUMnlZgmzVKdCvY6serJZE4uNLKttQCpl/c=
 github.com/psyb0t/common-go v0.3.1/go.mod h1:TAGH40yFoYeEoETZBjCC8H88yz1Xq8s/5bUFBhIhf0o=
-github.com/psyb0t/ctxerrors v0.4.2 h1:65dRY2ULTo0oi29Y5WHEHhmYbPxGmEVmfiZXWxv1gnw=
-github.com/psyb0t/ctxerrors v0.4.2/go.mod h1:h1V0vJtlXGn4H7RuHBtxdrdevBx3CmBTEyJXtFIIrk4=
+github.com/psyb0t/ctxerrors v0.4.4 h1:JrM8WBzwdvbZ9/JKGFqWvZODFAjRXR23czchFWBFUpw=
+github.com/psyb0t/ctxerrors v0.4.4/go.mod h1:h1V0vJtlXGn4H7RuHBtxdrdevBx3CmBTEyJXtFIIrk4=
+github.com/psyb0t/ctxscope v1.0.2 h1:EDWv8k+HO9qxo8fjKLz2kcwpGJqPHuWVgAQokgO8gIM=
+github.com/psyb0t/ctxscope v1.0.2/go.mod h1:fP6HYWnSze45KVPceVdMRbupfK9ly/m6c5+DknmUYTU=
 github.com/psyb0t/gonfiguration v1.6.1 h1:6Tigu0LHZtCjM/Cl1QYEWH0j6D0y56tjGq8PBCT8oNw=
 github.com/psyb0t/gonfiguration v1.6.1/go.mod h1:t6+6TiTyQjFy901xr5abnTEHxdsGTuHhlQpPIcx7pyk=
 github.com/quasilyte/go-ruleguard v0.4.4 h1:53DncefIeLX3qEpjzlS1lyUmQoUEeOWPFWqaTJq9eAQ=
@@ -820,8 +822,8 @@ golang.org/x/exp v0.0.0-20191227195350-da58074b4299/go.mod h1:2RIsYlXP63K8oxa1u0
 golang.org/x/exp v0.0.0-20200119233911-0405dc783f0a/go.mod h1:2RIsYlXP63K8oxa1u096TMicItID8zy7Y6sNkU49FU4=
 golang.org/x/exp v0.0.0-20200207192155-f17229e696bd/go.mod h1:J/WKrq2StrnmMY6+EHIKF9dgMWnmCNThgcyBT1FY9mM=
 golang.org/x/exp v0.0.0-20200224162631-6cc2880d07d6/go.mod h1:3jZMyOhIsHpP37uCMkUooju7aAi5cS1Q23tOzKc+0MU=
-golang.org/x/exp v0.0.0-20240909161429-701f63a606c0 h1:e66Fs6Z+fZTbFBAxKfP3PALWBtpfqks2bwGcexMxgtk=
-golang.org/x/exp v0.0.0-20240909161429-701f63a606c0/go.mod h1:2TbTHSBQa924w8M6Xs1QcRcFwyucIwBGpK1p2f1YFFY=
+golang.org/x/exp v0.0.0-20250620022241-b7579e27df2b h1:M2rDM6z3Fhozi9O7NWsxAkg/yqS/lQJ6PmkyIV3YP+o=
+golang.org/x/exp v0.0.0-20250620022241-b7579e27df2b/go.mod h1:3//PLf8L/X+8b4vuAfHzxeRUl04Adcb341+IGKfnqS8=
 golang.org/x/exp/typeparams v0.0.0-20220428152302-39d4317da171/go.mod h1:AbB0pIl9nAr9wVwH+Z2ZpaocVmF5I4GyWCDIsVjR0bk=
 golang.org/x/exp/typeparams v0.0.0-20230203172020-98cc5a0785f9/go.mod h1:AbB0pIl9nAr9wVwH+Z2ZpaocVmF5I4GyWCDIsVjR0bk=
 golang.org/x/exp/typeparams v0.0.0-20251023183803-a4bb9ffd2546 h1:HDjDiATsGqvuqvkDvgJjD1IgPrVekcSXVVE21JwvzGE=
