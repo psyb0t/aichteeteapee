@@ -5,6 +5,7 @@
 [![coverage](https://raw.githubusercontent.com/psyb0t/aichteeteapee/badges/coverage.svg)](https://github.com/psyb0t/aichteeteapee/actions/workflows/pipeline.yml)
 [![version](https://raw.githubusercontent.com/psyb0t/aichteeteapee/badges/version.svg)](https://github.com/psyb0t/aichteeteapee/tags)
 [![license](https://raw.githubusercontent.com/psyb0t/aichteeteapee/badges/license.svg)](LICENSE)
+[![imported by](https://raw.githubusercontent.com/psyb0t/aichteeteapee/badges/importers.svg)](https://github.com/psyb0t/aichteeteapee/blob/badges/importers.md)
 
 Pronounced "HTTP". The name is the whole joke. Moving on.
 

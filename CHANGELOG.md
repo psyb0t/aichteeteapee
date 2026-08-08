@@ -2,6 +2,36 @@
 
 All notable changes per release. Versions follow [semver](https://semver.org).
 
+## v1.10.2 — 2026-08-08
+
+Repository infrastructure only. No library code changed.
+
+- Added the imported-by badge: a count of the public packages importing this
+  module, linking to `importers.md` on the `badges` branch — the importing
+  repositories, grouped, package counts descending, and flagged when the owner
+  differs from this repo's.
+- It measures **blast radius, not adoption**: the number is what tells you how
+  much breaks when an exported name moves, and the external mark is what tells
+  you whether any of it is someone else's problem. That distinction is what
+  decides how strictly the module has to be versioned.
+- Refreshed weekly rather than daily, because pkg.go.dev's crawl lags
+  publication by days and each run drags the full test suite along (the badges
+  job needs the coverage artifact). The whole pipeline runs rather than a
+  badges-only job: the badge publisher republishes only what a run produced, so
+  a badge-only refresh would delete the coverage, version and license badges.
+- The cron slot is derived from a hash of the repository name rather than
+  chosen — GitHub cron has no randomness, and its scheduler sheds queued runs
+  hardest at the round times a human would pick.
+- Added `.gitleaksignore`. The release now runs a secret scan, which flagged two
+  request-id fixtures in `serbewr/middleware/recovery_test.go`
+  (`"panic-req-456"`, `"panic-test-789"`) under its generic-api-key rule — right
+  about the `Key: "value"` shape, wrong about these two strings. They are
+  silenced by **fingerprint** (file + rule + line), not by a path or rule
+  allowlist, so a real credential added to that same file still fails the
+  release. The release script also refuses to run if any entry names a file that
+  no longer exists, since line numbers shift and a stale entry would silence the
+  wrong line.
+
 ## v1.10.1 — 2026-08-01
 
 Repository infrastructure only. No library code changed — no package, exported
