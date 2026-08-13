@@ -2,6 +2,20 @@
 
 All notable changes per release. Versions follow [semver](https://semver.org).
 
+## v1.11.1 — 2026-08-13
+
+CI: pin the build/scan toolchain to go1.26.6.
+
+- The pipeline passed `go_version: "1.26"` to the reusable Go workflow, so
+  setup-go reused a cached go1.26.5 that carried five standard-library
+  vulnerabilities fixed in go1.26.6 (GO-2026-6218 `net/url`, GO-2026-6091
+  `html/template`, GO-2026-6090 `crypto/tls`, GO-2026-6089 `net/http`,
+  GO-2026-5972 `encoding/asn1`). govulncheck failed the Security Scan, which
+  gated the badges and GitHub Release jobs for v1.11.0. Pinning
+  `go_version: "1.26.6"` builds and scans against the patched standard library.
+  No library code changed, and the `go 1.26` module directive is unchanged, so
+  consumers are unaffected.
+
 ## v1.11.0 — 2026-08-13
 
 `BaseResponseWriter` now implements `http.Flusher` and `Unwrap`, so streamed
