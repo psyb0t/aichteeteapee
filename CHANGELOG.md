@@ -2,6 +2,23 @@
 
 All notable changes per release. Versions follow [semver](https://semver.org).
 
+## v1.11.0 — 2026-08-13
+
+`BaseResponseWriter` now implements `http.Flusher` and `Unwrap`, so streamed
+responses (SSE) flush through the middleware chain instead of buffering.
+
+- The response-writer wrappers embedded by the `Logger` and `Timeout` middleware
+  (`serbewr/middleware`) embed `BaseResponseWriter`, which previously implemented
+  only `http.Hijacker`. Embedding the `http.ResponseWriter` interface does not
+  promote `Flush`, so a Server-Sent-Events handler behind the default middleware
+  failed the `http.Flusher` type assertion and buffered every event until the
+  handler returned. `BaseResponseWriter` now implements `Flush` (delegating to
+  the underlying writer when it supports flushing) and `Unwrap` (exposing the
+  underlying writer), so both a direct `w.(http.Flusher)` assertion and
+  `http.NewResponseController(w).Flush()` reach the real writer through the
+  wrapper chain. Additive — existing routes are unaffected.
+- Bumped `ctxerrors` to v0.7.1 and `ctxscope` to v1.0.3.
+
 ## v1.10.4 — 2026-08-08
 
 Documentation. No code change.

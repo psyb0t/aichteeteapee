@@ -40,6 +40,59 @@ func (m *mockFailingHijacker) Hijack() (net.Conn, *bufio.ReadWriter, error) {
 	return nil, nil, errHijackFailed
 }
 
+// nonFlusherWriter implements only http.ResponseWriter — no Flush — so the
+// no-op branch of BaseResponseWriter.Flush can be exercised.
+type nonFlusherWriter struct {
+	header http.Header
+}
+
+func (w *nonFlusherWriter) Header() http.Header {
+	return w.header
+}
+
+func (w *nonFlusherWriter) Write(b []byte) (int, error) {
+	return len(b), nil
+}
+
+func (w *nonFlusherWriter) WriteHeader(int) {
+}
+
+func TestBaseResponseWriter_Flush(t *testing.T) {
+	t.Run("delegates to underlying flusher", func(t *testing.T) {
+		recorder := httptest.NewRecorder()
+		brw := &BaseResponseWriter{ResponseWriter: recorder}
+
+		brw.Flush()
+
+		assert.True(t, recorder.Flushed)
+	})
+
+	t.Run("no-op when underlying does not flush", func(t *testing.T) {
+		brw := &BaseResponseWriter{
+			ResponseWriter: &nonFlusherWriter{header: http.Header{}},
+		}
+
+		assert.NotPanics(t, brw.Flush)
+	})
+
+	t.Run("reachable through http.ResponseController", func(t *testing.T) {
+		recorder := httptest.NewRecorder()
+		brw := &BaseResponseWriter{ResponseWriter: recorder}
+
+		err := http.NewResponseController(brw).Flush()
+
+		assert.NoError(t, err)
+		assert.True(t, recorder.Flushed)
+	})
+}
+
+func TestBaseResponseWriter_Unwrap(t *testing.T) {
+	recorder := httptest.NewRecorder()
+	brw := &BaseResponseWriter{ResponseWriter: recorder}
+
+	assert.Same(t, recorder, brw.Unwrap())
+}
+
 func TestBaseResponseWriter_Hijack(t *testing.T) {
 	tests := []struct {
 		name           string
