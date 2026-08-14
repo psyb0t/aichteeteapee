@@ -194,7 +194,9 @@ func constantTimeAuth(users map[string]string, user, pass string) bool {
 	return exists && passwordMatch
 }
 
-// unauthorized sends an unauthorized response.
+// unauthorized sends a 401 with the standard JSON error envelope. When
+// SendChallenge is set it also emits WWW-Authenticate, so browsers still get
+// their Basic-auth popup (the popup is driven by that header, not the body).
 func unauthorized(w http.ResponseWriter, config *BasicAuthConfig) {
 	if config.SendChallenge {
 		w.Header().Set(
@@ -203,9 +205,12 @@ func unauthorized(w http.ResponseWriter, config *BasicAuthConfig) {
 		)
 	}
 
-	http.Error(
+	aichteeteapee.WriteJSON(
 		w,
-		config.UnauthorizedMsg,
 		http.StatusUnauthorized,
+		aichteeteapee.ErrorResponse{
+			Code:    aichteeteapee.ErrorCodeUnauthorized,
+			Message: config.UnauthorizedMsg,
+		},
 	)
 }

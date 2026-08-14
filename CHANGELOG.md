@@ -2,6 +2,20 @@
 
 All notable changes per release. Versions follow [semver](https://semver.org).
 
+## v1.12.0 — 2026-08-14
+
+- **New:** `middleware.BearerAuth(...)` — bearer-token auth for APIs, the
+  companion to `BasicAuth`. It validates `Authorization: Bearer <token>`
+  against a set of accepted tokens (`WithBearerAuthTokens` — the common
+  single-API-key-from-an-env-var case) or a custom `WithBearerAuthValidator`,
+  with constant-time comparison by default, `WithBearerAuthSkipPaths`, and a
+  configurable unauthorized message. It answers the standard JSON error
+  envelope on failure.
+- **Behavior change:** `BasicAuth` now answers `401` with the standard JSON
+  error envelope (`{code, message}`) instead of a plain-text body, so it
+  matches the rest of the library. The status code and the `WWW-Authenticate`
+  challenge header are unchanged, so browser Basic-auth popups still work.
+
 ## v1.11.1 — 2026-08-13
 
 CI: pin the build/scan toolchain to go1.26.6.

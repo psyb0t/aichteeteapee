@@ -227,7 +227,10 @@ func TestBasicAuthMiddleware_AllOptions(t *testing.T) {
 		assert.Equal(
 			t, `Basic realm="Admin Area"`, w.Header().Get("WWW-Authenticate"),
 		)
-		assert.Equal(t, "Custom unauthorized\n", w.Body.String())
+		assert.Contains(t, w.Body.String(), "Custom unauthorized")
+		assert.Contains(
+			t, w.Body.String(), aichteeteapee.ErrorCodeUnauthorized,
+		)
 	})
 
 	t.Run("custom validator", func(t *testing.T) {
