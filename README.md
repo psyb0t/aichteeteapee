@@ -80,7 +80,7 @@ Pronounced "server". D'oooh you kno. Built on `net/http` with Go 1.22+ `ServeMux
 
 ### [`serbewr/middleware/`](docs/middleware.md) — middleware stack
 
-RequestID, Logger, Recovery, BasicAuth, CORS, SecurityHeaders, Timeout, EnforceRequestContentType. All use context-propagated structured logging — set it up once, every log line gets the full request context for free. [Full docs](docs/middleware.md).
+RequestID, Logger, Recovery, BasicAuth, BearerAuth, CORS, SecurityHeaders, Timeout, EnforceRequestContentType. All use context-propagated structured logging — set it up once, every log line gets the full request context for free. [Full docs](docs/middleware.md).
 
 ### [`serbewr/prawxxey/`](docs/proxy.md) — request forwarding
 

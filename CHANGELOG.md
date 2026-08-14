@@ -2,6 +2,14 @@
 
 All notable changes per release. Versions follow [semver](https://semver.org).
 
+## v1.12.1 — 2026-08-14
+
+Documentation. No code change.
+
+- List `BearerAuth` in the README middleware set and add its section to
+  `docs/middleware.md` (it shipped in v1.12.0), and note that `BasicAuth` /
+  `BearerAuth` answer the JSON error envelope on failure.
+
 ## v1.12.0 — 2026-08-14
 
 - **New:** `middleware.BearerAuth(...)` — bearer-token auth for APIs, the

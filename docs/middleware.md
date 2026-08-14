@@ -62,7 +62,24 @@ middleware.BasicAuth(
 )
 ```
 
-Skip paths use `path.Clean` normalization. Custom validators bypass the built-in user map entirely.
+Skip paths use `path.Clean` normalization. Custom validators bypass the built-in user map entirely. On failure it answers the standard JSON error envelope; with the challenge enabled it also sends `WWW-Authenticate`, so browsers still prompt.
+
+## BearerAuth
+
+Bearer-token auth for APIs (`Authorization: Bearer <token>`) — the companion to `BasicAuth` for the common "API key from an env var" case. Constant-time comparison, and the standard JSON error envelope on failure.
+
+```go
+middleware.BearerAuth(
+    middleware.WithBearerAuthTokens(cfg.APIToken), // one or more accepted tokens
+    middleware.WithBearerAuthSkipPaths("/health", "/metrics"),
+    middleware.WithBearerAuthUnauthorizedMessage("nope"),
+    middleware.WithBearerAuthValidator(func(token string) bool {
+        return myCustomCheck(token)
+    }),
+)
+```
+
+The scheme is matched case-insensitively. Empty tokens are ignored (an unset env var never becomes valid). A custom validator bypasses the token set entirely. Constant-time comparison is on by default; toggle it with `WithBearerAuthConstantTimeComparison`.
 
 ## CORS
 
