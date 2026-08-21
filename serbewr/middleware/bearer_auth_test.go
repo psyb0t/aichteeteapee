@@ -10,7 +10,7 @@ import (
 )
 
 func TestBearerAuth(t *testing.T) {
-	const token = "s3cr3t-api-key"
+	const token = "s3cr3t-api-key" //gitleaks:allow
 
 	testCases := []struct {
 		name           string

@@ -120,12 +120,17 @@ No explicit logger passing. Every log line from every middleware and handler aut
 
 ## Development
 
+Every target runs inside a pinned dev image (Go 1.26.6 + the linter and
+scanners), so a local run and CI use the exact same toolchain.
+
 ```bash
+make dev-image      # build the sandboxed dev image
 make dep            # go mod tidy + vendor
 make lint           # golangci-lint (strict)
 make lint-fix       # lint + auto-fix
 make test           # go test -race ./...
 make test-coverage  # coverage with minimum threshold
+make sec            # govulncheck + semgrep merged to sec.sarif; gates on findings
 ```
 
 ## License

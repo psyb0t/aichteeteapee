@@ -2227,7 +2227,7 @@ func TestServer_StartServersWithTLS(t *testing.T) {
 	require.NoError(t, err)
 	err = os.WriteFile(
 		keyFile,
-		[]byte("-----BEGIN PRIVATE KEY-----\ntest\n-----END PRIVATE KEY-----"),
+		[]byte("-----BEGIN PRIVATE KEY-----\ntest\n-----END PRIVATE KEY-----"), //nolint:lll // gitleaks:allow: fake test key, body is literally "test"
 		0o600,
 	)
 	require.NoError(t, err)

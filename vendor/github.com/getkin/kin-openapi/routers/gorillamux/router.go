@@ -104,7 +104,7 @@ func (r *Router) FindRoute(req *http.Request) (*routers.Route, map[string]string
 	for i, m := range r.muxes {
 		var match mux.RouteMatch
 		if m.muxRoute.Match(req, &match) {
-			if err := match.MatchErr; err != nil {
+			if err := match.MatchErr; err != nil { //nolint:staticcheck
 				// What then?
 			}
 			vars := match.Vars
@@ -180,7 +180,7 @@ func makeServers(in openapi3.Servers) ([]srv, error) {
 func newSrv(serverURL string, server *openapi3.Server, varsUpdater varsf) (srv, error) {
 	var schemes []string
 	if strings.Contains(serverURL, "://") {
-		scheme0 := strings.Split(serverURL, "://")[0]
+		scheme0, _, _ := strings.Cut(serverURL, "://")
 		schemes = permutePart(scheme0, server)
 		serverURL = strings.Replace(serverURL, scheme0+"://", schemes[0]+"://", 1)
 	}
@@ -240,6 +240,7 @@ func permutePart(part0 string, srv *openapi3.Server) []string {
 		for value := range m {
 			s = append(s, value)
 		}
+		slices.Sort(s)
 		var2val[name] = mapAndSlice{m: m, s: s}
 	}
 	if len(var2val) == 0 {

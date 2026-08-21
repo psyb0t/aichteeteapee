@@ -2,6 +2,26 @@
 
 All notable changes per release. Versions follow [semver](https://semver.org).
 
+## v1.13.0 — 2026-08-21
+
+Development tooling and a security fix. No change to the library's public API.
+
+- All make targets now run inside a pinned dev image (Go 1.26.6) that also
+  carries the linter and the security scanners, so a local run and CI use the
+  exact same toolchain. CI runs `make lint`, `make test-coverage`, `make sec`
+  (govulncheck + semgrep) and `make generate` (codegen-drift gate) in that image,
+  through the generic code-workflow rather than the Go-specific one.
+- Bumped `github.com/getkin/kin-openapi` from v0.135.0 to v0.144.0, which fixes a
+  reachable vulnerability (GO-2026-6112) govulncheck flagged in `openapi3filter`.
+  The bump drops several transitive dependencies but does not change this
+  library's API.
+- Marked five semgrep findings as false positives with a bare `// nosemgrep` and
+  a one-line rationale each: the static-file traversal guard uses `filepath.Clean`
+  as one layer of a multi-layer check, three `path.Clean` calls normalize URL
+  paths for a skip-list lookup rather than sanitizing a filesystem path, and the
+  unix-socket websocket bridge wires origin policy to config, not a hardcoded
+  check.
+
 ## v1.12.1 — 2026-08-14
 
 Documentation. No code change.

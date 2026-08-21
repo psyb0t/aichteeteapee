@@ -63,6 +63,10 @@ func handleConnection(
 
 	logger.Debug("unixsock websocket upgrade request received")
 
+	// CheckOrigin is wired to config above, so origin policy is the
+	// caller's. This bridge serves a local unix socket, not a browser
+	// origin, so a hardcoded check would be wrong here.
+	// nosemgrep
 	wsConn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		logger.Error(

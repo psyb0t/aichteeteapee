@@ -105,6 +105,10 @@ func BearerAuth(opts ...BearerAuthOption) Middleware {
 
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			// path.Clean normalizes the URL path for the configured skip-list
+			// lookup. This is net/url path.Clean, not filesystem-traversal
+			// sanitizing, so the rule does not apply.
+			// nosemgrep
 			if config.SkipPaths[path.Clean(r.URL.Path)] {
 				next.ServeHTTP(w, r)
 
