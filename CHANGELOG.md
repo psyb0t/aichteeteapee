@@ -2,6 +2,14 @@
 
 All notable changes per release. Versions follow [semver](https://semver.org).
 
+## v1.13.1 — 2026-08-22
+
+CI change. No change to the library's public API.
+
+- Restored the GitHub Release on tag pushes. The move to `code-workflow` dropped
+  the release step that `go-workflow` ran inline; a `release` job now calls the
+  reusable `release-workflow` once the checks pass on a tag.
+
 ## v1.13.0 — 2026-08-21
 
 Development tooling and a security fix. No change to the library's public API.
