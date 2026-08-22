@@ -22,19 +22,12 @@ jobs:
   code:
     permissions:
       contents: read
-      security-events: write # code-workflow declares it for the sec SARIF upload; a caller must grant at least what the reusable workflow requests or the run fails at startup
+      security-events: write # for the sec SARIF upload
     uses: psyb0t/reusable-github-workflows/.github/workflows/code-workflow.yml@master
     with:
-      # Every target runs inside the dev image (built by `make dev-image`), so the
-      # runner only needs docker. The Go 1.26.6 toolchain, the linter and the
-      # security scanners live in that image, identical to a local run.
       lint_command: "make lint"
       test_command: "make test-coverage"
-      # Full security scan (govulncheck + semgrep) merged into sec.sarif, run in
-      # the dev image. Gates on findings.
       sec_command: "make sec"
-      # Runs go generate then fails on a dirty tree, catching an un-regenerated or
-      # hand-edited generated file. Idempotent here, so any diff is real drift.
       generate_command: "make generate"
       coverage_file: "coverage-percent.txt"
       sarif_file: "sec.sarif"
