@@ -6,17 +6,16 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"math"
 	"net/http"
+	"net/url"
+	"strings"
 	"time"
 
 	"github.com/psyb0t/aichteeteapee"
 	"github.com/psyb0t/common-go/cache"
 	"github.com/psyb0t/ctxerrors"
 	"github.com/psyb0t/ctxscope"
-)
-
-var errResponseBodyTooLarge = errors.New(
-	"upstream response body exceeds maximum size",
 )
 
 const (
@@ -33,6 +32,7 @@ var hopByHopHeaders = map[string]struct{}{
 	aichteeteapee.HeaderNameProxyAuthenticate:  {},
 	aichteeteapee.HeaderNameProxyAuthorization: {},
 	aichteeteapee.HeaderNameTE:                 {},
+	aichteeteapee.HeaderNameTrailer:            {},
 	aichteeteapee.HeaderNameTrailers:           {},
 	aichteeteapee.HeaderNameTransferEncoding:   {},
 	aichteeteapee.HeaderNameUpgrade:            {},
@@ -52,24 +52,41 @@ func ForwardRequest(
 	cfg ForwardConfig,
 	payload *RequestPayload,
 ) (*ResponseResult, error) {
+	if ctx == nil {
+		return nil, ctxerrors.Wrap(errNilContext, "forward request")
+	}
+
+	if payload == nil {
+		return nil, ctxerrors.Wrap(errNilRequestPayload, "forward request")
+	}
+
+	if cfg.MaxResponseBodySize < 0 ||
+		cfg.MaxResponseBodySize == math.MaxInt64 {
+		return nil, ctxerrors.Wrap(errInvalidResponseLimit, "forward request")
+	}
+
 	logger := ctxscope.GetLogger(ctx)
 
 	logger.Debug(
 		"forwarding request",
-		"upstreamMethod", payload.Method,
-		"upstreamURL", payload.URL,
+		"upstream_method", payload.Method,
 	)
 
 	if cfg.Cache != nil {
 		return forwardWithCache(ctx, cfg, payload)
 	}
 
-	maxSize := cfg.MaxResponseBodySize
-	if maxSize <= 0 {
-		maxSize = defaultMaxResponseBodySize
+	result, err := doUpstreamRequest(
+		ctx,
+		cfg.HTTPClient,
+		payload,
+		responseBodyLimit(cfg),
+	)
+	if err != nil {
+		return nil, ctxerrors.Wrap(err, "forward uncached request")
 	}
 
-	return doUpstreamRequest(ctx, cfg.HTTPClient, payload, maxSize)
+	return result, nil
 }
 
 func forwardWithCache(
@@ -77,33 +94,41 @@ func forwardWithCache(
 	cfg ForwardConfig,
 	payload *RequestPayload,
 ) (*ResponseResult, error) {
-	key := cacheKey(cfg, payload)
+	if !isCacheableRequest(cfg, payload) {
+		maxSize := responseBodyLimit(cfg)
 
+		result, err := doUpstreamRequest(
+			ctx,
+			cfg.HTTPClient,
+			payload,
+			maxSize,
+		)
+		if err != nil {
+			return nil, ctxerrors.Wrap(err, "forward uncacheable request")
+		}
+
+		return result, nil
+	}
+
+	key := cacheKey(cfg, payload)
 	if result, ok := tryCache(ctx, cfg, key); ok {
 		return result, nil
 	}
 
-	maxSize := cfg.MaxResponseBodySize
-	if maxSize <= 0 {
-		maxSize = defaultMaxResponseBodySize
-	}
+	maxSize := responseBodyLimit(cfg)
 
 	result, err := doUpstreamRequest(
-		ctx, cfg.HTTPClient, payload, maxSize,
+		ctx,
+		cfg.HTTPClient,
+		payload,
+		maxSize,
 	)
 	if err != nil {
-		return nil, err
+		return nil, ctxerrors.Wrap(err, "fetch response for cache")
 	}
 
 	storeInCache(ctx, cfg, key, result)
-
-	if result.Headers == nil {
-		result.Headers = make(map[string][]string)
-	}
-
-	result.Headers[aichteeteapee.HeaderNameXCacheStatus] = []string{
-		aichteeteapee.CacheStatusMiss,
-	}
+	setCacheStatus(result, aichteeteapee.CacheStatusMiss)
 
 	return result, nil
 }
@@ -117,6 +142,18 @@ func tryCache(
 
 	data, err := cfg.Cache.Get(ctx, key)
 	if err != nil {
+		if errors.Is(err, cache.ErrCacheMiss) {
+			logger.Debug("cache miss", "reason", "entry_not_found")
+
+			return nil, false
+		}
+
+		logger.Warn(
+			"cache read failed, continuing without cached response",
+			"reason", "cache_read_failed",
+			"err", err,
+		)
+
 		return nil, false
 	}
 
@@ -127,8 +164,18 @@ func tryCache(
 	); jsonErr != nil {
 		logger.Warn(
 			"cache entry corrupt",
-			"cacheKey", key,
-			"error", jsonErr,
+			"reason", "cache_decode_failed",
+			"err", jsonErr,
+		)
+
+		return nil, false
+	}
+
+	if int64(len(result.Body)) > responseBodyLimit(cfg) ||
+		!isCacheableResponse(&result) {
+		logger.Warn(
+			"cached response rejected",
+			"reason", "cache_policy_failed",
 		)
 
 		return nil, false
@@ -136,17 +183,10 @@ func tryCache(
 
 	logger.Debug(
 		"cache hit",
-		"cacheKey", key,
-		"statusCode", result.StatusCode,
+		"status_code", result.StatusCode,
 	)
 
-	if result.Headers == nil {
-		result.Headers = make(map[string][]string)
-	}
-
-	result.Headers[aichteeteapee.HeaderNameXCacheStatus] = []string{
-		aichteeteapee.CacheStatusHit,
-	}
+	setCacheStatus(&result, aichteeteapee.CacheStatusHit)
 
 	return &result, true
 }
@@ -159,11 +199,11 @@ func storeInCache(
 ) {
 	logger := ctxscope.GetLogger(ctx)
 
-	if result.StatusCode < http.StatusOK ||
-		result.StatusCode >= http.StatusMultipleChoices {
+	if !isCacheableResponse(result) {
 		logger.Debug(
-			"not caching non-2xx response",
-			"statusCode", result.StatusCode,
+			"response is not cacheable",
+			"reason", "response_cache_policy",
+			"status_code", result.StatusCode,
 		)
 
 		return
@@ -176,15 +216,28 @@ func storeInCache(
 
 	encoded, err := json.Marshal(result)
 	if err != nil {
+		logger.Warn(
+			"cache response encode failed, continuing without cache write",
+			"reason", "cache_encode_failed",
+			"err", err,
+		)
+
 		return
 	}
 
-	_ = cfg.Cache.Set(ctx, key, encoded, ttl)
+	if err := cfg.Cache.Set(ctx, key, encoded, ttl); err != nil {
+		logger.Warn(
+			"cache write failed, continuing with upstream response",
+			"reason", "cache_write_failed",
+			"err", err,
+		)
+
+		return
+	}
 
 	logger.Debug(
 		"cached response",
-		"cacheKey", key,
-		"ttl", ttl.String(),
+		"ttl_ms", ttl.Milliseconds(),
 	)
 }
 
@@ -194,30 +247,29 @@ func doUpstreamRequest(
 	payload *RequestPayload,
 	maxResponseBodySize int64,
 ) (*ResponseResult, error) {
+	if httpClient == nil {
+		return nil, ctxerrors.Wrap(errNilHTTPClient, "do upstream request")
+	}
+
 	start := time.Now()
 
 	req, err := buildUpstreamReq(ctx, payload)
 	if err != nil {
-		return nil, err
+		return nil, ctxerrors.Wrap(err, "build upstream request")
 	}
 
-	resp, err := httpClient.Do(req)
+	resp, err := executeUpstreamRequest(
+		ctx,
+		httpClient,
+		req,
+		payload.Method,
+		start,
+	)
 	if err != nil {
-		ctxscope.GetLogger(ctx).Error(
-			"upstream request failed",
-			"upstreamURL", payload.URL,
-			"duration", time.Since(start).String(),
-			"error", err,
-		)
-
-		return nil, ctxerrors.Wrap(
-			err, "do request",
-		)
+		return nil, ctxerrors.Wrap(err, "do request")
 	}
 
-	defer func() {
-		_ = resp.Body.Close()
-	}()
+	defer closeResponseBody(ctx, resp.Body)
 
 	respBody, err := io.ReadAll(
 		io.LimitReader(resp.Body, maxResponseBodySize+1),
@@ -236,8 +288,9 @@ func doUpstreamRequest(
 	}
 
 	logUpstreamResponse(
-		ctx, payload.URL,
-		resp.StatusCode, len(respBody),
+		ctx,
+		resp.StatusCode,
+		len(respBody),
 		time.Since(start),
 	)
 
@@ -248,10 +301,40 @@ func doUpstreamRequest(
 	}, nil
 }
 
+func executeUpstreamRequest(
+	ctx context.Context,
+	httpClient *http.Client,
+	request *http.Request,
+	method string,
+	startedAt time.Time,
+) (*http.Response, error) {
+	response, err := httpClient.Do(request)
+	if err != nil {
+		ctxscope.GetLogger(ctx).Error(
+			"upstream request failed",
+			"upstream_method", method,
+			"duration_ms", time.Since(startedAt).Milliseconds(),
+			"err", aichteeteapee.ErrAPIError,
+		)
+
+		return nil, ctxerrors.Wrap(
+			sanitizeUpstreamError(err),
+			"execute upstream request",
+		)
+	}
+
+	return response, nil
+}
+
 func buildUpstreamReq(
 	ctx context.Context,
 	payload *RequestPayload,
 ) (*http.Request, error) {
+	parsedURL, err := validateUpstreamDestination(payload.URL)
+	if err != nil {
+		return nil, ctxerrors.Wrap(err, "validate upstream request")
+	}
+
 	var bodyReader io.Reader
 	if len(payload.Body) > 0 {
 		bodyReader = bytes.NewReader(payload.Body)
@@ -259,7 +342,7 @@ func buildUpstreamReq(
 
 	req, err := http.NewRequestWithContext(
 		ctx, payload.Method,
-		payload.URL, bodyReader,
+		parsedURL.String(), bodyReader,
 	)
 	if err != nil {
 		return nil, ctxerrors.Wrap(
@@ -278,17 +361,35 @@ func buildUpstreamReq(
 	return req, nil
 }
 
+func validateUpstreamDestination(
+	rawURL string,
+) (*url.URL, error) {
+	parsedURL, err := url.Parse(rawURL)
+	if err != nil {
+		return nil, ctxerrors.Wrap(errInvalidUpstreamURL, "parse upstream URL")
+	}
+
+	if (parsedURL.Scheme != aichteeteapee.SchemeHTTP &&
+		parsedURL.Scheme != aichteeteapee.SchemeHTTPS) ||
+		parsedURL.Host == "" || parsedURL.User != nil {
+		return nil, ctxerrors.Wrap(
+			errInvalidUpstreamURL,
+			"validate upstream URL",
+		)
+	}
+
+	return parsedURL, nil
+}
+
 func logUpstreamResponse(
 	ctx context.Context,
-	url string,
 	statusCode, bodySize int,
 	duration time.Duration,
 ) {
 	logger := ctxscope.GetLogger(ctx).With(
-		"upstreamURL", url,
-		"statusCode", statusCode,
-		"duration", duration.String(),
-		"bodySize", bodySize,
+		"status_code", statusCode,
+		"duration_ms", duration.Milliseconds(),
+		"body_size", bodySize,
 	)
 
 	if statusCode >= http.StatusInternalServerError {
@@ -300,13 +401,36 @@ func logUpstreamResponse(
 	logger.Debug("upstream response received")
 }
 
+func closeResponseBody(ctx context.Context, body io.Closer) {
+	if err := body.Close(); err != nil {
+		ctxscope.GetLogger(ctx).Warn(
+			"upstream response body close failed",
+			"err", err,
+		)
+	}
+}
+
+func setCacheStatus(result *ResponseResult, status string) {
+	if result.Headers == nil {
+		result.Headers = make(map[string][]string)
+	}
+
+	result.Headers[aichteeteapee.HeaderNameXCacheStatus] = []string{status}
+}
+
 func setUpstreamHeaders(
 	req *http.Request,
 	payload *RequestPayload,
 ) {
+	connectionHeaders := connectionHeaderNames(payload.Headers)
+
 	for key, vals := range payload.Headers {
 		canonKey := http.CanonicalHeaderKey(key)
 		if _, skip := hopByHopHeaders[canonKey]; skip {
+			continue
+		}
+
+		if _, skip := connectionHeaders[canonKey]; skip {
 			continue
 		}
 
@@ -332,6 +456,27 @@ func setUpstreamHeaders(
 			payload.Proto,
 		)
 	}
+}
+
+func connectionHeaderNames(headers map[string][]string) map[string]struct{} {
+	names := make(map[string]struct{})
+
+	for key, values := range headers {
+		if !strings.EqualFold(key, aichteeteapee.HeaderNameConnection) {
+			continue
+		}
+
+		for _, value := range values {
+			for token := range strings.SplitSeq(value, ",") {
+				name := http.CanonicalHeaderKey(strings.TrimSpace(token))
+				if name != "" {
+					names[name] = struct{}{}
+				}
+			}
+		}
+	}
+
+	return names
 }
 
 func RequestScheme(r *http.Request) string {
@@ -375,4 +520,96 @@ func cacheKey(
 	return payload.HashExcluding(
 		cfg.CacheKeyExcludeHeaders,
 	)
+}
+
+func responseBodyLimit(cfg ForwardConfig) int64 {
+	if cfg.MaxResponseBodySize > 0 {
+		return cfg.MaxResponseBodySize
+	}
+
+	return defaultMaxResponseBodySize
+}
+
+func isCacheableRequest(cfg ForwardConfig, payload *RequestPayload) bool {
+	if payload.Method != http.MethodGet && payload.Method != http.MethodHead {
+		return false
+	}
+
+	if cfg.HTTPClient != nil && cfg.HTTPClient.Jar != nil {
+		return false
+	}
+
+	for name, values := range payload.Headers {
+		if headerBypassesCache(name, values) {
+			return false
+		}
+	}
+
+	return true
+}
+
+func headerBypassesCache(name string, values []string) bool {
+	switch {
+	case strings.EqualFold(name, aichteeteapee.HeaderNameAuthorization),
+		strings.EqualFold(name, aichteeteapee.HeaderNameCookie):
+		return true
+	case strings.EqualFold(name, aichteeteapee.HeaderNameCacheControl):
+		return hasCacheDirective(values, "no-cache", "no-store")
+	case strings.EqualFold(name, aichteeteapee.HeaderNamePragma):
+		return hasCacheDirective(values, "no-cache")
+	default:
+		return false
+	}
+}
+
+func isCacheableResponse(result *ResponseResult) bool {
+	if result.StatusCode < http.StatusOK ||
+		result.StatusCode >= http.StatusMultipleChoices {
+		return false
+	}
+
+	for name, values := range result.Headers {
+		if strings.EqualFold(name, aichteeteapee.HeaderNameSetCookie) ||
+			strings.EqualFold(name, aichteeteapee.HeaderNameVary) {
+			return false
+		}
+
+		if !strings.EqualFold(name, aichteeteapee.HeaderNameCacheControl) {
+			continue
+		}
+
+		if hasCacheDirective(values, "no-cache", "no-store", "private") {
+			return false
+		}
+	}
+
+	return true
+}
+
+func hasCacheDirective(values []string, blocked ...string) bool {
+	for _, value := range values {
+		for directive := range strings.SplitSeq(value, ",") {
+			name, _, _ := strings.Cut(directive, "=")
+			name = strings.TrimSpace(name)
+
+			for _, blockedName := range blocked {
+				if strings.EqualFold(name, blockedName) {
+					return true
+				}
+			}
+		}
+	}
+
+	return false
+}
+
+func sanitizeUpstreamError(err error) error {
+	for {
+		var urlError *url.Error
+		if !errors.As(err, &urlError) || urlError.Err == nil {
+			return err
+		}
+
+		err = urlError.Err
+	}
 }

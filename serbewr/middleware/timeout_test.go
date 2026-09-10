@@ -3,11 +3,88 @@ package middleware
 import (
 	"net/http"
 	"net/http/httptest"
+	"sync"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
+
+func TestTimeoutResponseWriterHijack(t *testing.T) {
+	t.Parallel()
+
+	t.Run("success", func(t *testing.T) {
+		t.Parallel()
+
+		written := false
+		timedOut := false
+		writer := &timeoutResponseWriter{
+			BaseResponseWriter: BaseResponseWriter{
+				ResponseWriter: &mockHijackableResponseWriter{
+					ResponseRecorder: httptest.NewRecorder(),
+				},
+			},
+			mu:       &sync.Mutex{},
+			header:   make(http.Header),
+			written:  &written,
+			timedOut: &timedOut,
+		}
+
+		connection, readWriter, err := writer.Hijack()
+		require.NoError(t, err)
+		require.NotNil(t, connection)
+		assert.NotNil(t, readWriter)
+		assert.True(t, written)
+		require.NoError(t, connection.Close())
+	})
+
+	t.Run("underlying failure", func(t *testing.T) {
+		t.Parallel()
+
+		written := false
+		timedOut := false
+		writer := &timeoutResponseWriter{
+			BaseResponseWriter: BaseResponseWriter{
+				ResponseWriter: &mockFailingHijacker{
+					ResponseRecorder: httptest.NewRecorder(),
+				},
+			},
+			mu:       &sync.Mutex{},
+			header:   make(http.Header),
+			written:  &written,
+			timedOut: &timedOut,
+		}
+
+		connection, readWriter, err := writer.Hijack()
+		assert.ErrorIs(t, err, errHijackFailed)
+		assert.Nil(t, connection)
+		assert.Nil(t, readWriter)
+		assert.False(t, written)
+	})
+
+	t.Run("timed out", func(t *testing.T) {
+		t.Parallel()
+
+		written := false
+		timedOut := true
+		writer := &timeoutResponseWriter{
+			BaseResponseWriter: BaseResponseWriter{
+				ResponseWriter: httptest.NewRecorder(),
+			},
+			mu:       &sync.Mutex{},
+			header:   make(http.Header),
+			written:  &written,
+			timedOut: &timedOut,
+		}
+
+		connection, readWriter, err := writer.Hijack()
+		assert.ErrorIs(t, err, http.ErrHandlerTimeout)
+		assert.Nil(t, connection)
+		assert.Nil(t, readWriter)
+		assert.False(t, written)
+	})
+}
 
 func TestTimeout(t *testing.T) {
 	t.Run("request completes within timeout", func(t *testing.T) {
@@ -99,6 +176,58 @@ func TestTimeoutMiddleware_RealHandlerTimeout(t *testing.T) {
 				"Timeout middleware should return timeout error message",
 			)
 		})
+}
+
+func TestTimeoutMiddlewareFlushCommitsResponse(t *testing.T) {
+	t.Parallel()
+
+	handlerDone := make(chan struct{})
+	handler := http.HandlerFunc(func(
+		writer http.ResponseWriter,
+		_ *http.Request,
+	) {
+		defer close(handlerDone)
+
+		writer.Header().Set("X-Stream", "started")
+		_, err := writer.Write([]byte("stream"))
+		assert.NoError(t, err)
+
+		flusher, ok := writer.(http.Flusher)
+		assert.True(t, ok)
+		flusher.Flush()
+		time.Sleep(50 * time.Millisecond)
+	})
+
+	request := createTestRequest(http.MethodGet, "/stream")
+	response := httptest.NewRecorder()
+	middleware := Timeout(WithTimeout(10 * time.Millisecond))
+	middleware(handler).ServeHTTP(response, request)
+	<-handlerDone
+
+	assert.Equal(t, http.StatusOK, response.Code)
+	assert.Equal(t, "started", response.Header().Get("X-Stream"))
+	assert.Equal(t, "stream", response.Body.String())
+}
+
+func TestTimeoutMiddlewarePropagatesHeaderDeletion(t *testing.T) {
+	t.Parallel()
+
+	handler := http.HandlerFunc(func(
+		writer http.ResponseWriter,
+		_ *http.Request,
+	) {
+		writer.Header().Del("X-Outer")
+		writer.WriteHeader(http.StatusNoContent)
+	})
+
+	request := createTestRequest(http.MethodGet, "/headers")
+	response := httptest.NewRecorder()
+	response.Header().Set("X-Outer", "remove-me")
+
+	Timeout(WithTimeout(time.Second))(handler).ServeHTTP(response, request)
+
+	assert.Equal(t, http.StatusNoContent, response.Code)
+	assert.Empty(t, response.Header().Get("X-Outer"))
 }
 
 func TestTimeoutMiddleware_PresetOptions(t *testing.T) {

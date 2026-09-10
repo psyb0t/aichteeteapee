@@ -7,9 +7,23 @@ import (
 	"time"
 
 	"github.com/psyb0t/aichteeteapee"
+	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+func TestNewUsesEnvironmentConfig(t *testing.T) {
+	t.Cleanup(viper.Reset)
+	t.Setenv("HTTP_ECHO_LISTENADDRESS", "127.0.0.1:12345")
+	t.Setenv("HTTP_ECHO_OASPATH", "/schema.yaml")
+	t.Setenv("HTTP_ECHO_SWAGGERUIPATH", "/reference/*")
+
+	e, err := New("/api", []byte("openapi: 3.0.0"), nil)
+	require.NoError(t, err)
+	assert.Equal(t, "127.0.0.1:12345", e.config.ListenAddress)
+	assert.Equal(t, "/schema.yaml", e.config.OASPath)
+	assert.Equal(t, "/reference/*", e.config.SwaggerUIPath)
+}
 
 func TestNewWithConfig(t *testing.T) {
 	tests := []struct {

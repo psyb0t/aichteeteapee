@@ -4,7 +4,9 @@ import (
 	"context"
 	"crypto/tls"
 	"io"
+	"math"
 	"net/http"
+	"net/http/cookiejar"
 	"net/http/httptest"
 	"testing"
 	"time"
@@ -112,6 +114,12 @@ func TestForwardRequest_HopByHopStripped(
 					}
 				}
 
+				if r.Header.Get("X-Hop") != "" {
+					w.WriteHeader(http.StatusBadRequest)
+
+					return
+				}
+
 				w.WriteHeader(http.StatusOK)
 			},
 		),
@@ -129,8 +137,13 @@ func TestForwardRequest_HopByHopStripped(
 				"websocket",
 			},
 			"X-Custom": {"keep"},
+			"X-Hop":    {"remove"},
 		},
 	}
+	payload.Headers[aichteeteapee.HeaderNameConnection] = append(
+		payload.Headers[aichteeteapee.HeaderNameConnection],
+		"X-Hop",
+	)
 
 	result, err := ForwardRequest(
 		context.Background(),
@@ -293,7 +306,7 @@ func TestForwardRequest_WithCache(t *testing.T) {
 	assert.Equal(t, 1, callCount)
 }
 
-func TestForwardRequest_CacheDifferentBodies(
+func TestForwardRequest_CacheSkipsUnsafeMethods(
 	t *testing.T,
 ) {
 	callCount := 0
@@ -322,7 +335,6 @@ func TestForwardRequest_CacheDifferentBodies(
 		CacheTTL:   time.Minute,
 	}
 
-	// Same URL, different bodies = different cache keys.
 	_, _ = ForwardRequest(
 		context.Background(), cfg,
 		&RequestPayload{
@@ -342,7 +354,6 @@ func TestForwardRequest_CacheDifferentBodies(
 
 	assert.Equal(t, 2, callCount)
 
-	// Same body again = cache hit.
 	_, _ = ForwardRequest(
 		context.Background(), cfg,
 		&RequestPayload{
@@ -352,7 +363,7 @@ func TestForwardRequest_CacheDifferentBodies(
 		},
 	)
 
-	assert.Equal(t, 2, callCount)
+	assert.Equal(t, 3, callCount)
 }
 
 func TestForwardRequest_CacheSkips5xx(t *testing.T) {
@@ -398,6 +409,244 @@ func TestForwardRequest_CacheSkips5xx(t *testing.T) {
 
 	// 5xx should not be cached.
 	assert.Equal(t, 2, callCount)
+}
+
+func TestForwardRequest_CacheSkipsPrivateResponses(t *testing.T) {
+	t.Parallel()
+
+	testCases := []struct {
+		name   string
+		header string
+		value  string
+	}{
+		{name: "set cookie", header: "Set-Cookie", value: "session=value"},
+		{name: "private", header: "Cache-Control", value: "private"},
+		{name: "no cache", header: "Cache-Control", value: "no-cache"},
+		{name: "no store", header: "Cache-Control", value: "no-store"},
+		{name: "vary", header: "Vary", value: "Accept-Encoding"},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			var callCount int
+
+			upstream := httptest.NewServer(http.HandlerFunc(func(
+				writer http.ResponseWriter,
+				_ *http.Request,
+			) {
+				callCount++
+
+				writer.Header().Set(tc.header, tc.value)
+				_, writeErr := io.WriteString(writer, "private")
+				assert.NoError(t, writeErr)
+			}))
+			t.Cleanup(upstream.Close)
+
+			responseCache := cache.NewMemory(10)
+
+			t.Cleanup(func() {
+				assert.NoError(t, responseCache.Close())
+			})
+
+			config := ForwardConfig{
+				HTTPClient: upstream.Client(),
+				Cache:      responseCache,
+			}
+			payload := &RequestPayload{
+				Method: http.MethodGet,
+				URL:    upstream.URL,
+			}
+
+			_, err := ForwardRequest(context.Background(), config, payload)
+			require.NoError(t, err)
+			_, err = ForwardRequest(context.Background(), config, payload)
+			require.NoError(t, err)
+			assert.Equal(t, 2, callCount)
+		})
+	}
+}
+
+func TestForwardRequest_CacheSkipsRequestDirectives(t *testing.T) {
+	t.Parallel()
+
+	testCases := []struct {
+		name   string
+		header string
+		value  string
+	}{
+		{
+			name:   "cache control no cache",
+			header: "Cache-Control",
+			value:  "no-cache",
+		},
+		{
+			name:   "cache control no store",
+			header: "Cache-Control",
+			value:  "no-store",
+		},
+		{name: "pragma no cache", header: "Pragma", value: "no-cache"},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			var callCount int
+
+			upstream := httptest.NewServer(http.HandlerFunc(func(
+				writer http.ResponseWriter,
+				_ *http.Request,
+			) {
+				callCount++
+
+				writer.WriteHeader(http.StatusOK)
+			}))
+			t.Cleanup(upstream.Close)
+
+			responseCache := cache.NewMemory(10)
+
+			t.Cleanup(func() {
+				assert.NoError(t, responseCache.Close())
+			})
+
+			config := ForwardConfig{
+				HTTPClient: upstream.Client(),
+				Cache:      responseCache,
+			}
+			payload := &RequestPayload{
+				Method:  http.MethodGet,
+				URL:     upstream.URL,
+				Headers: http.Header{tc.header: []string{tc.value}},
+			}
+
+			_, err := ForwardRequest(context.Background(), config, payload)
+			require.NoError(t, err)
+			_, err = ForwardRequest(context.Background(), config, payload)
+			require.NoError(t, err)
+			assert.Equal(t, 2, callCount)
+		})
+	}
+}
+
+func TestForwardRequest_CacheSkipsClientCookieJar(t *testing.T) {
+	t.Parallel()
+
+	var callCount int
+
+	upstream := httptest.NewServer(http.HandlerFunc(func(
+		writer http.ResponseWriter,
+		_ *http.Request,
+	) {
+		callCount++
+
+		writer.WriteHeader(http.StatusOK)
+	}))
+	t.Cleanup(upstream.Close)
+
+	jar, err := cookiejar.New(nil)
+	require.NoError(t, err)
+
+	client := upstream.Client()
+	client.Jar = jar
+
+	responseCache := cache.NewMemory(10)
+
+	t.Cleanup(func() {
+		assert.NoError(t, responseCache.Close())
+	})
+
+	config := ForwardConfig{HTTPClient: client, Cache: responseCache}
+	payload := &RequestPayload{Method: http.MethodGet, URL: upstream.URL}
+
+	_, err = ForwardRequest(context.Background(), config, payload)
+	require.NoError(t, err)
+	_, err = ForwardRequest(context.Background(), config, payload)
+	require.NoError(t, err)
+	assert.Equal(t, 2, callCount)
+}
+
+func TestForwardRequest_RejectsInvalidResponseLimit(t *testing.T) {
+	t.Parallel()
+
+	for _, limit := range []int64{-1, math.MaxInt64} {
+		result, err := ForwardRequest(
+			context.Background(),
+			ForwardConfig{
+				HTTPClient:          http.DefaultClient,
+				MaxResponseBodySize: limit,
+			},
+			&RequestPayload{Method: http.MethodGet, URL: "https://example.com"},
+		)
+
+		assert.Nil(t, result)
+		require.Error(t, err)
+		assert.ErrorIs(t, err, errInvalidResponseLimit)
+	}
+}
+
+func TestForwardRequest_CachedBodyHonorsCurrentLimit(t *testing.T) {
+	t.Parallel()
+
+	var callCount int
+
+	upstream := httptest.NewServer(http.HandlerFunc(func(
+		writer http.ResponseWriter,
+		_ *http.Request,
+	) {
+		callCount++
+		_, writeErr := io.WriteString(writer, "12345")
+		assert.NoError(t, writeErr)
+	}))
+	t.Cleanup(upstream.Close)
+
+	responseCache := cache.NewMemory(10)
+
+	t.Cleanup(func() {
+		assert.NoError(t, responseCache.Close())
+	})
+
+	payload := &RequestPayload{Method: http.MethodGet, URL: upstream.URL}
+	config := ForwardConfig{
+		HTTPClient:          upstream.Client(),
+		Cache:               responseCache,
+		MaxResponseBodySize: 5,
+	}
+
+	_, err := ForwardRequest(context.Background(), config, payload)
+	require.NoError(t, err)
+
+	config.MaxResponseBodySize = 4
+	_, err = ForwardRequest(context.Background(), config, payload)
+	require.Error(t, err)
+	assert.ErrorIs(t, err, errResponseBodyTooLarge)
+	assert.Equal(t, 2, callCount)
+}
+
+func TestForwardRequest_ValidatesDestination(t *testing.T) {
+	t.Parallel()
+
+	testCases := []string{
+		"relative/path",
+		"file:///etc/passwd",
+		"https://user:password@example.com",
+	}
+
+	for _, target := range testCases {
+		t.Run(target, func(t *testing.T) {
+			t.Parallel()
+
+			result, err := ForwardRequest(
+				context.Background(),
+				ForwardConfig{HTTPClient: http.DefaultClient},
+				&RequestPayload{Method: http.MethodGet, URL: target},
+			)
+			require.Error(t, err)
+			assert.Nil(t, result)
+			assert.ErrorIs(t, err, errInvalidUpstreamURL)
+		})
+	}
 }
 
 func TestForwardRequest_CustomCacheKey(

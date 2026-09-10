@@ -3,15 +3,143 @@ package wsunixbridge
 import (
 	"bytes"
 	"context"
+	"io"
 	"net"
+	"os"
 	"path/filepath"
 	"slices"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+func TestUnixSockBroadcastContinuesAfterWriteFailure(t *testing.T) {
+	t.Parallel()
+
+	received := &bytes.Buffer{}
+	unixSocket := &UnixSock{Clients: []net.Conn{
+		&mockNetConn{writeErr: io.ErrClosedPipe},
+		&mockNetConn{buffer: received},
+	}}
+
+	unixSocket.Broadcast([]byte("message"), testLogger())
+
+	assert.Equal(t, "message", received.String())
+}
+
+func TestHandleWriterUnixSockClientRemovesDisconnectedClient(t *testing.T) {
+	t.Parallel()
+
+	client := &mockNetConn{readErr: io.EOF}
+	connection := &Connection{
+		WriterUnixSock: UnixSock{Clients: []net.Conn{client}},
+	}
+
+	handleWriterUnixSockClient(
+		context.Background(),
+		connection,
+		client,
+		testLogger(),
+	)
+
+	assert.Empty(t, connection.WriterUnixSock.Clients)
+}
+
+func TestHandleReaderUnixSockClientRemovesDisconnectedClient(t *testing.T) {
+	t.Parallel()
+
+	client := &mockNetConn{readErr: io.EOF}
+	connection := &Connection{
+		ReaderUnixSock: UnixSock{Clients: []net.Conn{client}},
+	}
+
+	handleReaderUnixSockClient(
+		context.Background(),
+		connection,
+		client,
+		testLogger(),
+	)
+
+	assert.Empty(t, connection.ReaderUnixSock.Clients)
+}
+
+func TestAcceptUnixSockClientsExitWhenCanceled(t *testing.T) {
+	t.Parallel()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	connection := &Connection{}
+	acceptWriterUnixSockClients(ctx, connection, testLogger())
+	acceptReaderUnixSockClients(ctx, connection, testLogger())
+}
+
+func TestAcceptUnixSockClientsHandleConnectionThenCancellation(t *testing.T) {
+	t.Parallel()
+
+	t.Run("writer", func(t *testing.T) {
+		t.Parallel()
+
+		ctx, cancel := context.WithCancel(context.Background())
+		client := &mockNetConn{readErr: io.EOF}
+		connection := &Connection{}
+		connection.WriterUnixSock.Listener = &singleClientListener{
+			client: client,
+			cancel: cancel,
+		}
+
+		acceptWriterUnixSockClients(ctx, connection, testLogger())
+		require.Eventually(t, func() bool {
+			connection.WriterUnixSock.ClientsMux.RLock()
+			defer connection.WriterUnixSock.ClientsMux.RUnlock()
+
+			return len(connection.WriterUnixSock.Clients) == 0
+		}, time.Second, time.Millisecond)
+	})
+
+	t.Run("reader", func(t *testing.T) {
+		t.Parallel()
+
+		ctx, cancel := context.WithCancel(context.Background())
+		client := &mockNetConn{readErr: io.EOF}
+		connection := &Connection{}
+		connection.ReaderUnixSock.Listener = &singleClientListener{
+			client: client,
+			cancel: cancel,
+		}
+
+		acceptReaderUnixSockClients(ctx, connection, testLogger())
+		require.Eventually(t, func() bool {
+			connection.ReaderUnixSock.ClientsMux.RLock()
+			defer connection.ReaderUnixSock.ClientsMux.RUnlock()
+
+			return len(connection.ReaderUnixSock.Clients) == 0
+		}, time.Second, time.Millisecond)
+	})
+}
+
+func TestCreateUnixSocketsRejectsRegularFileAsDirectory(t *testing.T) {
+	t.Parallel()
+
+	file, err := os.CreateTemp(t.TempDir(), "socket-parent")
+	require.NoError(t, err)
+	require.NoError(t, file.Close())
+
+	connection := &Connection{}
+	err = createUnixSockets(
+		context.Background(),
+		file.Name(),
+		uuid.New(),
+		connection,
+		testLogger(),
+	)
+
+	require.Error(t, err)
+	assert.Nil(t, connection.WriterUnixSock.Listener)
+}
 
 func TestUnixSockBroadcast(t *testing.T) {
 	tests := []struct {
@@ -296,4 +424,30 @@ func TestRemoveSocketFiles(t *testing.T) {
 			removeSocketFiles(conn, logger)
 		})
 	}
+}
+
+type singleClientListener struct {
+	client net.Conn
+	cancel context.CancelFunc
+	served bool
+}
+
+func (listener *singleClientListener) Accept() (net.Conn, error) {
+	if !listener.served {
+		listener.served = true
+
+		return listener.client, nil
+	}
+
+	listener.cancel()
+
+	return nil, io.EOF
+}
+
+func (listener *singleClientListener) Close() error {
+	return nil
+}
+
+func (listener *singleClientListener) Addr() net.Addr {
+	return &net.UnixAddr{Name: "/test.sock", Net: "unix"}
 }

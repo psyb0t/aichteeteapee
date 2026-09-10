@@ -2,7 +2,6 @@ package middleware
 
 import (
 	"fmt"
-	"log/slog"
 	"net/http"
 	"strings"
 
@@ -11,6 +10,7 @@ import (
 	echomiddleware "github.com/oapi-codegen/echo-middleware"
 	"github.com/psyb0t/aichteeteapee"
 	"github.com/psyb0t/ctxerrors"
+	"github.com/psyb0t/ctxscope"
 )
 
 func OapiValidatorMiddleware(spec *openapi3.T) echo.MiddlewareFunc {
@@ -40,9 +40,11 @@ func errorHandler(
 	c echo.Context,
 	err *echo.HTTPError,
 ) error {
-	slog.Error("request validation failed",
-		"message", err.Message,
+	ctxscope.GetLogger(c.Request().Context()).Warn(
+		"request validation failed",
+		"reason", "openapi_validation_failed",
 		"status_code", err.Code,
+		"err", aichteeteapee.ErrBadRequest,
 	)
 
 	resp := aichteeteapee.ErrorResponse{
@@ -62,11 +64,6 @@ func multiErrorHandler(errs openapi3.MultiError) *echo.HTTPError {
 	for _, err := range errs {
 		errMsgs = append(errMsgs, err.Error())
 	}
-
-	slog.Error(
-		"multiple validation errors",
-		"errors", errMsgs,
-	)
 
 	msg := fmt.Sprintf(
 		"Validation failed: %s",

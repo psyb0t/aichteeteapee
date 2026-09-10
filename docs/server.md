@@ -73,6 +73,7 @@ srv.FileUploadHandler("./uploads",
     serbewr.WithFilenamePrependType(serbewr.FilenamePrependTypeUUID),     // default
     serbewr.WithFilenamePrependType(serbewr.FilenamePrependTypeDateTime), // 2024_01_15_...
     serbewr.WithFilenamePrependType(serbewr.FilenamePrependTypeNone),     // original name
+    serbewr.WithFileUploadMaxSize(50 << 20),                              // 50MB total request limit
     serbewr.WithFileUploadHandlerPostprocessor(func(resp map[string]any, r *http.Request) (map[string]any, error) {
         resp["custom_field"] = "value"
         return resp, nil
@@ -80,7 +81,7 @@ srv.FileUploadHandler("./uploads",
 )
 ```
 
-Filenames are sanitized (`filepath.Base`) to prevent path traversal. Files are created with `0600` permissions and `O_EXCL` (won't overwrite existing files).
+Filenames are sanitized (`filepath.Base`) to prevent path traversal. Files are created with `0600` permissions and `O_EXCL` (won't overwrite existing files). The total multipart request limit defaults to 100MB. `HTTP_SERVER_FILEUPLOADMAXMEMORY` remains the memory threshold before larger file parts spill to temporary files.
 
 ## Static file serving
 

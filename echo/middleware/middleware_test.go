@@ -6,8 +6,23 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/stretchr/testify/assert"
 )
+
+func TestCreateDefaultAPIMiddleware(t *testing.T) {
+	t.Parallel()
+
+	spec := &openapi3.T{}
+	withoutAuth := CreateDefaultAPIMiddleware(spec, nil)
+	withAuth := CreateDefaultAPIMiddleware(
+		spec,
+		func(context.Context, *http.Request) error { return nil },
+	)
+
+	assert.Len(t, withoutAuth, 2)
+	assert.Len(t, withAuth, 2)
+}
 
 func TestExtractBearerToken(t *testing.T) {
 	tests := []struct {

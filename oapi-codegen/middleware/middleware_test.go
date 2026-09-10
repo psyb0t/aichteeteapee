@@ -87,3 +87,20 @@ func TestOapiValidatorMiddleware(t *testing.T) {
 		})
 	}
 }
+
+func TestMultiErrorHandler(t *testing.T) {
+	t.Parallel()
+
+	httpError := multiErrorHandler(openapi3.MultiError{
+		assert.AnError,
+		context.Canceled,
+	})
+
+	assert.Equal(t, http.StatusBadRequest, httpError.Code)
+	assert.Equal(
+		t,
+		//nolint:lll // The exact joined validation message is the contract.
+		"Validation failed: assert.AnError general error for testing; context canceled",
+		httpError.Message,
+	)
+}

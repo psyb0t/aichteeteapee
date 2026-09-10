@@ -801,6 +801,78 @@ func TestHandleFileUpload(t *testing.T) {
 	}
 }
 
+func TestHandleFileUploadSpillsPastMemoryThreshold(t *testing.T) {
+	t.Parallel()
+
+	const maxUploadSize int64 = 64
+
+	body := &bytes.Buffer{}
+	formWriter := multipart.NewWriter(body)
+	fileWriter, err := formWriter.CreateFormFile("file", "oversized.txt")
+	require.NoError(t, err)
+	_, err = fileWriter.Write(bytes.Repeat([]byte("x"), 128))
+	require.NoError(t, err)
+	require.NoError(t, formWriter.Close())
+
+	request := httptest.NewRequest(http.MethodPost, "/upload", body)
+	request.Header.Set("Content-Type", formWriter.FormDataContentType())
+
+	response := httptest.NewRecorder()
+	uploadDirectory := t.TempDir()
+	server := createTestServer()
+	server.config.FileUploadMaxMemory = maxUploadSize
+
+	err = server.handleFileUpload(
+		response,
+		request,
+		uploadDirectory,
+		&FileUploadHandlerConfig{},
+	)
+	require.NoError(t, err)
+	assert.Equal(t, http.StatusOK, response.Code)
+
+	entries, readErr := os.ReadDir(uploadDirectory)
+	require.NoError(t, readErr)
+	require.Len(t, entries, 1)
+
+	uploaded, readErr := os.ReadFile(filepath.Join(
+		uploadDirectory,
+		entries[0].Name(),
+	))
+	require.NoError(t, readErr)
+	assert.Equal(t, bytes.Repeat([]byte("x"), 128), uploaded)
+}
+
+func TestFileUploadHandlerRejectsRequestPastTotalLimit(t *testing.T) {
+	t.Parallel()
+
+	body := &bytes.Buffer{}
+	formWriter := multipart.NewWriter(body)
+	fileWriter, err := formWriter.CreateFormFile("file", "oversized.txt")
+	require.NoError(t, err)
+	_, err = fileWriter.Write(bytes.Repeat([]byte("x"), 128))
+	require.NoError(t, err)
+	require.NoError(t, formWriter.Close())
+
+	request := httptest.NewRequest(http.MethodPost, "/upload", body)
+	request.Header.Set("Content-Type", formWriter.FormDataContentType())
+
+	response := httptest.NewRecorder()
+	uploadDirectory := t.TempDir()
+	server := createTestServer()
+	handler := server.FileUploadHandler(
+		uploadDirectory,
+		WithFileUploadMaxSize(64),
+	)
+	handler.ServeHTTP(response, request)
+
+	assert.Equal(t, http.StatusBadRequest, response.Code)
+
+	entries, readErr := os.ReadDir(uploadDirectory)
+	require.NoError(t, readErr)
+	assert.Empty(t, entries)
+}
+
 func TestSaveUploadedFile(t *testing.T) {
 	tests := []struct {
 		name        string
@@ -863,7 +935,7 @@ func TestSaveUploadedFile(t *testing.T) {
 			src := bytes.NewReader(fixtureContent)
 
 			srv := createTestServer()
-			err = srv.saveUploadedFile(src, filePath)
+			err = srv.saveUploadedFile(context.Background(), src, filePath)
 
 			if tt.expectError {
 				assert.Error(t, err)
