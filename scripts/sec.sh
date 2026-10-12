@@ -62,9 +62,7 @@ semgrep_targets=(
 	.github
 	Dockerfile.dev
 	Makefile
-	echo
 	klhayyent
-	oapi-codegen
 	scripts
 	serbewr
 )
