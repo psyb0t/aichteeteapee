@@ -38,5 +38,6 @@ ANUSTIMES.md
 coverage-percent.txt
 sec.sarif
 git-update.sh
+git-update.sh.debot
 
 .testing/

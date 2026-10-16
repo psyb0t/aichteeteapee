@@ -2,6 +2,12 @@
 
 All notable changes per release. Versions follow [semver](https://semver.org).
 
+## v1.15.1, 2026-10-16
+
+- Fixed the CI secret scan. CI scans a shallow clone, so the commit-bound fingerprints in `.gitleaksignore` never matched and the two request-id fixtures in `serbewr/middleware/recovery_test.go` failed the job. `.gitleaks.toml` now allows exactly those two values for `generic-api-key` in that file.
+- Pinned `shfmt` to 3.13.1-r3 in the development image, because Alpine removed the earlier revision.
+- `AGENTS.md` is now tracked.
+
 ## v1.15.0, 2026-10-12
 
 - Updated the development toolchain to Go 1.26.9 and `golang.org/x/net` to v0.60.0 for security fixes. Fixed the Alpine Python and CA certificate package pins and removed deleted package paths from the security scanner targets.
