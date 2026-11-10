@@ -2,7 +2,7 @@
 
 Prefix: API. This is a library. Every exported identifier is something a caller may already depend on.
 
-- **API1:** Do not rename, remove or change the signature of an exported identifier without a CHANGELOG line that starts with `Breaking:` and names the replacement, as the v1.15.0 entry does for the removed `echo` packages. Prefer adding a new identifier and marking the old one `// Deprecated: Use X instead.`, as `GetListenerAddr` does in `serbewr/server.go`.
+- **API1:** A breaking change gets a CHANGELOG line that starts with `Breaking:` and names the replacement, as the v1.15.0 entry does for the removed `echo` packages. Deprecations use `// Deprecated: Use X instead.`, as `GetListenerAddr` does in `serbewr/server.go`.
 - **API2:** New knobs are functional options named `With<Thing>` that return the package's `<Type>Option`, applied over a config struct whose defaults come from the root package (`BasicAuth` in `serbewr/middleware/basic_auth.go`, `New` in `klhayyent/client.go`). Middleware option names carry the middleware name when they could collide in the `middleware` package (`WithBasicAuthRealm`, `WithBearerAuthTokens`, `WithRecoveryStatusCode`).
 - **API3:** Default values live in `defaults.go` as `Default*` constants and are read from there by every package. Do not hardcode a timeout, size or header value in a package when a root constant exists or should exist.
 - **API4:** Header names, content types, schemes, network types, context keys and log field names are root constants (`headers.go`, `content_types.go`, `network_types.go`, `context_keys.go`, `log_fields.go`). Use them instead of string literals, and add one there before using a new header anywhere.
