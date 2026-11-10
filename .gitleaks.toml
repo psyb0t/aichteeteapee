@@ -24,7 +24,7 @@ paths = [
   '''(^|/)sec\.sarif$''',
   '''(^|/)coverage-percent\.txt$''',
   '''(^|/)git-update\.sh$''',
-  '''(^|/)CLAUDE\.md$''',
+  '''(^|/)\.testing(?:/|$)''',
 ]
 
 # CI checks out one commit (fetch-depth 1), so `gitleaks git` reports every

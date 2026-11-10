@@ -4,15 +4,22 @@
 [![CI](https://github.com/psyb0t/aichteeteapee/actions/workflows/pipeline.yml/badge.svg?branch=main)](https://github.com/psyb0t/aichteeteapee/actions/workflows/pipeline.yml)
 [![coverage](https://raw.githubusercontent.com/psyb0t/aichteeteapee/badges/coverage.svg)](https://github.com/psyb0t/aichteeteapee/actions/workflows/pipeline.yml)
 [![version](https://raw.githubusercontent.com/psyb0t/aichteeteapee/badges/version.svg)](https://github.com/psyb0t/aichteeteapee/tags)
-[![license](https://raw.githubusercontent.com/psyb0t/aichteeteapee/badges/license.svg)](LICENSE)
+[![license](https://raw.githubusercontent.com/psyb0t/aichteeteapee/badges/license.svg)](https://github.com/psyb0t/aichteeteapee/blob/main/LICENSE)
 [![imported by](https://raw.githubusercontent.com/psyb0t/aichteeteapee/badges/importers.svg)](https://github.com/psyb0t/aichteeteapee/blob/badges/importers.md)
 
 Pronounced "HTTP". The name is the whole joke. Moving on.
 
 A Go HTTP library that does everything you need and nothing you don't. Spin up a server with middleware, WebSocket hubs, file uploads, static serving, and request proxying with caching. Secure defaults, without the boilerplate.
 
+```bash
+go get github.com/psyb0t/aichteeteapee
+```
+
 ```go
-srv, _ := serbewr.New()
+srv, err := serbewr.New()
+if err != nil {
+    return err
+}
 
 router := &serbewr.Router{
     GlobalMiddlewares: []middleware.Middleware{
@@ -25,8 +32,8 @@ router := &serbewr.Router{
     Groups: []serbewr.GroupConfig{{
         Path: "/",
         Routes: []serbewr.RouteConfig{{
-            Method:  http.MethodGet,
-            Path:    "/hello",
+            Method: http.MethodGet,
+            Path:   "/hello",
             Handler: func(w http.ResponseWriter, _ *http.Request) {
                 aichteeteapee.WriteJSON(w, http.StatusOK, map[string]string{"msg": "hi"})
             },
@@ -34,12 +41,23 @@ router := &serbewr.Router{
     }},
 }
 
-srv.Start(ctx, router)
+return srv.Start(ctx, router)
 ```
+
+## What's in the box
+
+Every package name is how you'd say it out loud.
+
+- **`aichteeteapee`**, the root package. Everything you need to stop hardcoding strings in your HTTP code: header names, content types, error codes, the `ErrorResponse` envelope, sentinel errors, defaults, `GetClientIP`, `GetRequestID`, `WriteJSON`.
+- **[`serbewr`](https://psyb0t.github.io/aichteeteapee/server/)**, pronounced "server". D'oooh you kno. `net/http` with Go 1.22+ `ServeMux` routing, grouped routes with per-group middleware, health, echo and upload handlers, static files with directory indexing, TLS, config from env vars or code.
+- **[`serbewr/middleware`](https://psyb0t.github.io/aichteeteapee/middleware/)**: RequestID, Logger, Recovery, BasicAuth, BearerAuth, CORS, SecurityHeaders, Timeout, EnforceRequestContentType. Set them up once and every log line gets the full request context for free.
+- **[`serbewr/prawxxey`](https://psyb0t.github.io/aichteeteapee/proxy/)**, pronounced "proxy", because of course it is. Forward requests upstream with optional response caching, hop-by-hop header stripping, response size limits and request fingerprinting.
+- **[`serbewr/dabluvee-es`](https://psyb0t.github.io/aichteeteapee/websocket/)**, pronounced "WS", because why stop at one wordplay. Hub -> Client -> Connection, typed JSON events, handler registration, broadcast, and a Unix socket bridge for when you need to plug in external tools.
+- **[`klhayyent`](https://psyb0t.github.io/aichteeteapee/client/)**, pronounced "client". Apparently that one needed saying too. JSON, raw, text and form bodies, bounded responses, request ID propagation, same-origin redirects, a real cookie jar, and the same `ErrorResponse` envelope as the server.
 
 ## Security
 
-Secure by default. CORS blocks unknown origins, WebSocket validates `Origin` against `Host`, file uploads sanitize filenames (no path traversal), uploaded files get `0600` permissions and won't overwrite existing files, request IDs are validated, proxy responses are size-limited, sensitive headers are filtered from echo responses.
+Secure by default. CORS blocks unknown origins, WebSocket validates `Origin` against `Host`, the server listens on loopback, file uploads strip directories from filenames and never overwrite, request IDs are validated, proxy and client responses are size-limited, and sensitive headers are filtered from echo responses.
 
 Need to skip all that during local dev? One call:
 
@@ -47,88 +65,45 @@ Need to skip all that during local dev? One call:
 aichteeteapee.FuckSecurity()
 ```
 
-CORS allows all origins, WebSocket accepts any origin. Call `aichteeteapee.UnfuckSecurity()` to go back.
+CORS allows all origins, WebSocket accepts any origin. Call `aichteeteapee.UnfuckSecurity()` to go back. The [security page](https://psyb0t.github.io/aichteeteapee/security/) has the full list and the per-component overrides.
 
-Per-component overrides without global dev mode:
+## Documentation
 
-```go
-middleware.CORS(middleware.WithAllowAllOrigins())
+The full docs live at **[psyb0t.github.io/aichteeteapee](https://psyb0t.github.io/aichteeteapee/)**.
 
-wshub.UpgradeHandler(hub,
-    wshub.WithUpgradeHandlerCheckOrigin(
-        aichteeteapee.GetPermissiveWebSocketCheckOrigin,
-    ),
-)
-```
+| Page | What's in it |
+| --- | --- |
+| [Server](https://psyb0t.github.io/aichteeteapee/server/) | Routers and groups, lifecycle, health, echo and upload handlers, static files, TLS, every env var |
+| [Middleware](https://psyb0t.github.io/aichteeteapee/middleware/) | Every middleware with its options and defaults |
+| [WebSockets](https://psyb0t.github.io/aichteeteapee/websocket/) | Events, hub, clients, connections, upgrade options, the Unix socket bridge |
+| [Proxy](https://psyb0t.github.io/aichteeteapee/proxy/) | Forwarding, caching rules, fingerprinting |
+| [Client](https://psyb0t.github.io/aichteeteapee/client/) | Requests, bodies, errors and status sentinels, cookies, redirects, options |
+| [Errors](https://psyb0t.github.io/aichteeteapee/errors/) | The error envelope, every error code, the sentinels |
+| [Constants and helpers](https://psyb0t.github.io/aichteeteapee/constants/) | Headers, content types, context keys, log fields, defaults |
+| [Security](https://psyb0t.github.io/aichteeteapee/security/) | What's locked down, dev mode, what's on you |
+| [Logging](https://psyb0t.github.io/aichteeteapee/logging/) | ctxscope, request fields on every line |
+| [Development](https://psyb0t.github.io/aichteeteapee/development/) | Make targets, dev image, CI, releases |
 
-## What's in the box
-
-### Root package — constants and utilities
-
-Everything you need to stop hardcoding strings in your HTTP code.
-
-- **Content types** — `ContentTypeJSON`, `ContentTypeYAML`, `ContentTypeHTML`, `ContentTypeMultipartFormData`, etc.
-- **Header names** — every header you'll ever need as a constant. Authentication, content negotiation, CORS, cache, security, hop-by-hop, rate limiting, WebSocket, you name it. Plus `AuthSchemeBearer` and `AuthSchemeBasic` for scheme prefixes.
-- **Error handling** — `ErrorCode` constants for every HTTP status, `ErrorCodeFromHTTPStatus()` mapper, sentinel errors (`ErrBadRequest`, `ErrNotFound`, ...), pre-built `ErrorResponse` structs ready to serialize.
-- **Request utilities** — `GetClientIP(r)`, `GetRequestID(r)`, content type checkers (`IsRequestContentTypeJSON`, etc.).
-- **Response utilities** — `WriteJSON(w, statusCode, data)`.
-- **Network constants** — `SchemeHTTP`, `SchemeHTTPS`, `NetworkTypeTCP`, `NetworkTypeUnix`, etc.
-
-### [`serbewr/`](docs/server.md) — HTTP server
-
-Pronounced "server". D'oooh you kno. Built on `net/http` with Go 1.22+ `ServeMux` routing, grouped routes with per-group middleware, built-in handlers (health, echo, file upload), static file serving with directory indexing, TLS, and config from env vars or code. [Full docs](docs/server.md).
-
-### [`serbewr/middleware/`](docs/middleware.md) — middleware stack
-
-RequestID, Logger, Recovery, BasicAuth, BearerAuth, CORS, SecurityHeaders, Timeout, EnforceRequestContentType. All use context-propagated structured logging — set it up once, every log line gets the full request context for free. [Full docs](docs/middleware.md).
-
-### [`serbewr/prawxxey/`](docs/proxy.md) — request forwarding
-
-Pronounced "proxy", because of course it is. Forward requests upstream with optional response caching, hop-by-hop header stripping, response size limits, and deterministic request fingerprinting. [Full docs](docs/proxy.md).
-
-### [`serbewr/dabluvee-es/`](docs/websocket.md) — WebSocket event system
-
-Pronounced "WS" — because why stop at one wordplay. Three-tier architecture (Hub -> Client -> Connection) with typed events, handler registration, broadcast, and a Unix socket bridge for when you need to plug in external tools. [Full docs](docs/websocket.md).
-
-### [`klhayyent/`](docs/client.md), HTTP client
-
-Pronounced "client". Apparently that one needed saying too. Handles outbound
-HTTP without making every service rebuild the same wrapper: JSON, raw, text,
-and form bodies, bounded responses, per-request headers and query values,
-request ID propagation, same-origin redirects, and a real cookie jar. Non-2xx
-responses use the same `ErrorResponse` envelope as the server packages. [Full
-docs](docs/client.md).
-
-## Logging
-
-All middleware and proxy code uses [ctxscope](https://github.com/psyb0t/ctxscope) for context-propagated structured logging.
-
-The middleware chain builds up the request's scope progressively:
-1. **RequestID** puts `requestId` on the scope
-2. **Logger** adds `method`, `path`, `ip`
-3. Downstream code calls `ctxscope.GetLogger(ctx)` and gets all fields automatically
-
-The context carries attributes, not a logger. `ctxscope.GetLogger` applies them to `slog.Default()` at the moment you ask, so configure your handler once at startup with `slog.SetDefault` and every line picks it up. Because they are data rather than a logger, the same attributes also cross a process boundary via `ctxscope.ToJSON` / `ctxscope.FromJSON`.
-
-Field names come from the constants in `log_fields.go` — `FieldRequestID`, `FieldMethod`, `FieldPath`, `FieldIP` and friends.
-
-No explicit logger passing. Every log line from every middleware and handler automatically includes the full request context.
+The Go API reference is on [pkg.go.dev](https://pkg.go.dev/github.com/psyb0t/aichteeteapee), and the changes per release are in [CHANGELOG.md](https://github.com/psyb0t/aichteeteapee/blob/main/CHANGELOG.md).
 
 ## Development
 
-Every target runs inside a pinned dev image (Go 1.26.9 + the linter and scanners), so a local run and CI use the exact same toolchain.
+Every target runs inside a pinned dev image (Go 1.26.9 plus the linter and scanners), so a local run and CI use the exact same toolchain. Docker and Make are all you need.
 
 ```bash
-make dev-image      # build the sandboxed dev image
-make dep            # go mod tidy + vendor
-make format         # format Go and shell source
-make lint           # golangci-lint (strict)
-make lint-fix       # lint + auto-fix
+make lint           # shellcheck, shfmt, go fix, golangci-lint (strict)
 make test           # go test -race ./...
 make test-coverage  # coverage with 90% minimum
 make sec            # gitleaks + govulncheck + semgrep; gates on findings
+make docs           # build the docs site into .testing/docs-site
 ```
+
+The rest is on the [development page](https://psyb0t.github.io/aichteeteapee/development/).
+
+## Sponsor
+
+<a href="https://www.buymeacoffee.com/psyb0t"><img src="https://cdn.buymeacoffee.com/buttons/v2/default-blue.png" alt="Buy Me a Coffee" height="60" width="217"></a>
 
 ## License
 
-MIT. See [LICENSE](LICENSE).
+MIT. See [LICENSE](https://github.com/psyb0t/aichteeteapee/blob/main/LICENSE).

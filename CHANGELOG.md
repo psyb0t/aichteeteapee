@@ -2,6 +2,13 @@
 
 All notable changes per release. Versions follow [semver](https://semver.org).
 
+## v1.16.1, 2026-11-10
+
+- The documentation is now published at https://psyb0t.github.io/aichteeteapee/, and the reference material moved there from the README.
+- A tag no longer reruns the checks. It waits for the default branch run of the same commit to pass, cuts the GitHub release from the tag message, and the badges use that run's coverage.
+- Updated the development image to Go 1.26.10, `ca-certificates` 20261020 and Python 3.14.10.
+- Added Buy Me a Coffee to the funding links. `AGENTS.md` is now the real file with `CLAUDE.md` linking to it, and the project rules for coding agents are committed in `.agents/rules/`.
+
 ## v1.16.0, 2026-10-19
 
 - Added `ErrorCodePayloadTooLarge` (`PAYLOAD_TOO_LARGE`) and `ErrorResponsePayloadTooLarge`. `ErrorCodeFromHTTPStatus(413)` now returns `PAYLOAD_TOO_LARGE`; it used to fall back to `INTERNAL_SERVER_ERROR`, so a client could not tell an oversized request from a server failure.

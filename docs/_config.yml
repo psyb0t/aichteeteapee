@@ -1,0 +1,53 @@
+title: aichteeteapee
+tagline: Go HTTP server, middleware, WebSockets and client
+description: A Go HTTP library built on net/http with grouped routing, middleware, file uploads, static serving, WebSocket hubs, request forwarding with caching, and an HTTP client.
+lang: en
+url: https://psyb0t.github.io
+baseurl: /aichteeteapee
+repository: psyb0t/aichteeteapee
+author: Ciprian Mandache
+
+remote_theme: just-the-docs/just-the-docs@v0.12.0
+color_scheme: mocha
+
+plugins:
+  - jekyll-remote-theme
+  - jekyll-seo-tag
+  - jekyll-sitemap
+  - jekyll-relative-links
+  - jekyll-include-cache
+
+permalink: pretty
+
+relative_links:
+  enabled: true
+  collections: false
+
+defaults:
+  - scope:
+      path: ""
+    values:
+      layout: default
+      seo:
+        type: TechArticle
+
+search:
+  heading_level: 3
+
+aux_links:
+  GitHub:
+    - https://github.com/psyb0t/aichteeteapee
+aux_links_new_tab: true
+
+nav_external_links:
+  - title: Changelog
+    url: https://github.com/psyb0t/aichteeteapee/blob/main/CHANGELOG.md
+  - title: Go package docs
+    url: https://pkg.go.dev/github.com/psyb0t/aichteeteapee
+
+gh_edit_link: true
+gh_edit_link_text: Edit this page on GitHub
+gh_edit_repository: https://github.com/psyb0t/aichteeteapee
+gh_edit_branch: main
+gh_edit_source: docs
+gh_edit_view_mode: tree

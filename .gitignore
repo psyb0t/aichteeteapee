@@ -26,7 +26,6 @@ htmlcov/
 __pycache__
 http/server/.test/uploads
 *.out
-CLAUDE.md
 .test*
 .research_files
 .refactor/
@@ -41,3 +40,4 @@ git-update.sh
 git-update.sh.debot
 
 .testing/
+*.local.json

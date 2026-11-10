@@ -20,8 +20,8 @@ DEV_RUN := docker run --rm --init \
 	-w /work \
 	$(DEV_IMAGE)
 
-.PHONY: all dev-image dep format generate lint lint-fix shell test test-unit \
-	test-coverage sec help
+.PHONY: all dev-image dep docs format generate lint lint-fix shell test \
+	test-unit test-coverage sec help
 
 all: dep lint test ## Run dep, lint and test
 
@@ -57,6 +57,23 @@ test-coverage: dev-image ## Run tests with coverage check. Fails if coverage is 
 
 sec: dev-image ## Security scan (govulncheck + semgrep) merged into sec.sarif; gates on findings
 	@$(DEV_RUN) bash scripts/sec.sh
+
+DOCS_SITE ?= .testing/docs-site
+
+# Builds docs/ with the image GitHub Pages uses, so the local result matches
+# the published site. The output directory is gitignored.
+docs: ## Build the documentation site into .testing/docs-site
+	@mkdir -p "$(DOCS_SITE)"
+	@docker run --rm \
+		--user $(UID):$(GID) \
+		-e HOME=/tmp \
+		-e GITHUB_WORKSPACE=/work \
+		-e GITHUB_REPOSITORY=psyb0t/aichteeteapee \
+		-e INPUT_SOURCE=docs \
+		-e INPUT_DESTINATION="$(DOCS_SITE)" \
+		-e INPUT_VERBOSE=false \
+		-v "$(CURDIR):/work" \
+		ghcr.io/actions/jekyll-build-pages:v1.0.13@sha256:6791ebfd912185ed59bfb5fb102664fa872496b79f87ff8b9cfba292a7345041
 
 help: ## Display this help message
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-30s\033[0m %s\n", $$1, $$2}'
