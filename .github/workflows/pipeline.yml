@@ -41,6 +41,7 @@ jobs:
       coverage_file: "coverage-percent.txt"
       sarif_file: "sec.sarif"
       sarif_category: "go"
+      sarif_required: true
 
   wait:
     if: startsWith(github.ref, 'refs/tags/')

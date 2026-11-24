@@ -4,6 +4,8 @@ All notable changes per release. Versions follow [semver](https://semver.org).
 
 ## Unreleased
 
+- Publish worktree and history secret scans under separate categories. CI fails if GitHub cannot process the code-scanning report.
+
 - Build the documentation with Docusaurus. The site keeps its existing guide URLs and includes local search and complete server and MCP setup examples.
 
 - Require Go 1.26.11 and update Gorilla WebSocket and `golang.org/x/net` to address security advisories.

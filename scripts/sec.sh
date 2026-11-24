@@ -74,7 +74,11 @@ semgrep scan --config p/golang --config p/security-audit \
 	--metrics=off --error "${semgrep_targets[@]}" || sg_rc=$?
 
 log INFO "merging SARIF"
-jq -s '{version:"2.1.0","$schema":"https://json.schemastore.org/sarif-2.1.0.json",runs:([.[].runs // []] | add)}' \
+jq -s '
+	.[0].runs[].automationDetails.id = "go/gitleaks-worktree/" |
+	.[1].runs[].automationDetails.id = "go/gitleaks-history/" |
+	{version:"2.1.0","$schema":"https://json.schemastore.org/sarif-2.1.0.json",runs:([.[].runs // []] | add)}
+' \
 	"$tmp/gitleaks-dir.sarif" \
 	"$tmp/gitleaks-git.sarif" \
 	"$tmp/govulncheck.sarif" \
