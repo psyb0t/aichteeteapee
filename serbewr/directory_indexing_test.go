@@ -73,31 +73,31 @@ func TestServer_generateDirectoryListing(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	server := &Server{logger: logger}
 
-	// Create a temporary directory with some test files
-	tempDir, err := os.MkdirTemp("", "test_dir_listing")
-	require.NoError(t, err)
-
-	defer func() { _ = os.RemoveAll(tempDir) }()
+	tempDir := t.TempDir()
 
 	// Create test files
 	testFile := filepath.Join(tempDir, "test.txt")
-	err = os.WriteFile(testFile, []byte("test content"), 0o600)
+	err := os.WriteFile(testFile, []byte("test content"), 0o600)
 	require.NoError(t, err)
 
 	subDir := filepath.Join(tempDir, "subdir")
 	err = os.Mkdir(subDir, 0o750)
 	require.NoError(t, err)
 
+	root, err := os.OpenRoot(tempDir)
+	require.NoError(t, err)
+	t.Cleanup(func() { assert.NoError(t, root.Close()) })
+
 	tests := []struct {
 		name              string
-		fullPath          string
+		directory         string
 		staticConfig      StaticRouteConfig
 		expectStatus      int
 		expectContentType string
 	}{
 		{
-			name:     "HTML directory listing",
-			fullPath: tempDir,
+			name:      "HTML directory listing",
+			directory: ".",
 			staticConfig: StaticRouteConfig{
 				Path:                  "/static",
 				DirectoryIndexingType: DirectoryIndexingTypeHTML,
@@ -106,8 +106,8 @@ func TestServer_generateDirectoryListing(t *testing.T) {
 			expectContentType: "text/html",
 		},
 		{
-			name:     "JSON directory listing",
-			fullPath: tempDir,
+			name:      "JSON directory listing",
+			directory: ".",
 			staticConfig: StaticRouteConfig{
 				Path:                  "/api/files",
 				DirectoryIndexingType: DirectoryIndexingTypeJSON,
@@ -116,8 +116,8 @@ func TestServer_generateDirectoryListing(t *testing.T) {
 			expectContentType: aichteeteapee.ContentTypeJSON,
 		},
 		{
-			name:     "DirectoryIndexingTypeNone should return forbidden",
-			fullPath: tempDir,
+			name:      "DirectoryIndexingTypeNone should return forbidden",
+			directory: ".",
 			staticConfig: StaticRouteConfig{
 				Path:                  "/static",
 				DirectoryIndexingType: DirectoryIndexingTypeNone,
@@ -126,8 +126,8 @@ func TestServer_generateDirectoryListing(t *testing.T) {
 			expectContentType: aichteeteapee.ContentTypeJSON,
 		},
 		{
-			name:     "non-existent directory should return error",
-			fullPath: "/non/existent/directory",
+			name:      "non-existent directory should return error",
+			directory: "missing",
 			staticConfig: StaticRouteConfig{
 				Path:                  "/static",
 				DirectoryIndexingType: DirectoryIndexingTypeHTML,
@@ -145,7 +145,7 @@ func TestServer_generateDirectoryListing(t *testing.T) {
 			w := httptest.NewRecorder()
 
 			server.generateDirectoryListing(
-				w, req, tt.fullPath, tt.staticConfig,
+				w, req, root.FS(), tt.directory, tt.staticConfig,
 			)
 
 			assert.Equal(t, tt.expectStatus, w.Code)

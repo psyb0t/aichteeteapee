@@ -7,6 +7,8 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -225,6 +227,41 @@ This prevents directory listing for security.`,
 	}
 }
 
+func TestStaticFilesServeRelativeLinksWithinRoot(t *testing.T) {
+	dir := t.TempDir()
+	page := "<h1>Welcome</h1>"
+	require.NoError(t, os.WriteFile(
+		filepath.Join(dir, "welcome.html"), []byte(page), 0o600,
+	))
+
+	if err := os.Symlink(
+		"welcome.html", filepath.Join(dir, aichteeteapee.FileNameIndexHTML),
+	); err != nil {
+		t.Skipf("symlinks unavailable: %v", err)
+	}
+
+	server, err := New()
+	require.NoError(t, err)
+	server.setupStaticRoute(StaticRouteConfig{Dir: dir, Path: "/assets"})
+
+	for _, method := range []string{http.MethodGet, http.MethodHead} {
+		request := httptest.NewRequest(method, "/assets/", nil)
+		response := httptest.NewRecorder()
+		server.GetMux().ServeHTTP(response, request)
+
+		assert.Equal(t, http.StatusOK, response.Code)
+		assert.Equal(t, "text/html; charset=utf-8", response.Header().Get(
+			aichteeteapee.HeaderNameContentType,
+		))
+
+		if method == http.MethodGet {
+			assert.Equal(t, page, response.Body.String())
+		} else {
+			assert.Empty(t, response.Body.String())
+		}
+	}
+}
+
 func TestStaticPathTraversalSecurity_Integration(t *testing.T) {
 	server, err := NewWithConfig(Config{
 		ListenAddress: "127.0.0.1:0",
@@ -260,8 +297,8 @@ func TestStaticPathTraversalSecurity_Integration(t *testing.T) {
 		{
 			path: "/static/..%2F..%2F..%2Fetc%2Fpasswd",
 			// URL encoding doesn't bypass our protection
-			expectedStatus: http.StatusNotFound,
-			expectedError:  aichteeteapee.ErrorCodeFileNotFound,
+			expectedStatus: http.StatusForbidden,
+			expectedError:  aichteeteapee.ErrorCodePathTraversalDenied,
 		},
 		{
 			path: "/static/../server_test.go",
@@ -317,7 +354,7 @@ func TestStaticPathTraversalSecurity_Integration(t *testing.T) {
 
 			server.GetMux().ServeHTTP(w, req)
 
-			// These should be caught by our validateAndBuildPath function
+			// These should be caught by the static handler's path validation
 			// and return 403 Forbidden with path traversal error
 			if w.Code == http.StatusForbidden {
 				assert.Equal(

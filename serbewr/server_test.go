@@ -2161,35 +2161,39 @@ func TestServer_StartWithTLSError(t *testing.T) {
 	assert.Contains(t, err.Error(), "TLS cert file not accessible")
 }
 
-func TestServer_HandleCachedResultNonExistentFile(t *testing.T) {
+func TestStaticHandlerCachedMissingFile(t *testing.T) {
 	server, err := New()
 	require.NoError(t, err)
 
+	dir := t.TempDir()
+	server.fileCache.set(filepath.Join(dir, "nonexistent.txt"), false, false)
+	handler := server.createSecureStaticHandler(
+		StaticRouteConfig{Dir: dir, Path: "/"},
+	)
 	req := httptest.NewRequest(http.MethodGet, "/nonexistent.txt", nil)
 	w := httptest.NewRecorder()
 
-	// Test handleCachedResult with non-existent file
-	result := server.handleCachedResult(
-		w, req, "/nonexistent.txt", false, false, StaticRouteConfig{},
-	)
-	assert.False(t, result)
+	handler.ServeHTTP(w, req)
 	assert.Equal(t, http.StatusNotFound, w.Code)
 }
 
-func TestServer_HandleCachedResultDirectory(t *testing.T) {
+func TestStaticHandlerCachedDirectory(t *testing.T) {
 	server, err := New()
 	require.NoError(t, err)
 
 	tmpDir := t.TempDir()
-	req := httptest.NewRequest(http.MethodGet, "/testdir/", nil)
+	server.fileCache.set(tmpDir, true, true)
+	handler := server.createSecureStaticHandler(StaticRouteConfig{
+		Dir:                   tmpDir,
+		Path:                  "/",
+		DirectoryIndexingType: DirectoryIndexingTypeHTML,
+	})
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
 	w := httptest.NewRecorder()
 
-	// Test handleCachedResult with directory
-	result := server.handleCachedResult(
-		w, req, tmpDir, true, true, StaticRouteConfig{
-			DirectoryIndexingType: DirectoryIndexingTypeHTML,
-		})
-	assert.False(t, result)
+	handler.ServeHTTP(w, req)
+	assert.Equal(t, http.StatusOK, w.Code)
+	assert.Contains(t, w.Header().Get("Content-Type"), "text/html")
 }
 
 func TestServer_LogServerStartHTTPS(t *testing.T) {

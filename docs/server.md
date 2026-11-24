@@ -164,11 +164,11 @@ Static: []serbewr.StaticRouteConfig{
 
 Each entry registers `GET <Path>/{path...}` on the root group, so it gets the global middleware and also answers `HEAD`. Entries with an empty `Dir` or `Path` are ignored.
 
-Serve a directory whose files and symlinks you control.
+Static routes open files and directory indexes through a filesystem rooted at `Dir`. Use relative symlinks for files within that directory. Serve a directory whose contents you control.
 
 | Request | Response |
 | --- | --- |
-| A file | The file, through `http.ServeFile`. |
+| A file | The file, through `http.ServeFileFS`. |
 | A directory with `index.html` | That `index.html`. |
 | A directory without one, `DirectoryIndexingTypeNone` (default) | `403 DIRECTORY_LISTING_NOT_SUPPORTED` |
 | A directory without one, `DirectoryIndexingTypeHTML` | An HTML listing, directories first, then files, both alphabetical. |

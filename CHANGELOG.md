@@ -4,6 +4,8 @@ All notable changes per release. Versions follow [semver](https://semver.org).
 
 ## Unreleased
 
+- Confine static files, directory indexes and listings to the configured static directory.
+
 - Publish worktree and history secret scans under separate categories. CI fails if GitHub cannot process the code-scanning report.
 
 - Build the documentation with Docusaurus. The site keeps its existing guide URLs and includes local search and complete server and MCP setup examples.
