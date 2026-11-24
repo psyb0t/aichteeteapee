@@ -4,6 +4,8 @@ All notable changes per release. Versions follow [semver](https://semver.org).
 
 ## Unreleased
 
+- Add callback-based route authentication with a shared principal, and an MCP OAuth helper for discovery, audience checks and scopes.
+
 - Confine static files, directory indexes and listings to the configured static directory.
 
 - Publish worktree and history secret scans under separate categories. CI fails if GitHub cannot process the code-scanning report.

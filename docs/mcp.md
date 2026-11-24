@@ -12,6 +12,8 @@ The endpoint uses stateless Streamable HTTP. POST handles MCP messages and can s
 
 ## WorkOS Connect
 
+Use `serbewr/em-see-pee/auth` to protect an MCP endpoint with OAuth. It takes the public endpoint URL, the issuer, and a token verifier. The same helper works with any provider that issues tokens for the endpoint and supports the client's OAuth flow.
+
 If your installed release predates `serbewr/em-see-pee`, use the development version with `go get github.com/psyb0t/aichteeteapee@main`.
 
 In WorkOS Connect, enable CIMD and register the exact public MCP endpoint URL as a Resource Indicator. Use the `issuer` and `jwks_uri` values from OAuth discovery as trusted app configuration. Share a verifier between routes served by the same issuer and set the audience to the full public URL of each MCP endpoint. If a client omits the `resource` parameter, WorkOS can issue a token for the environment's client ID unless a matching default Resource Indicator is configured. [WorkOS MCP documentation](https://workos.com/docs/authkit/mcp)
@@ -22,9 +24,9 @@ import (
     "time"
 
     "github.com/modelcontextprotocol/go-sdk/mcp"
-    "github.com/psyb0t/aichteeteapee"
     "github.com/psyb0t/aichteeteapee/serbewr"
     emseepee "github.com/psyb0t/aichteeteapee/serbewr/em-see-pee"
+    mcpauth "github.com/psyb0t/aichteeteapee/serbewr/em-see-pee/auth"
     "github.com/psyb0t/aichteeteapee/serbewr/middleware"
 )
 
@@ -33,17 +35,16 @@ func imageRouter(tools *mcp.Server) (*serbewr.Router, error) {
     const jwksURL = "https://example.authkit.app/oauth2/jwks"
     const origin = "https://example.org"
     const path = "/v1/apps/image-tools/mcp"
-    const metadataPath = "/.well-known/oauth-protected-resource" + path
 
     verifier, err := middleware.NewJWKSVerifier(issuer, jwksURL)
     if err != nil {
         return nil, err
     }
 
-    auth, err := middleware.JWTBearerAuth(
-        verifier.Verify,
+    protection, err := mcpauth.New(
         origin+path,
-        middleware.WithJWTBearerResourceMetadata(origin+metadataPath),
+        issuer,
+        verifier.Verify,
     )
     if err != nil {
         return nil, err
@@ -66,33 +67,23 @@ func imageRouter(tools *mcp.Server) (*serbewr.Router, error) {
         Groups: []serbewr.GroupConfig{
             {
                 Path:        "/",
-                Middlewares: []middleware.Middleware{auth},
+                Middlewares: []middleware.Middleware{protection.Middleware},
                 Routes:      []serbewr.RouteConfig{route},
             },
             {
-                Path: "/",
-                Routes: []serbewr.RouteConfig{{
-                    Method: http.MethodGet,
-                    Path:   metadataPath,
-                    Handler: func(w http.ResponseWriter, _ *http.Request) {
-                        aichteeteapee.WriteJSON(w, http.StatusOK, map[string]any{
-                            "resource":                 origin + path,
-                            "authorization_servers":    []string{issuer},
-                            "bearer_methods_supported": []string{"header"},
-                        })
-                    },
-                }},
+                Path:   "/",
+                Routes: []serbewr.RouteConfig{protection.MetadataRoute},
             },
         },
     }, nil
 }
 ```
 
-The public metadata route gives clients the exact resource URL and the issuer. Start the server with the router returned by `imageRouter` and pass in the SDK server with your tools already registered. Missing or invalid credentials get HTTP 401 with the library's JSON error envelope and a `WWW-Authenticate` challenge pointing at the metadata. After authorization, MCP protocol responses follow the SDK's wire format.
+The helper derives the public discovery route from the resource URL. Mount it at the router root, outside the protected group, and preserve the configured MCP path through the proxy. Missing or invalid credentials get a JSON `401` with a `WWW-Authenticate` challenge pointing at discovery. To require scopes on every request, pass `mcpauth.WithRequiredScopes("images:read")` and configure that scope at your provider. A valid token missing a required scope gets `403` with an `insufficient_scope` challenge.
 
 See [JWTBearerAuth](middleware.md#jwtbearerauth) for token requirements, cache behavior and verifier options.
 
-In your tool handler, call `middleware.BearerPrincipalFromContext(ctx)`. Check permissions, account state and ownership there. For organization-specific resources, check that the principal's `OrganizationID` matches the organization in the route. A user-only app should reject the `ai_agent` subject profile. An issued token can remain valid until expiry after grant revocation. Check your local access policy when disconnection must take effect immediately. [WorkOS token verification and revocation](https://workos.com/docs/authkit/mcp#token-verification)
+In your tool handler, call `middleware.PrincipalFromContext(ctx)`. Check tool permissions, account state and ownership there. For organization-specific resources, check that the principal's `OrganizationID` matches the organization in the route. A user-only app should reject the `ai_agent` subject profile. An issued token can remain valid until expiry after grant revocation. Check your local access policy when disconnection must take effect immediately. [WorkOS token verification and revocation](https://workos.com/docs/authkit/mcp#token-verification)
 
 ## Streaming through a proxy
 

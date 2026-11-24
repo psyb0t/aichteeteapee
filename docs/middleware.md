@@ -76,6 +76,41 @@ By default it logs at error level with the panic value as `error` and the stack 
 
 `WithCustomRecoveryHandler(func(recovered any, w http.ResponseWriter, r *http.Request))` replaces all of that, logging included.
 
+## RequireAuth
+
+Use `RequireAuth` for routes with an application-owned authenticator. The callback receives the request and returns a verified `Principal` with a nonempty `Subject`. Handlers read it with `middleware.PrincipalFromContext(r.Context())`.
+
+```go
+func dashboardGroup(
+    verifySession middleware.Authenticator,
+    dashboard http.HandlerFunc,
+) (serbewr.GroupConfig, error) {
+    guard, err := middleware.RequireAuth(
+        verifySession,
+        middleware.WithAuthLoginRedirect("/login"),
+    )
+    if err != nil {
+        return serbewr.GroupConfig{}, err
+    }
+
+    return serbewr.GroupConfig{
+        Path:        "/dashboard",
+        Middlewares: []middleware.Middleware{guard},
+        Routes: []serbewr.RouteConfig{{
+            Method:  http.MethodGet,
+            Path:    "/settings",
+            Handler: dashboard,
+        }},
+    }, nil
+}
+```
+
+Implement `verifySession` with your WorkOS, Authelia or application session integration. A dashboard admin route should verify its browser session and enforce the user's admin role. Mount login and OAuth callbacks outside that group. Protect cookie-authenticated writes with CSRF checks.
+
+Return `aichteeteapee.ErrUnauthorized` for missing or invalid credentials and `aichteeteapee.ErrForbidden` when the caller lacks permission. The middleware returns JSON `401` or `403` respectively. Other errors return a generic `500`. `WithAuthLoginRedirect` sends unauthenticated GET and HEAD requests to a fixed local login path. `WithAuthChallenge` can attach a `WWW-Authenticate` header to the JSON denial.
+
+Use `NewBearerAuthenticator` to adapt a bearer verifier for `RequireAuth`. `BasicAuth` and `JWTBearerAuth` also populate `PrincipalFromContext`. `BearerAuth` checks static tokens or a boolean validator and supplies no principal. For MCP OAuth, use the [MCP auth helper](mcp.md#workos-connect) to wire the challenge and resource metadata.
+
 ## BasicAuth
 
 HTTP Basic authentication.

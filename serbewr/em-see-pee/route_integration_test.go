@@ -11,6 +11,7 @@ import (
 	"github.com/psyb0t/aichteeteapee"
 	"github.com/psyb0t/aichteeteapee/serbewr"
 	emseepee "github.com/psyb0t/aichteeteapee/serbewr/em-see-pee"
+	mcpauth "github.com/psyb0t/aichteeteapee/serbewr/em-see-pee/auth"
 	"github.com/psyb0t/aichteeteapee/serbewr/middleware"
 	"github.com/psyb0t/ctxerrors"
 	"github.com/stretchr/testify/assert"
@@ -18,8 +19,8 @@ import (
 )
 
 const (
-	routePath       = "/mcp"
-	routeAudience   = "https://example.org/apps/image/mcp"
+	routePath       = "/apps/image/mcp"
+	routeAudience   = routeOrigin + routePath
 	routeIssuer     = "https://example.authkit.app"
 	routeOrigin     = "https://example.org"
 	routeSubject    = "user_example"
@@ -43,10 +44,10 @@ func TestAuthenticatedStreamableHTTP(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	auth, err := middleware.JWTBearerAuth(fixtureVerifier, routeAudience)
+	protection, err := mcpauth.New(routeAudience, routeIssuer, fixtureVerifier)
 	require.NoError(t, err)
 
-	endpoint := startRouter(t, route, auth) + routePath
+	endpoint := startRouter(t, route, protection.Middleware) + routePath
 	client := &http.Client{
 		Transport: credentialTransport{},
 		Timeout:   3 * time.Second,
@@ -124,7 +125,7 @@ func identityTool(progress <-chan struct{}) mcp.ToolHandlerFor[struct{}, any] {
 		request *mcp.CallToolRequest,
 		_ struct{},
 	) (*mcp.CallToolResult, any, error) {
-		principal, ok := middleware.BearerPrincipalFromContext(ctx)
+		principal, ok := middleware.PrincipalFromContext(ctx)
 		if !ok {
 			return nil, nil, ctxerrors.New("verified identity missing")
 		}

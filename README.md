@@ -50,6 +50,7 @@ The full docs live at **[psyb0t.github.io/aichteeteapee](https://psyb0t.github.i
 | [Server](https://psyb0t.github.io/aichteeteapee/server/) | Routers and groups, lifecycle, health, echo and upload handlers, static files, TLS, every env var |
 | [Middleware](https://psyb0t.github.io/aichteeteapee/middleware/) | Every middleware with its options and defaults |
 | [MCP](https://psyb0t.github.io/aichteeteapee/mcp/) | Streamable HTTP, JWT bearer authentication, and WorkOS setup |
+| [`serbewr/em-see-pee/auth`](https://psyb0t.github.io/aichteeteapee/mcp/#workos-connect) | MCP OAuth discovery, audience checks and required scopes |
 | [WebSockets](https://psyb0t.github.io/aichteeteapee/websocket/) | Events, hub, clients, connections, upgrade options, the Unix socket bridge |
 | [Proxy](https://psyb0t.github.io/aichteeteapee/proxy/) | Forwarding, caching rules, fingerprinting |
 | [Client](https://psyb0t.github.io/aichteeteapee/client/) | Requests, bodies, errors and status sentinels, cookies, redirects, options |

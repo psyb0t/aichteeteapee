@@ -12,6 +12,8 @@ import (
 	"github.com/psyb0t/ctxscope"
 )
 
+const invalidBearerToken = "invalid_bearer_token"
+
 // BearerPrincipal holds verified identity and OAuth claim values.
 type BearerPrincipal struct {
 	Issuer         string
@@ -101,27 +103,69 @@ func serveJWTBearer(
 	verify BearerTokenVerifier,
 	audience, challenge string,
 ) {
-	token, ok := bearerToken(r)
-
-	authHeaders := r.Header.Values(aichteeteapee.HeaderNameAuthorization)
-	if !ok || len(authHeaders) != 1 ||
-		len(token) > aichteeteapee.DefaultJWTBearerMaxBytes ||
-		strings.ContainsAny(token, " \t\r\n,") {
-		rejectJWTBearer(w, r, challenge, "invalid_bearer_header")
-
-		return
-	}
-
-	principal, err := verify(r.Context(), token, audience)
-	if err != nil || principal.Subject == "" || principal.Issuer == "" ||
-		principal.Audience != audience {
-		rejectJWTBearer(w, r, challenge, "invalid_bearer_token")
+	principal, reason, err := verifyBearerRequest(r, verify, audience)
+	if err != nil {
+		rejectJWTBearer(w, r, challenge, reason)
 
 		return
 	}
 
 	ctx := context.WithValue(r.Context(), bearerPrincipalKey{}, principal)
+	ctx = context.WithValue(ctx, principalKey{}, Principal(principal))
 	next.ServeHTTP(w, r.WithContext(ctx))
+}
+
+// NewBearerAuthenticator adapts a token verifier for RequireAuth. The
+// verifier must check expiry and issuer and return ErrUnauthorized for
+// invalid credentials. The adapter requires the exact configured audience.
+func NewBearerAuthenticator(
+	verify BearerTokenVerifier, audience string,
+) (Authenticator, error) {
+	if verify == nil || strings.TrimSpace(audience) == "" {
+		return nil, ctxerrors.Wrap(
+			aichteeteapee.ErrBadRequest,
+			"bearer auth requires verifier and audience",
+		)
+	}
+
+	return func(r *http.Request) (Principal, error) {
+		principal, _, err := verifyBearerRequest(r, verify, audience)
+		if err != nil {
+			return Principal{}, ctxerrors.Wrap(
+				err, "authenticate bearer request",
+			)
+		}
+
+		return Principal(principal), nil
+	}, nil
+}
+
+func verifyBearerRequest(
+	r *http.Request, verify BearerTokenVerifier, audience string,
+) (BearerPrincipal, string, error) {
+	token, ok := bearerToken(r)
+	authHeaders := r.Header.Values(aichteeteapee.HeaderNameAuthorization)
+
+	if !ok || len(authHeaders) != 1 ||
+		len(token) > aichteeteapee.DefaultJWTBearerMaxBytes ||
+		strings.ContainsAny(token, " \t\r\n,") {
+		return BearerPrincipal{}, "invalid_bearer_header",
+			aichteeteapee.ErrUnauthorized
+	}
+
+	principal, err := verify(r.Context(), token, audience)
+	if err != nil {
+		return BearerPrincipal{}, invalidBearerToken,
+			ctxerrors.Wrap(err, "verify bearer token")
+	}
+
+	if principal.Subject == "" || principal.Issuer == "" ||
+		principal.Audience != audience {
+		return BearerPrincipal{}, invalidBearerToken,
+			aichteeteapee.ErrUnauthorized
+	}
+
+	return principal, "", nil
 }
 
 func rejectJWTBearer(
