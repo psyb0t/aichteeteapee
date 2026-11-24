@@ -1,0 +1,17 @@
+# aichteeteapee
+
+> Go HTTP library with grouped routing, middleware, MCP Streamable HTTP, WebSockets, a proxy and a client.
+
+- [Quick start](https://psyb0t.github.io/aichteeteapee/): Install the module and run a small HTTP server.
+- [Server](https://psyb0t.github.io/aichteeteapee/server/): Routes, handlers, TLS and environment settings.
+- [Middleware](https://psyb0t.github.io/aichteeteapee/middleware/): Auth, logging, CORS, security headers and timeouts.
+- [MCP](https://psyb0t.github.io/aichteeteapee/mcp/): Streamable HTTP, WorkOS Connect and reverse proxy setup.
+- [WebSockets](https://psyb0t.github.io/aichteeteapee/websocket/): Hubs, clients, connection events and Unix sockets.
+- [Proxy](https://psyb0t.github.io/aichteeteapee/proxy/): Upstream requests, response limits and cache rules.
+- [Client](https://psyb0t.github.io/aichteeteapee/client/): Requests, response bodies, cookies and redirects.
+- [Errors](https://psyb0t.github.io/aichteeteapee/errors/): JSON error envelope, codes and status mappings.
+- [Constants and helpers](https://psyb0t.github.io/aichteeteapee/constants/): Headers, defaults and request helpers.
+- [Security](https://psyb0t.github.io/aichteeteapee/security/): Defaults and deployment responsibilities.
+- [Logging](https://psyb0t.github.io/aichteeteapee/logging/): Request context and structured logs.
+- [Development](https://psyb0t.github.io/aichteeteapee/development/): Local checks, CI and documentation builds.
+- [Go API reference](https://pkg.go.dev/github.com/psyb0t/aichteeteapee): Exported Go types and functions.

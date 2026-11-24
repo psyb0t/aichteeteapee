@@ -1,10 +1,8 @@
 ---
-title: "Home"
+title: "aichteeteapee"
+sidebar_label: "Home"
 description: "aichteeteapee is a Go HTTP library on net/http: grouped routes, middleware, uploads, static files, WebSocket hubs, a caching proxy and a client."
-nav_order: 1
-permalink: /
-seo:
-  type: WebSite
+slug: /
 ---
 
 # aichteeteapee
@@ -19,11 +17,12 @@ A Go HTTP library that does everything you need and nothing you don't. Spin up a
 go get github.com/psyb0t/aichteeteapee
 ```
 
-The module declares `go 1.26.9` in its [`go.mod`](https://github.com/psyb0t/aichteeteapee/blob/main/go.mod), so you need that Go version or newer.
+The module declares `go 1.26.11` in its [`go.mod`](https://github.com/psyb0t/aichteeteapee/blob/main/go.mod), so you need that Go version or newer.
 
 ## Quick look
 
-<!-- {% raw %} -->
+In a new directory, run `go mod init example.com/hello` followed by the install command above. Save this as `main.go`.
+
 ```go
 package main
 
@@ -71,9 +70,22 @@ func main() {
     }
 }
 ```
-<!-- {% endraw %} -->
 
-That listens on `127.0.0.1:8080` and answers `GET /hello` with `{"msg": "hi"}`. Every setting has a default and an `HTTP_SERVER_*` env var; [Server](server.md#configuration) lists them.
+Run `go run .`, then check the route from another terminal.
+
+```bash
+curl --fail http://127.0.0.1:8080/hello
+```
+
+The response is:
+
+```json
+{
+  "msg": "hi"
+}
+```
+
+[Server configuration](server.md#configuration) lists the `HTTP_SERVER_*` overrides.
 
 ## The packages
 
@@ -83,7 +95,8 @@ Every package name is how you'd say it out loud. Yes, all of them.
 | --- | --- | --- |
 | [`aichteeteapee`](https://pkg.go.dev/github.com/psyb0t/aichteeteapee) | "HTTP" | Header names, content types, error codes and envelopes, sentinels, defaults, request and response helpers. |
 | [`serbewr`](server.md) | "server" | The server: routing groups, built-in handlers, static files, TLS, graceful shutdown. |
-| [`serbewr/middleware`](middleware.md) | | RequestID, Logger, Recovery, BasicAuth, BearerAuth, CORS, SecurityHeaders, Timeout, EnforceRequestContentType. |
+| [`serbewr/middleware`](middleware.md) | | Request IDs, logging, recovery, Basic and bearer auth, JWT/JWKS, CORS, security headers, timeouts and content-type checks. |
+| [`serbewr/em-see-pee`](mcp.md) | "MCP" | Mount a stateless Go MCP server over Streamable HTTP. |
 | [`serbewr/prawxxey`](proxy.md) | "proxy" | Forward a request upstream, with optional response caching. |
 | [`serbewr/dabluvee-es`](websocket.md) | "WS" | WebSocket events, the `wshub` hub and the `wsunixbridge` Unix socket bridge. |
 | [`klhayyent`](client.md) | "client" | Outbound HTTP client with bounded responses, same-origin redirects and a cookie jar. |
@@ -94,6 +107,7 @@ Every package name is how you'd say it out loud. Yes, all of them.
 | --- | --- |
 | Set up routes, groups, uploads, static files and TLS | [Server](server.md) |
 | Add request IDs, logging, auth, CORS or timeouts | [Middleware](middleware.md) |
+| Mount MCP tools and verify WorkOS access tokens | [MCP](mcp.md) |
 | Push events to browsers over WebSockets | [WebSockets](websocket.md) |
 | Forward requests to another service and cache the answers | [Proxy](proxy.md) |
 | Call another HTTP API | [Client](client.md) |

@@ -6,7 +6,7 @@ nav_order: 7
 
 # Errors
 
-Every error this library answers with is the same JSON envelope, and [`klhayyent`](client.md) decodes the same envelope on the way back in. Use it in your own handlers and every service in the chain speaks one error format.
+Built-in HTTP handlers and middleware use the JSON envelope below, and [`klhayyent`](client.md) decodes it. Go's ServeMux can return plain-text routing errors, including unmatched-route 404s and method 405s. Protocol handlers such as [MCP](mcp.md) and [WebSocket upgrades](websocket.md#upgrade-handler) use their own response formats.
 
 ## The envelope
 

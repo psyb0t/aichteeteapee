@@ -468,14 +468,15 @@ func TestConnectionCleanupIntegration(t *testing.T) {
 
 func TestInvalidWebSocketUpgradeIntegration(t *testing.T) {
 	tests := []struct {
-		name          string
-		headers       map[string]string
-		expectUpgrade bool
+		name            string
+		headers         map[string]string
+		expectedStatus  int
+		expectedUpgrade string
 	}{
 		{
-			name:          "missing websocket headers",
-			headers:       map[string]string{},
-			expectUpgrade: false,
+			name:           "missing websocket headers",
+			headers:        map[string]string{},
+			expectedStatus: http.StatusBadRequest,
 		},
 		{
 			name: "invalid upgrade header",
@@ -483,7 +484,8 @@ func TestInvalidWebSocketUpgradeIntegration(t *testing.T) {
 				"Upgrade":    "http",
 				"Connection": "upgrade",
 			},
-			expectUpgrade: false,
+			expectedStatus:  http.StatusUpgradeRequired,
+			expectedUpgrade: "websocket",
 		},
 	}
 
@@ -527,13 +529,8 @@ func TestInvalidWebSocketUpgradeIntegration(t *testing.T) {
 				}
 			}()
 
-			if tt.expectUpgrade {
-				// Should succeed WebSocket upgrade
-				assert.Equal(t, http.StatusSwitchingProtocols, resp.StatusCode)
-			} else {
-				// Should fail WebSocket upgrade
-				assert.Equal(t, http.StatusBadRequest, resp.StatusCode)
-			}
+			assert.Equal(t, tt.expectedStatus, resp.StatusCode)
+			assert.Equal(t, tt.expectedUpgrade, resp.Header.Get("Upgrade"))
 
 			_ = u // Use the parsed URL to avoid unused variable
 		})

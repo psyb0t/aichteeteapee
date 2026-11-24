@@ -13,8 +13,15 @@ Pronounced "proxy", because of course it is.
 ## Usage
 
 ```go
-body, err := io.ReadAll(r.Body)
+const maxRequestSize = 1 << 20
+
+body, err := io.ReadAll(http.MaxBytesReader(w, r.Body, maxRequestSize))
 if err != nil {
+    var limit *http.MaxBytesError
+    if errors.As(err, &limit) {
+        prawxxey.WriteError(w, http.StatusRequestEntityTooLarge)
+        return
+    }
     prawxxey.WriteError(w, http.StatusBadRequest)
 
     return
@@ -43,11 +50,19 @@ if err != nil {
 
     return
 }
+
+if contentType := result.Headers.Get("Content-Type"); contentType != "" {
+    w.Header().Set("Content-Type", contentType)
+}
+w.WriteHeader(result.StatusCode)
+if _, err := w.Write(result.Body); err != nil {
+    slog.WarnContext(r.Context(), "write proxy response", "error", err)
+}
 ```
 
 `result` is a `*ResponseResult` with `StatusCode`, `Headers` and `Body`. Copying it onto your `http.ResponseWriter` is up to you, so you decide which upstream headers your clients see.
 
-`RequestScheme(r)` returns `https` for a TLS request, else the `X-Forwarded-Proto` header, else `http`.
+`RequestScheme(r)` returns `https` for a TLS request, then checks `X-Forwarded-Proto`, then falls back to `http`. Strip or overwrite forwarded headers at a trusted edge before passing them to the request IP or scheme helpers.
 
 ## ForwardConfig
 
@@ -63,14 +78,14 @@ if err != nil {
 ## What it does to the request
 
 - Copies the payload headers, minus the hop-by-hop ones (`Connection`, `Keep-Alive`, `Proxy-Authenticate`, `Proxy-Authorization`, `Te`, `Trailer`, `Trailers`, `Transfer-Encoding`, `Upgrade`) and any header named in `Connection`.
-- Sets `X-Forwarded-For` and `X-Real-IP` to `ClientIP`, and `X-Forwarded-Proto` to `Proto`, when those are set. Both replace whatever the client sent.
+- Replaces `X-Forwarded-For` and `X-Real-IP` when `ClientIP` is set, and `X-Forwarded-Proto` when `Proto` is set. Empty fields leave the incoming headers as supplied.
 - Refuses any `URL` that is not an absolute `http` or `https` URL with a host and no embedded credentials.
 
-Treat `payload.URL` as trusted configuration. If it comes from a request, apply your own SSRF checks before calling `ForwardRequest`; this package does not block private addresses.
+Treat `payload.URL` as trusted configuration. If it comes from a request, apply your own SSRF policy to every destination, including redirects. The supplied HTTP client's redirect policy controls where the upstream request can go next. Use a dedicated streaming proxy for WebSockets or SSE.
 
 ## Caching
 
-With a `Cache` set, a response is served from or stored in the cache only when every one of these holds:
+Enable `Cache` only for resources safe to share across callers. The default cache key uses the payload headers and excludes the forwarding fields applied later. The cache also checks the following conditions.
 
 - the method is `GET` or `HEAD`;
 - the `HTTPClient` has no cookie jar, because the jar can add session cookies after `ForwardRequest` sees the payload, and sharing that response would be a nasty little data leak;
@@ -93,7 +108,7 @@ A hex SHA-256 of the method, URL, sorted headers and body. Header names in the e
 
 ## Errors
 
-`ForwardRequest` returns an error for a nil context, payload or client, an invalid URL or size limit, a transport failure and an oversized body. The error never contains the upstream URL, and the logs only carry the method, status, duration and size.
+`ForwardRequest` returns an error for a nil context, payload or client, an invalid URL or size limit, a transport failure and an oversized body. It strips the transport's `*url.Error` wrapper. Custom transport errors can still contain sensitive data. Completion logs carry the method, status, duration and size.
 
 ```go
 prawxxey.WriteError(w, http.StatusBadGateway)

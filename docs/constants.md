@@ -13,7 +13,7 @@ Everything you need to stop hardcoding strings in your HTTP code. The root packa
 | Function | What it does |
 | --- | --- |
 | `WriteJSON(w, status, data)` | Sets `Content-Type: application/json`, writes the status, encodes `data` indented by two spaces. |
-| `GetClientIP(r)` | The first address in `X-Forwarded-For`, else `X-Real-IP`, else the host part of `r.RemoteAddr`. |
+| `GetClientIP(r)` | First address in `X-Forwarded-For`, then `X-Real-IP`, then the host of `r.RemoteAddr`. If the host and port cannot be split, returns `r.RemoteAddr` as supplied. |
 | `GetRequestID(r)` | The ID the [RequestID middleware](middleware.md#requestid) stored on the context, or `""`. |
 | `IsRequestContentType(r, ct)` | Whether the request's media type equals `ct`, ignoring parameters and case. |
 | `IsRequestContentTypeJSON(r)`, `...XML(r)`, `...ApplicationFormURLEncoded(r)`, `...MultipartFormData(r)` | Shortcuts for the common ones. |
@@ -67,7 +67,7 @@ The constants use the conventional spelling (`X-Request-ID`), which is not alway
 
 ## Defaults
 
-[`defaults.go`](https://github.com/psyb0t/aichteeteapee/blob/main/defaults.go) holds every default value as a `Default*` constant, so you can read what the library will do without guessing:
+The common defaults below come from [`defaults.go`](https://github.com/psyb0t/aichteeteapee/blob/main/defaults.go). For JWT and signing key defaults, see [JWTBearerAuth](middleware.md#jwtbearerauth).
 
 | Area | Constants |
 | --- | --- |

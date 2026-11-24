@@ -50,6 +50,11 @@ const (
 	// Authentication default values.
 	DefaultBasicRealmName      = "restricted"
 	DefaultUnauthorizedMessage = "Unauthorized"
+	DefaultJWKSFetchTimeout    = 5 * time.Second
+	DefaultJWKSCacheTTL        = 5 * time.Minute
+	DefaultJWKSRefreshInterval = 5 * time.Second
+	DefaultJWKSMaxBytes        = 1 << 20
+	DefaultJWTBearerMaxBytes   = 16 << 10
 
 	// File upload defaults.
 	DefaultFileUploadMaxMemory = int64(32 << 20)  // 32MB

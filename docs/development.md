@@ -6,7 +6,7 @@ nav_order: 11
 
 # Development
 
-Hacking on aichteeteapee itself. You need Docker and Make, nothing else. Every target runs inside a pinned dev image built from [`Dockerfile.dev`](https://github.com/psyb0t/aichteeteapee/blob/main/Dockerfile.dev) (Go 1.26.9 plus the linter and scanners), so a local run and CI use the exact same toolchain. The container runs as your user with every capability dropped and the checkout mounted at `/work`.
+Hacking on aichteeteapee itself. You need Docker and Make. Go checks run in the pinned image from [`Dockerfile.dev`](https://github.com/psyb0t/aichteeteapee/blob/main/Dockerfile.dev), with Go 1.26.11, the linter and scanners. Documentation uses a separate pinned Node image.
 
 ## Make targets
 
@@ -25,7 +25,8 @@ Run `make help` for the list. The [`Makefile`](https://github.com/psyb0t/aichtee
 | `make sec` | [`scripts/sec.sh`](https://github.com/psyb0t/aichteeteapee/blob/main/scripts/sec.sh): gitleaks over the working tree and the Git history, govulncheck, and Semgrep (`p/golang` and `p/security-audit`). Writes the merged report to `sec.sarif` and fails on any finding. |
 | `make generate` | `go generate ./...`. Nothing generates code today; CI runs it so a future generator cannot drift. |
 | `make shell` | A shell in the dev image, for running one test by hand. |
-| `make docs` | Builds this site into `.testing/docs-site` with GitHub's own Pages image. |
+| `make docs` or `make docs-build` | Builds this site into `website/build` and fails on broken documentation links or anchors. |
+| `make docs-lock` | Refreshes the documentation dependencies' lockfile after a change to `website/package.json`. |
 | `make all` | `dep`, `lint` and `test`. |
 
 [`pre-commit.sh`](https://github.com/psyb0t/aichteeteapee/blob/main/pre-commit.sh) runs `make lint && make test-coverage`, the same pair CI runs.

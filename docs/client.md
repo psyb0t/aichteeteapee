@@ -57,7 +57,7 @@ Every request sends `Accept: application/json` unless you change the default hea
 
 Response bodies are limited to 10 MiB by default (`DefaultMaxResponseBodySize`). Change the limit with `WithMaxResponseBodySize`. A bigger body fails with an error that matches `ErrResponseBodyTooLarge` through `errors.Is`.
 
-A non-2xx response returns both the `*Response` and an `*HTTPError`. The error holds the decoded `aichteeteapee.ErrorResponse`. When the body is not that envelope, the client fills one in from the status: the code from `ErrorCodeFromHTTPStatus` and the standard status text as the message.
+A non-2xx response returns both the `*Response` and an `*HTTPError` when the body can be read within the size limit. The error holds the decoded `aichteeteapee.ErrorResponse`. For other body formats, the client fills in the code from `ErrorCodeFromHTTPStatus` and uses the standard status text for the message.
 
 ```go
 var httpError *klhayyent.HTTPError
@@ -89,7 +89,7 @@ if errors.Is(err, aichteeteapee.ErrNotFound) {
 | 504 | `ErrGatewayTimeout` |
 | anything else | `ErrUnexpectedResponseStatus` |
 
-Timeouts and context cancellation keep their error chain, so `errors.Is(err, context.DeadlineExceeded)` works. The `*url.Error` layer is stripped first, so the URL never ends up in an error message or a log. Construction and option mistakes match `ErrInvalidBaseURL` or `ErrInvalidOption`, and a rejected target matches `ErrInvalidRequestTarget`.
+Timeouts and context cancellation keep their error chain, so `errors.Is(err, context.DeadlineExceeded)` works. The client strips the transport's `*url.Error` wrapper. Custom transport errors can still contain sensitive data, so review them before logging. Construction and option errors match `ErrInvalidBaseURL` or `ErrInvalidOption`, and a rejected target matches `ErrInvalidRequestTarget`.
 
 ## Cookies
 
@@ -101,7 +101,7 @@ Use `WithCookieJar` to share or replace the jar, and `client.CookieJar()` to rea
 
 The base URL is trusted configuration. It must be an absolute HTTP or HTTPS URL without user information, a query or a fragment. Request targets must be relative. Absolute targets, scheme-relative targets, control characters, backslashes, fragments and encoded traversal segments are rejected before the transport runs.
 
-Redirects stay on the base URL's scheme and host and stop after ten hops. `WithCheckRedirect` can add a stricter policy but cannot bypass the same-origin check. That blocks redirect-based credential and cookie disclosure. The client never logs URLs, queries, headers, cookies or bodies; a request log line has the dependency name, method, status, duration and outcome.
+Redirects stay on the base URL's scheme and host, including the port, and stop after ten hops. `WithCheckRedirect` replaces the supplied client's redirect hook and runs after the built-in policy checks. Request logs carry the dependency name, method, status, duration and outcome.
 
 For services that must accept an untrusted destination, validate it before constructing a client and apply the service's SSRF policy, including private address and DNS rebinding controls. `klhayyent` intentionally treats the base URL as trusted dependency configuration.
 

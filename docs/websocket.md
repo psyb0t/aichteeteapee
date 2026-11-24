@@ -124,6 +124,8 @@ A client is one logical user. It can hold several WebSocket connections (a few b
 
 The upgrade handler picks the client ID from the `clientID` query parameter, then the `X-Client-ID` header. A connection with a known ID joins that client; an unknown ID creates the client; no ID, or one that is not a valid UUID, gets a fresh client with a new UUID.
 
+Authenticate before upgrading a private connection. For private event delivery, replace or reject both caller-supplied ID sources and bind the hub client ID to the authenticated identity. The ID is a routing key.
+
 Client options are passed through the upgrade handler (or to `wshub.NewClient` and `hub.GetOrCreateClient` when you build clients yourself):
 
 ```go
@@ -178,11 +180,15 @@ wshub.UpgradeHandler(hub,
 
 The default origin check accepts a request with no `Origin` header and otherwise requires the `Origin` host to equal the request `Host`, because that's what secure means. Use `aichteeteapee.GetPermissiveWebSocketCheckOrigin` for one handler, or `aichteeteapee.FuckSecurity()` for the whole process, when you're just trying to get stuff working locally. See [Security](security.md).
 
-A failed upgrade gets gorilla's own HTTP error response.
+Gorilla WebSocket writes the HTTP response for a failed upgrade. If the request asks for an upgrade to the wrong protocol, it sends `426 Upgrade Required` with `Upgrade: websocket`. When the client offers several supported subprotocols, Gorilla selects the first one in the client's list.
+
+When proxying WebSockets, preserve the public `Host` and forward the HTTP/1.1 upgrade to the backend. The [request forwarding helper](proxy.md) strips upgrade headers and buffers responses.
 
 ## Unix socket bridge
 
 `wsunixbridge` bridges a WebSocket connection to a pair of Unix domain sockets, for when you need to plug in external tools: shells, processes, whatever speaks bytes over a socket.
+
+Authenticate and authorize the connection before mounting the upgrade handler on a route that exposes private data or control.
 
 ```go
 handler := wsunixbridge.NewUpgradeHandler(

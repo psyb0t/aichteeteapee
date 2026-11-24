@@ -126,9 +126,17 @@ middleware.BearerAuth(
 
 The `Bearer` scheme is matched case-insensitively. A failure answers `401` with the JSON envelope and no `WWW-Authenticate` header. With no tokens and no validator, every request fails.
 
+## JWTBearerAuth
+
+Use `JWTBearerAuth(verifier.Verify, audience)` to protect a route group with signed OAuth access tokens. Create one verifier per issuer with `NewJWKSVerifier(issuer, jwksURL)` and reuse it across groups. Both URLs must be trusted HTTPS configuration. Use your issuer's published `jwks_uri` and keep TLS verification enabled if supplying a custom transport. The library fetches signing keys on demand.
+
+The built-in verifier checks the signature and issuer, requires a key ID (`kid`), a subject, an unexpired `exp`, and one exact audience, and checks `nbf` and `iat` when present. RS256 is the default. Use `WithJWKSAlgorithms` for other supported asymmetric algorithms. Keys stay cached for five minutes by default. An unknown key can trigger an early refresh, at most once every five seconds. Use a new key ID when rotating keys so clients can discover it before the cache expires.
+
+JWKS fetches default to a five-second timeout and a 1 MiB limit and reject redirects. Bearer values are capped at 16 KiB. Invalid credentials or unavailable signing keys return HTTP 401 and a bearer challenge. `WithJWTBearerResourceMetadata` adds the discovery URL to the challenge. Handlers read the verified principal with `BearerPrincipalFromContext` and enforce application permissions separately. See [MCP](mcp.md#workos-connect) for a complete WorkOS router example.
+
 ## CORS
 
-Blocks unknown origins by default, because that's what a sane default looks like. Use `WithAllowAllOrigins()` or `aichteeteapee.FuckSecurity()` when you need to go permissive.
+By default, CORS grants no cross-origin browser response access. Ordinary requests still run through the handler, so enforce authentication and CSRF protection as appropriate. Use `WithAllowAllOrigins()` or `aichteeteapee.FuckSecurity()` when you need to go permissive.
 
 ```go
 middleware.CORS(

@@ -23,7 +23,7 @@ Request flow on the server: `http.Server` -> `ServeMux` pattern -> group middlew
 
 ## Stack
 
-- Go 1.26.9 (`go.mod` and the `golang:1.26.9-alpine` base of `Dockerfile.dev`), modules vendored in `vendor/`.
+- Go 1.26.11 (`go.mod` and the `golang:1.26.11-alpine` base of `Dockerfile.dev`), modules vendored in `vendor/`.
 - Runtime dependencies: `google/uuid`, `gorilla/websocket`, `psyb0t/ctxerrors` (error wrapping), `psyb0t/ctxscope` (context-scoped logging), `psyb0t/gonfiguration` (env config), `psyb0t/common-go` (`cache`, `types`), `golang.org/x/net/publicsuffix`. Tests add `stretchr/testify` and `spf13/viper`.
 - Tooling: golangci-lint v2 as a `tool` dependency in `go.mod` (config in `.golangci.yml`), shellcheck and shfmt, govulncheck, gitleaks and Semgrep (hash-locked in `requirements-semgrep.txt`), all baked into the dev image.
 
@@ -38,7 +38,8 @@ Request flow on the server: `http.Server` -> `ServeMux` pattern -> group middlew
 | `serbewr/prawxxey/` | Request forwarding and response caching. |
 | `serbewr/dabluvee-es/` | WebSocket events and upgrade config; `wshub/` and `wsunixbridge/` below it. |
 | `klhayyent/` | HTTP client. |
-| `docs/` | The documentation site (Jekyll, just-the-docs theme), published by GitHub Pages from `main` at https://psyb0t.github.io/aichteeteapee/. |
+| `docs/` | Markdown guides published at https://psyb0t.github.io/aichteeteapee/. |
+| `website/` | Docusaurus configuration, navigation, theme and static assets. |
 | `scripts/` | `lint.sh`, `test-coverage.sh`, `sec.sh`, run by the Make targets inside the dev image. |
 | `Dockerfile.dev` | The pinned dev image every Make target runs in. |
 | `.github/workflows/` | `pipeline.yml` (CI and releases), plus the mirror, issue-pull and collaborators-only workflows. |
@@ -58,7 +59,7 @@ make test           # go test -race -count=1 ./...
 make test-coverage  # race tests with coverage, fails below 90%, writes coverage-percent.txt
 make sec            # gitleaks (tree and history), govulncheck, Semgrep; writes sec.sarif
 make generate       # go generate ./... (nothing generates today; CI fails on drift)
-make docs           # build the documentation site into .testing/docs-site
+make docs           # build Docusaurus into website/build and check links
 ```
 
 Run one test through the image: `make shell`, then `go test -race -run TestName ./serbewr/...`. `pre-commit.sh` runs `make lint && make test-coverage`, the same pair CI runs.

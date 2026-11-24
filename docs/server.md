@@ -87,7 +87,7 @@ err := srv.Start(ctx, nil)
 - `nil` when something calls `Stop`;
 - the server error if a listener fails.
 
-Either way it runs `Stop` on the way out. `Stop(ctx)` runs once: it shuts the HTTP and HTTPS servers down in parallel, gives in-flight requests up to `ShutdownTimeout`, closes the listeners and returns the first error.
+On exit, `Start` calls `Stop` with the context it received. `Stop(ctx)` runs once and shuts the HTTP and HTTPS servers down in parallel. The earlier of the caller's deadline and `ShutdownTimeout` bounds the wait for in-flight HTTP requests. Call `Stop` with a live shutdown context if requests need time to finish. Close [WebSocket hubs](websocket.md#hub) from your application shutdown code.
 
 `GetHTTPListenerAddr()` and `GetHTTPSListenerAddr()` return the bound addresses once the server is listening, which is how you find the port after listening on `127.0.0.1:0`. `GetListenerAddr()` is the deprecated name for the HTTP one. `GetMux()` and `GetLogger()` hand back the underlying `*http.ServeMux` and logger.
 
@@ -99,7 +99,7 @@ Answers `200` with `{"status": "ok", "timestamp": "<UTC time>"}`.
 
 ### EchoHandler
 
-Echoes back the method, path, query, headers and JSON body, which is handy for debugging a proxy or a client. It drops `Authorization`, `Cookie`, `Set-Cookie`, `X-Api-Key` and `Proxy-Authorization` from the echoed headers. A request with a non-empty body that is not `application/json` gets `415 UNSUPPORTED_CONTENT_TYPE`. Behind [BasicAuth](middleware.md#basicauth), the response also has a `user` field with the authenticated name.
+Echoes the method, path, query, headers and decoded JSON body. It drops `Authorization`, `Cookie`, `Set-Cookie`, `X-Api-Key` and `Proxy-Authorization` from the echoed headers. With a positive `Content-Length`, a non-JSON content type returns `415 UNSUPPORTED_CONTENT_TYPE`. Malformed JSON leaves the echoed body null. Behind [BasicAuth](middleware.md#basicauth), the response also includes the authenticated name in `user`.
 
 ### FileUploadHandler
 
@@ -139,11 +139,11 @@ On success it answers `200`:
 }
 ```
 
-A postprocessor can replace that map. If it returns an error, the client gets `500 INTERNAL_SERVER_ERROR`.
+A postprocessor can replace that map. If it fails, the client gets `500 INTERNAL_SERVER_ERROR` and the saved file remains on disk.
 
 | Problem | Response |
 | --- | --- |
-| Method is not `POST` | `405 METHOD_NOT_ALLOWED` |
+| A non-POST request reaches the handler | `405 METHOD_NOT_ALLOWED`. A POST-only route can get ServeMux's plain-text 405 before reaching the handler. |
 | Body is not a valid multipart form, or is bigger than the size limit | `400 INVALID_MULTIPART_FORM` |
 | No `file` field | `400 NO_FILE_PROVIDED` |
 | The file cannot be created or written, including when the name already exists | `500 FILE_SAVE_FAILED` |
@@ -164,6 +164,8 @@ Static: []serbewr.StaticRouteConfig{
 
 Each entry registers `GET <Path>/{path...}` on the root group, so it gets the global middleware and also answers `HEAD`. Entries with an empty `Dir` or `Path` are ignored.
 
+Serve a directory whose files and symlinks you control.
+
 | Request | Response |
 | --- | --- |
 | A file | The file, through `http.ServeFile`. |
@@ -171,7 +173,7 @@ Each entry registers `GET <Path>/{path...}` on the root group, so it gets the gl
 | A directory without one, `DirectoryIndexingTypeNone` (default) | `403 DIRECTORY_LISTING_NOT_SUPPORTED` |
 | A directory without one, `DirectoryIndexingTypeHTML` | An HTML listing, directories first, then files, both alphabetical. |
 | A directory without one, `DirectoryIndexingTypeJSON` | A JSON array of `{"name", "isDir", "size", "modTime", "url"}` objects, same order. |
-| A path with `..`, or a symlink that leads outside `Dir` | `403 PATH_TRAVERSAL_DENIED` |
+| A request rejected by the path traversal guard | `403 PATH_TRAVERSAL_DENIED` |
 | Nothing there | `404 FILE_NOT_FOUND` |
 
 The handler caches whether a path exists and whether it is a directory, for 30 seconds and up to 1000 entries, dropping the oldest entry when full. That keeps a flood of requests for missing files off the disk. The flip side: a file you create right after someone asked for it can answer 404 for up to 30 seconds.
@@ -184,7 +186,7 @@ export HTTP_SERVER_TLSCERTFILE=/path/to/cert.pem
 export HTTP_SERVER_TLSKEYFILE=/path/to/key.pem
 ```
 
-With TLS on, the server listens for HTTP on `HTTP_SERVER_LISTENADDRESS` and for HTTPS on `HTTP_SERVER_TLSLISTENADDRESS` at the same time, both serving the same routes. `Start` refuses to run when TLS is on and the cert or key path is empty (`ErrTLSCertFileNotSpecified`, `ErrTLSKeyFileNotSpecified`) or the file does not exist.
+With TLS on, the server listens for HTTP on `HTTP_SERVER_LISTENADDRESS` and HTTPS on `HTTP_SERVER_TLSLISTENADDRESS`. Both serve the same routes. Keep the HTTP listener private if clients must use HTTPS. `Start` refuses to run when the cert or key path is empty (`ErrTLSCertFileNotSpecified`, `ErrTLSKeyFileNotSpecified`) or the file does not exist.
 
 ## Configuration
 

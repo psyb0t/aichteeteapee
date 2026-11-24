@@ -2,6 +2,6 @@
 
 Prefix: DOC.
 
-- **DOC2:** `docs/` is the GitHub Pages site (Jekyll 3 with the just-the-docs theme, `docs/_config.yml`). Keep `docs/` flat: a file name is its URL.
-- **DOC5:** Wrap any code block that contains `{{` or `{%` in `<!-- {% raw %} -->` and `<!-- {% endraw %} -->`, or Liquid eats it.
-- **DOC6:** Prove a docs change with `make docs` (GitHub's own `jekyll-build-pages` image, output in `.testing/docs-site`) and a link check of that output. A clean build alone proves nothing about links.
+- **DOC2:** Keep authored guides in `docs/`. Docusaurus reads them directly. Add new pages to `website/sidebars.mjs` and preserve published routes and anchors.
+- **DOC5:** Use standard Markdown and fenced code blocks in the guides.
+- **DOC6:** Run `make docs` and check the result under the `/aichteeteapee/` base path. GitHub Pages deploys `website/build` through `.github/workflows/docs.yml`.

@@ -41,3 +41,9 @@ git-update.sh.debot
 
 .testing/
 *.local.json
+CLAUDE.local.md
+coverage.txt
+.discuss/
+/website/.docusaurus/
+/website/build/
+/website/node_modules/

@@ -2,6 +2,16 @@
 
 All notable changes per release. Versions follow [semver](https://semver.org).
 
+## Unreleased
+
+- Build the documentation with Docusaurus. The site keeps its existing guide URLs and includes local search and complete server and MCP setup examples.
+
+- Require Go 1.26.11 and update Gorilla WebSocket and `golang.org/x/net` to address security advisories.
+- Breaking: clients requesting an upgrade to the wrong protocol get `426 Upgrade Required` with `Upgrade: websocket` in place of `400 Bad Request`. Subprotocol negotiation follows the client's preference order.
+- Synchronize WebSocket client shutdown with connection startup.
+- Mount stateless MCP Streamable HTTP under a server route group with the official Go MCP SDK.
+- Verify JWT bearer tokens against cached issuer keys, check each route's audience, and expose the verified principal to handlers. Works with WorkOS Connect.
+
 ## v1.16.1, 2026-11-10
 
 - The documentation is now published at https://psyb0t.github.io/aichteeteapee/, and the reference material moved there from the README.
