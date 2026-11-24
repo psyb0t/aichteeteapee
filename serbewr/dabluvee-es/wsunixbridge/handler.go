@@ -9,6 +9,7 @@ import (
 	"github.com/gorilla/websocket"
 	"github.com/psyb0t/aichteeteapee"
 	dabluveees "github.com/psyb0t/aichteeteapee/serbewr/dabluvee-es"
+	"github.com/psyb0t/aichteeteapee/serbewr/dabluvee-es/internal/handshake"
 )
 
 const (
@@ -31,17 +32,8 @@ func NewUpgradeHandler(
 ) http.HandlerFunc {
 	config := dabluveees.NewUpgradeHandlerConfig()
 
-	upgrader := websocket.Upgrader{
-		ReadBufferSize:    config.ReadBufferSize,
-		WriteBufferSize:   config.WriteBufferSize,
-		HandshakeTimeout:  config.HandshakeTimeout,
-		CheckOrigin:       config.CheckOrigin,
-		Subprotocols:      config.Subprotocols,
-		EnableCompression: config.EnableCompression,
-	}
-
 	return func(w http.ResponseWriter, r *http.Request) {
-		handleConnection(w, r, socketsDir, connHandler, upgrader)
+		handleConnection(w, r, socketsDir, connHandler, config)
 	}
 }
 
@@ -50,7 +42,7 @@ func handleConnection(
 	r *http.Request,
 	socketsDir string,
 	connHandler ConnectionHandler,
-	upgrader websocket.Upgrader,
+	config dabluveees.UpgradeHandlerConfig,
 ) {
 	connID := uuid.New()
 	logger := slog.Default().With(
@@ -63,11 +55,7 @@ func handleConnection(
 
 	logger.Debug("unixsock websocket upgrade request received")
 
-	// CheckOrigin is wired to config above, so origin policy is the
-	// caller's. This bridge serves a local unix socket, not a browser
-	// origin, so a hardcoded check would be wrong here.
-	// nosemgrep
-	wsConn, err := upgrader.Upgrade(w, r, nil)
+	wsConn, err := handshake.Open(w, r, config)
 	if err != nil {
 		logger.Error(
 			"websocket upgrade failed",

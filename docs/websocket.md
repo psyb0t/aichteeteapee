@@ -180,7 +180,7 @@ wshub.UpgradeHandler(hub,
 
 The default origin check accepts a request with no `Origin` header and otherwise requires the `Origin` host to equal the request `Host`, because that's what secure means. Use `aichteeteapee.GetPermissiveWebSocketCheckOrigin` for one handler, or `aichteeteapee.FuckSecurity()` for the whole process, when you're just trying to get stuff working locally. See [Security](security.md).
 
-Gorilla WebSocket writes the HTTP response for a failed upgrade. If the request asks for an upgrade to the wrong protocol, it sends `426 Upgrade Required` with `Upgrade: websocket`. When the client offers several supported subprotocols, Gorilla selects the first one in the client's list.
+An invalid upgrade protocol gets `400 Bad Request`. When the client offers several supported subprotocols, the handler selects the first match in the order set by `WithUpgradeHandlerSubprotocols`.
 
 When proxying WebSockets, preserve the public `Host` and forward the HTTP/1.1 upgrade to the backend. The [request forwarding helper](proxy.md) strips upgrade headers and buffers responses.
 

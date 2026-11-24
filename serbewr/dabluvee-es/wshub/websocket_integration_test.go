@@ -15,6 +15,35 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func TestUpgradePrefersServerSubprotocolOrder(t *testing.T) {
+	t.Parallel()
+
+	hub := NewHub("subprotocol-test")
+	t.Cleanup(hub.Close)
+
+	handler := UpgradeHandler(hub,
+		WithUpgradeHandlerSubprotocols("preferred", "fallback"))
+	server := httptest.NewServer(handler)
+	t.Cleanup(server.Close)
+
+	endpoint, err := url.Parse(server.URL)
+	require.NoError(t, err)
+
+	endpoint.Scheme = "ws"
+	dialer := websocket.Dialer{Subprotocols: []string{"fallback", "preferred"}}
+	conn, response, err := dialer.DialContext(
+		t.Context(), endpoint.String(), nil,
+	)
+
+	if response != nil {
+		t.Cleanup(func() { assert.NoError(t, response.Body.Close()) })
+	}
+
+	require.NoError(t, err)
+	t.Cleanup(func() { assert.NoError(t, conn.Close()) })
+	assert.Equal(t, "preferred", conn.Subprotocol())
+}
+
 func TestSingleClient(t *testing.T) {
 	// Start hub
 	hub := NewHub("single-client-test")

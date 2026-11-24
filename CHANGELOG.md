@@ -2,9 +2,10 @@
 
 All notable changes per release. Versions follow [semver](https://semver.org).
 
-## Unreleased
+## v1.17.0, 2026-11-24
 
-- Add callback-based route authentication with a shared principal, and an MCP OAuth helper for discovery, audience checks and scopes.
+- Add callback-based route authentication and a shared request principal.
+- Mount stateless MCP over Streamable HTTP. The OAuth helper serves discovery metadata, sends bearer challenges, and checks issuer, audience and scopes. Verify JWTs against cached issuer keys, including WorkOS Connect keys.
 
 - Confine static files, directory indexes and listings to the configured static directory.
 
@@ -13,10 +14,8 @@ All notable changes per release. Versions follow [semver](https://semver.org).
 - Build the documentation with Docusaurus. The site keeps its existing guide URLs and includes local search and complete server and MCP setup examples.
 
 - Require Go 1.26.11 and update Gorilla WebSocket and `golang.org/x/net` to address security advisories.
-- Breaking: clients requesting an upgrade to the wrong protocol get `426 Upgrade Required` with `Upgrade: websocket` in place of `400 Bad Request`. Subprotocol negotiation follows the client's preference order.
+- Keep `400 Bad Request` for an invalid WebSocket upgrade protocol and use the server's preference order to select a subprotocol.
 - Synchronize WebSocket client shutdown with connection startup.
-- Mount stateless MCP Streamable HTTP under a server route group with the official Go MCP SDK.
-- Verify JWT bearer tokens against cached issuer keys, check each route's audience, and expose the verified principal to handlers. Works with WorkOS Connect.
 
 ## v1.16.1, 2026-11-10
 

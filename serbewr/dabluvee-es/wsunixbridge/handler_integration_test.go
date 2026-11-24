@@ -484,8 +484,7 @@ func TestInvalidWebSocketUpgradeIntegration(t *testing.T) {
 				"Upgrade":    "http",
 				"Connection": "upgrade",
 			},
-			expectedStatus:  http.StatusUpgradeRequired,
-			expectedUpgrade: "websocket",
+			expectedStatus: http.StatusBadRequest,
 		},
 	}
 
