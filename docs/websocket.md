@@ -144,7 +144,8 @@ wshub.UpgradeHandler(hub,
 | Option | Default | Effect |
 | --- | --- | --- |
 | `WithSendBufferSize` | 256 | Queued events per client and per connection. When a client's queue is full, new events for it are dropped with a warning. |
-| `WithReadLimit` | 1MB | Largest incoming message. A bigger one closes the connection. |
+| `WithReadLimit` | 1MB | Largest incoming message. A bigger one closes the connection with code 1009. |
+| `WithInvalidEventHandler` | none | Handles a message that does not decode as an event. Without one, the connection closes with code 1007. See [Invalid events](#invalid-events). |
 | `WithReadTimeout` | 60s | Read deadline, reset after every message. |
 | `WithPongTimeout` | 60s | Read deadline set after each pong. |
 | `WithPingInterval` | 54s | How often the server pings. |
@@ -153,7 +154,34 @@ wshub.UpgradeHandler(hub,
 
 ## Connection
 
-Each connection wraps a `gorilla/websocket` conn with two goroutines. The write pump sends queued events and pings. The read pump decodes each incoming message as an event and hands it to the hub. A message that is not a valid event closes the connection, and so does a missed pong. When a connection's pumps stop, the connection removes itself from its client.
+Each connection wraps a `gorilla/websocket` conn with two goroutines. The write pump sends queued events and pings. The read pump decodes each incoming message as an event and hands it to the hub. A missed pong, a transport error or a message over the read limit (close code 1009) ends the connection. When a connection's pumps stop, the connection removes itself from its client.
+
+### Invalid events
+
+A message that is not valid JSON, has an `id` that is not a UUID, or has a field of the wrong type is an invalid event. By default the connection closes with code 1007 (invalid frame payload data) and the fixed reason `invalid event`. Neither the close frame nor the log carries the message bytes; the log line has `reason=invalid_event` and the message size.
+
+To answer the sender and keep the connection open, set `WithInvalidEventHandler`:
+
+```go
+wshub.UpgradeHandler(hub,
+    wshub.WithUpgradeHandlerClientOptions(
+        wshub.WithInvalidEventHandler(func(
+            h wshub.Hub, client *wshub.Client, data []byte, err error,
+        ) error {
+            h.BroadcastToClients(
+                []uuid.UUID{client.ID()},
+                dabluveees.NewEvent(dabluveees.EventTypeError, map[string]string{
+                    "message": "invalid event",
+                }),
+            )
+
+            return nil
+        }),
+    ),
+)
+```
+
+The handler runs on the read pump, so keep it short. `h` is the client's hub, or nil for a client outside a hub. `data` is the raw message, at most the read limit, and `err` is the decode error, which can quote part of the message. Returning nil resets the read deadline and keeps reading. Returning an error closes the connection with code 1007.
 
 ## Upgrade handler
 

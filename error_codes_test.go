@@ -19,6 +19,7 @@ func TestErrorCodeFromHTTPStatus(t *testing.T) {
 		http.StatusConflict:              ErrorCodeConflict,
 		http.StatusGone:                  ErrorCodeGone,
 		http.StatusRequestEntityTooLarge: ErrorCodePayloadTooLarge,
+		http.StatusMisdirectedRequest:    ErrorCodeMisdirectedRequest,
 		http.StatusUnprocessableEntity:   ErrorCodeUnprocessableEntity,
 		http.StatusTooManyRequests:       ErrorCodeTooManyRequests,
 		http.StatusInternalServerError:   ErrorCodeInternalServerError,

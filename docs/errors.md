@@ -57,6 +57,7 @@ All codes are `ErrorCode*` constants in [`error_codes.go`](https://github.com/ps
 | 409 | `CONFLICT` | `ErrorResponseConflict` | Conflict | |
 | 410 | `GONE` | `ErrorResponseGone` | Gone | |
 | 413 | `PAYLOAD_TOO_LARGE` | `ErrorResponsePayloadTooLarge` | Payload too large | |
+| 421 | `MISDIRECTED_REQUEST` | `ErrorResponseMisdirectedRequest` | Misdirected request | MCP route Host allowlist |
 | 422 | `UNPROCESSABLE_ENTITY` | `ErrorResponseUnprocessableEntity` | Unprocessable entity | |
 | 429 | `TOO_MANY_REQUESTS` | `ErrorResponseTooManyRequests` | Too many requests | |
 | 500 | `INTERNAL_SERVER_ERROR` | `ErrorResponseInternalServerError` | Internal server error | Recovery, upload postprocessor failures, directory listing failures |

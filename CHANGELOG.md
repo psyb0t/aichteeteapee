@@ -2,6 +2,13 @@
 
 All notable changes per release. Versions follow [semver](https://semver.org).
 
+## v1.18.0, 2026-11-25
+
+- A WebSocket message that does not decode as an event (malformed JSON, an `id` that is not a UUID, a field of the wrong type) now closes the connection with close code 1007 and the fixed reason `invalid event`. It used to close with an empty close frame, like a dead connection. `wshub.WithInvalidEventHandler` handles such a message instead: the handler can answer the client and keep the connection open, or return an error to close it with 1007. Oversized messages still close with 1009.
+- Add `emseepee.WithAllowedOrigins` (a browser `Origin` allowlist that `WithPublicOrigin` joins, with net/http cross-origin protection), `WithAllowedHosts` (a `Host` allowlist against DNS rebinding that answers `421`), and `WithoutWriteDeadline` for tool calls that stream for hours. A Host allowlist with a public host turns off the SDK's loopback-only Host check. Routes that set none of them behave as before.
+- A tool call's context now ends when its HTTP request ends on every MCP protocol version, not only those with SDK cancellation propagation.
+- Add `ErrorCodeMisdirectedRequest` (`MISDIRECTED_REQUEST`) and `ErrorResponseMisdirectedRequest`. `ErrorCodeFromHTTPStatus(421)` now returns `MISDIRECTED_REQUEST`; it used to fall back to `INTERNAL_SERVER_ERROR`.
+
 ## v1.17.0, 2026-11-24
 
 - Add callback-based route authentication and a shared request principal.

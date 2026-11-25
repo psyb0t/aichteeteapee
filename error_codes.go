@@ -13,6 +13,7 @@ const (
 	ErrorCodeMethodNotAllowed    ErrorCode = "METHOD_NOT_ALLOWED"
 	ErrorCodeConflict            ErrorCode = "CONFLICT"
 	ErrorCodeGone                ErrorCode = "GONE"
+	ErrorCodeMisdirectedRequest  ErrorCode = "MISDIRECTED_REQUEST"
 	ErrorCodePayloadTooLarge     ErrorCode = "PAYLOAD_TOO_LARGE"
 	ErrorCodeUnprocessableEntity ErrorCode = "UNPROCESSABLE_ENTITY"
 	ErrorCodeTooManyRequests     ErrorCode = "TOO_MANY_REQUESTS"
@@ -59,6 +60,7 @@ var httpStatusToErrorCode = map[int]ErrorCode{
 	http.StatusConflict:              ErrorCodeConflict,
 	http.StatusGone:                  ErrorCodeGone,
 	http.StatusRequestEntityTooLarge: ErrorCodePayloadTooLarge,
+	http.StatusMisdirectedRequest:    ErrorCodeMisdirectedRequest,
 	http.StatusUnprocessableEntity:   ErrorCodeUnprocessableEntity,
 	http.StatusTooManyRequests:       ErrorCodeTooManyRequests,
 	http.StatusInternalServerError:   ErrorCodeInternalServerError,

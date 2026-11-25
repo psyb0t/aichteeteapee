@@ -85,8 +85,41 @@ See [JWTBearerAuth](middleware.md#jwtbearerauth) for token requirements, cache b
 
 In your tool handler, call `middleware.PrincipalFromContext(ctx)`. Check tool permissions, account state and ownership there. For organization-specific resources, check that the principal's `OrganizationID` matches the organization in the route. A user-only app should reject the `ai_agent` subject profile. An issued token can remain valid until expiry after grant revocation. Check your local access policy when disconnection must take effect immediately. [WorkOS token verification and revocation](https://workos.com/docs/authkit/mcp#token-verification)
 
+## Origins and hosts
+
+Every request runs these checks before the SDK sees it, in this order. Each refusal writes the [error envelope](errors.md) and logs a warning with a stable `reason`.
+
+| Check | Default | Refusal |
+| --- | --- | --- |
+| `WithAllowedHosts(hosts...)` | off | `421 MISDIRECTED_REQUEST`, `reason=invalid_host` |
+| Browser `Origin` | the request's own scheme and `Host`, or `WithPublicOrigin` | `403 FORBIDDEN`, `reason=invalid_origin` |
+| Cross-origin protection | on with `WithAllowedOrigins` | `403 FORBIDDEN`, `reason=cross_origin_rejected` |
+
+A request with no `Origin` header passes the origin check, because only browsers send one. A request with several `Origin` headers is refused.
+
+`WithAllowedOrigins(origins...)` replaces the same-origin check with an allowlist. Each entry is a bare `http` or `https` origin, `scheme://host[:port]` with no path, query or user info, and `NewRoute` returns `ErrBadRequest` for anything else. The request's `Origin` must match one entry, compared with a lowercase scheme and host. The port is part of the origin, so `http://localhost` and `http://localhost:8080` are different entries. `WithPublicOrigin` joins the same list. Calling `WithAllowedOrigins()` with no origins lets non-browser clients and the public origin through and refuses every other browser. With an allowlist set, the route also wraps the SDK in net/http `CrossOriginProtection` that trusts the listed origins, so a browser request marked `Sec-Fetch-Site: cross-site` without an allowed `Origin` is refused.
+
+`WithAllowedHosts(hosts...)` is the DNS rebinding guard. Entries are DNS names or IP addresses without a port, with IPv6 optionally in brackets (`localhost`, `127.0.0.1`, `[::1]`, `mcp.example.org`). The request `Host` must name one of them, compared without case, on any valid port. An empty list, an entry with a port or zone, or an invalid name is a configuration error. The SDK has its own check that refuses a non-loopback `Host` on a loopback listener. When an entry is not a loopback host, the route turns that check off with `DisableLocalhostProtection`, because the allowlist now decides.
+
+```go
+route, err := emseepee.NewRoute(
+    "/mcp",
+    func(*http.Request) *mcp.Server { return tools },
+    emseepee.WithAllowedHosts("localhost", "127.0.0.1", "[::1]", "mcp.example.org"),
+    emseepee.WithAllowedOrigins("http://localhost:8080", "https://mcp.example.org"),
+    emseepee.WithoutWriteDeadline(),
+    emseepee.WithSDKOptions(mcp.StreamableHTTPOptions{MaxRequestBodyBytes: 16 << 20}),
+)
+```
+
+## Deadlines and cancellation
+
+A positive `WithWriteTimeout` overrides the listener write deadline and adds a request context deadline. The default of zero keeps the listener deadline and adds no route deadline. `WithoutWriteDeadline()` clears the listener deadline for the route, so a tool call can stream for hours; a response writer without deadline support is served unchanged. The two options conflict, and `NewRoute` returns `ErrBadRequest` when both are set. Apply request timeout middleware to REST groups so it doesn't end an MCP stream early.
+
+A tool call's context ends when its HTTP request ends: the client disconnects, the route's write timeout passes, or the server shuts down. The SDK does that itself for the newest protocol version. For older versions it detaches the method context, so the route adds a receiving middleware that binds the method context to the HTTP request. It adds the middleware once to each `*mcp.Server` that `getServer` returns, on that server's first request; a server shared by two routes gets it once per route, which is harmless. Requests that reach the server some other way, such as stdio, are unaffected.
+
 ## Streaming through a proxy
 
-Forward `Authorization` and preserve the validated public `Host`. Disable response buffering and caching for the MCP location. Set the proxy read timeout to accommodate the route's streams. `WithPublicOrigin` checks the request's `Origin` header when present and supports TLS termination at the edge. If the SDK's loopback Host check rejects the public host, prefer a private upstream network. If you disable it with `WithSDKOptions(mcp.StreamableHTTPOptions{DisableLocalhostProtection: true})`, allowlist the public Host at the edge and restrict direct access to the listener.
+Forward `Authorization` and preserve the validated public `Host`. Disable response buffering and caching for the MCP location. Set the proxy read timeout to accommodate the route's streams. `WithPublicOrigin` checks the request's `Origin` header when present and supports TLS termination at the edge. If the SDK's loopback Host check rejects the public host, list it in `WithAllowedHosts`, which also turns that check off. If you instead disable it with `WithSDKOptions(mcp.StreamableHTTPOptions{DisableLocalhostProtection: true})`, allowlist the public Host at the edge and restrict direct access to the listener.
 
-A positive `WithWriteTimeout` overrides the listener write deadline and adds a request context deadline. The default of zero keeps the listener deadline and adds no route deadline. Apply request timeout middleware to REST groups so it doesn't end an MCP stream early. Bound tool work separately, especially for clients on protocol versions that lack HTTP cancellation propagation. Use `WithSDKOptions` to select JSON responses or adjust the default 4 MiB request body limit.
+`WithSDKOptions` passes SDK options through, for example to select JSON responses or adjust the default 4 MiB request body limit. The route always sets `Stateless` and `PropagateRequestCancellation`.
